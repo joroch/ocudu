@@ -14,6 +14,7 @@
 #include "grant_params_selector.h"
 #include "ocudu/scheduler/result/dci_info.h"
 #include "ocudu/support/error_handling.h"
+#include <ocudu/support/format/fmt_to_c_str.h>
 
 using namespace ocudu;
 
@@ -667,10 +668,25 @@ void ue_cell_grid_allocator::set_pusch_params(ul_grant_info& grant, const vrb_in
     ocudu_sanity_check(prev_params.mcs_table == pusch_cfg.mcs_table, "MCS table cannot change across HARQ reTxs");
   }
 
-  ocudu_sanity_check(not pusch_alloc.ul_res_grid.collides(scs, pusch_td_cfg.symbols, crbs),
-                     "Invalid calculation of PUSCH RBs. Used CRBs={:i}. Allocated CRBs={}.",
-                     pusch_alloc.ul_res_grid.used_crbs(scs, {0, cell_cfg.nof_ul_prbs}, pusch_td_cfg.symbols),
-                     crbs);
+  if (pusch_alloc.ul_res_grid.collides(scs, pusch_td_cfg.symbols, crbs)) {
+    fmt::memory_buffer assert_msg;
+    fmt::format_to(std::back_inserter(assert_msg), "PUCCH allocs: ");
+    for (const auto& pucch : cell_alloc[final_k2].result.ul.pucchs) {
+      fmt::format_to(std::back_inserter(assert_msg),
+                     " rnti={} {} RBs={} 2nd_RBs={} symb={} uci={};",
+                     pucch.crnti,
+                     to_string(pucch.format()),
+                     pucch.resources.prbs,
+                     pucch.resources.second_hop_prbs.empty() ? prb_interval{0, 0} : pucch.resources.second_hop_prbs,
+                     pucch.resources.symbols,
+                     pucch.uci_bits);
+    }
+    ocudu_assertion_failure("Invalid calculation of PUSCH RBs at sl={}. Used CRBs={:i}. Allocated CRBs={}. {}",
+                            pusch_alloc.slot,
+                            pusch_alloc.ul_res_grid.used_crbs(scs, {0, cell_cfg.nof_ul_prbs}, pusch_td_cfg.symbols),
+                            crbs,
+                            to_c_str(assert_msg));
+  }
 
   // Mark resources as occupied in the ResourceGrid.
   pusch_alloc.ul_res_grid.fill(grant_info{scs, pusch_td_cfg.symbols, crbs});

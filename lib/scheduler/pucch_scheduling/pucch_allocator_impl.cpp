@@ -468,6 +468,12 @@ pucch_uci_bits pucch_allocator_impl::remove_ue_uci_from_pucch(cell_slot_resource
   // Start from the (first) PUCCH PDU that was found above.
   for (auto* pdu_it = pdu; pdu_it != pucch_pdus.end();) {
     if (pdu_it->crnti == crnti) {
+      logger.debug("Removing PUCCH scheduled for slot={} crnti={}, PRBs={} 2nd_PRBs={}, symb={}",
+                   slot_alloc.slot,
+                   crnti,
+                   pdu_it->resources.prbs,
+                   pdu_it->resources.second_hop_prbs,
+                   pdu_it->resources.symbols);
       pdu_it = pucch_pdus.erase(pdu_it);
     } else {
       ++pdu_it;
