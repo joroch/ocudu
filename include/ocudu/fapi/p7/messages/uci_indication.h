@@ -22,7 +22,6 @@ namespace fapi {
 /// Reception data indication PDU information.
 struct uci_indication_pdu {
   uci_pdu_type pdu_type;
-  uint16_t     pdu_size;
 
   // :TODO: add a variant for this fields below.
   uci_pusch_pdu              pusch_pdu;

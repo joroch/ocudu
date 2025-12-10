@@ -31,10 +31,9 @@ public:
   /// \brief Sets the UCI PUCCH Format 2, Format 3 and Format 4 PDU basic parameters and returns a reference to the
   /// builder. \note These parameters are specified in SCF-222 v4.0 Section 3.4.9.3 in Table UCI PUCCH Format 2, Format
   /// 3 or Format 4 PDU.
-  uci_pucch_pdu_format_2_3_4_builder& set_basic_parameters(uint32_t handle, rnti_t rnti, pucch_format type)
+  uci_pucch_pdu_format_2_3_4_builder& set_basic_parameters(rnti_t rnti, pucch_format type)
   {
-    pdu.handle = handle;
-    pdu.rnti   = to_value(rnti);
+    pdu.rnti = rnti;
     switch (type) {
       case pucch_format::FORMAT_2:
         pdu.pucch_format = uci_pucch_pdu_format_2_3_4::format_type::format_2;
@@ -57,17 +56,17 @@ public:
   /// builder.
   /// \note These parameters are specified in SCF-222 v4.0 Section 3.4.9.3 in Table UCI PUCCH Format 2, Format
   /// 3 or Format 4 PDU.
-  uci_pucch_pdu_format_2_3_4_builder& set_metrics_parameters(std::optional<float>    ul_sinr_metric,
-                                                             std::optional<unsigned> timing_advance_offset,
-                                                             std::optional<int>      timing_advance_offset_ns,
-                                                             std::optional<float>    rssi,
-                                                             std::optional<float>    rsrp,
-                                                             bool                    rsrp_use_dBm = false)
+  uci_pucch_pdu_format_2_3_4_builder& set_metrics_parameters(std::optional<float> ul_sinr_metric,
+                                                             std::optional<int>   timing_advance_offset_ns,
+                                                             std::optional<float> rssi,
+                                                             std::optional<float> rsrp,
+                                                             bool                 rsrp_use_dBm = false)
   {
-    pdu.timing_advance_offset    = (timing_advance_offset) ? static_cast<uint16_t>(timing_advance_offset.value())
-                                                           : std::numeric_limits<uint16_t>::max();
-    pdu.timing_advance_offset_ns = (timing_advance_offset_ns) ? static_cast<int16_t>(timing_advance_offset_ns.value())
-                                                              : std::numeric_limits<int16_t>::min();
+    auto timing_advance_offset_ns_value = (timing_advance_offset_ns)
+                                              ? static_cast<int16_t>(timing_advance_offset_ns.value())
+                                              : std::numeric_limits<int16_t>::min();
+
+    pdu.timing_advance_offset = phy_time_unit::from_seconds(timing_advance_offset_ns_value / 1e-9);
 
     // SINR.
     int sinr =

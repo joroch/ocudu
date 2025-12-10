@@ -87,19 +87,17 @@ TEST(dl_ssb_pdu_builder, add_csi_pdu_passes)
   ASSERT_TRUE(msg.pdus.empty());
   ASSERT_EQ(0, msg.num_pdus_of_each_type[static_cast<unsigned>(dl_pdu_type::CSI_RS)]);
 
-  uint16_t                  start_rb      = 3;
-  uint16_t                  nof_rbs       = 4;
-  csi_rs_type               type          = csi_rs_type::CSI_RS_NZP;
-  uint8_t                   row           = 3;
-  bounded_bitset<12, false> freq_domain   = {0, 0, 1};
-  uint8_t                   symb_l0       = 5;
-  uint8_t                   symb_l1       = 2;
-  csi_rs_cdm_type           cdm_type      = csi_rs_cdm_type::cdm8_FD2_TD4;
-  csi_rs_freq_density_type  freq_density  = csi_rs_freq_density_type::dot5_even_RB;
-  uint16_t                  scrambling_id = 56;
+  uint16_t                  start_rb     = 3;
+  uint16_t                  nof_rbs      = 4;
+  csi_rs_type               type         = csi_rs_type::CSI_RS_NZP;
+  uint8_t                   row          = 3;
+  bounded_bitset<12, false> freq_domain  = {0, 0, 1};
+  uint8_t                   symb_l0      = 5;
+  uint8_t                   symb_l1      = 2;
+  csi_rs_cdm_type           cdm_type     = csi_rs_cdm_type::cdm8_FD2_TD4;
+  csi_rs_freq_density_type  freq_density = csi_rs_freq_density_type::dot5_even_RB;
 
-  builder.add_csi_rs_pdu(
-      start_rb, nof_rbs, type, row, freq_domain, symb_l0, symb_l1, cdm_type, freq_density, scrambling_id);
+  builder.add_csi_rs_pdu(start_rb, nof_rbs, type, row, freq_domain, symb_l0, symb_l1, cdm_type, freq_density);
 
   ASSERT_EQ(1U, msg.num_pdus_of_each_type[static_cast<unsigned>(dl_pdu_type::CSI_RS)]);
   ASSERT_EQ(1U, msg.pdus.size());

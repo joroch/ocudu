@@ -118,24 +118,6 @@ static bool validate_freq_density(unsigned value, validator_report& report)
   return validate_field(MIN_VALUE, MAX_VALUE, value, "Freq density", msg_type, pdu_type, report);
 }
 
-/// Validates the scrambling id property of the CSI PDU, as per SCF-222 v4.0 section 3.4.2.3.
-static bool validate_scrambling_id(unsigned value, validator_report& report)
-{
-  static constexpr unsigned MIN_VALUE = 0;
-  static constexpr unsigned MAX_VALUE = 1023;
-
-  return validate_field(MIN_VALUE, MAX_VALUE, value, "Scrambling ID", msg_type, pdu_type, report);
-}
-
-/// Validates the power control offset SS profile NR property of the CSI PDU, as per SCF-222 v4.0 section 3.4.2.3.
-static bool validate_power_control_offset_profile_nr(int power_control_offset, validator_report& report)
-{
-  static constexpr int MIN_VALUE = -8;
-  static constexpr int MAX_VALUE = 15;
-
-  return validate_field(MIN_VALUE, MAX_VALUE, power_control_offset, "Power control offset", msg_type, pdu_type, report);
-}
-
 /// Validates the power control offset SS profile NR property of the CSI PDU, as per SCF-222 v4.0 section 3.4.2.3.
 static bool validate_power_control_offset_ss_profile_nr(unsigned value, validator_report& report)
 {
@@ -160,8 +142,6 @@ bool ocudu::fapi::validate_dl_csi_pdu(const dl_csi_rs_pdu& pdu, validator_report
   result &= validate_symbol_l1(pdu.symb_L1, report);
   result &= validate_cdm_type(static_cast<unsigned>(pdu.cdm_type), report);
   result &= validate_freq_density(static_cast<unsigned>(pdu.freq_density), report);
-  result &= validate_scrambling_id(pdu.scramb_id, report);
-  result &= validate_power_control_offset_profile_nr(pdu.power_control_offset_profile_nr, report);
   result &= validate_power_control_offset_ss_profile_nr(static_cast<unsigned>(pdu.power_control_offset_ss_profile_nr),
                                                         report);
   // NOTE: CSI-RS PDU index will not be validated.

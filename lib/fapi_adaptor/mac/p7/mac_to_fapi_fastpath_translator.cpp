@@ -157,14 +157,12 @@ static void add_csi_rs_pdus_to_dl_request(fapi::dl_tti_request_message_builder& 
                                                                      pdu.symbol0,
                                                                      pdu.symbol1,
                                                                      pdu.cdm_type,
-                                                                     pdu.freq_density,
-                                                                     pdu.scrambling_id);
+                                                                     pdu.freq_density);
 
     csi_builder.set_bwp_parameters(pdu.bwp_cfg->scs, pdu.bwp_cfg->cp);
     csi_builder.set_vendor_specific_bwp_parameters(pdu.bwp_cfg->crbs.length(), pdu.bwp_cfg->crbs.start());
 
-    csi_builder.set_tx_power_info_parameters(pdu.power_ctrl_offset,
-                                             fapi::to_power_control_offset_ss(pdu.power_ctrl_offset_ss));
+    csi_builder.set_tx_power_info_parameters(fapi::to_power_control_offset_ss(pdu.power_ctrl_offset_ss));
   }
 }
 

@@ -13,6 +13,8 @@
 #include "ocudu/adt/static_vector.h"
 #include "ocudu/fapi/common/base_message.h"
 #include "ocudu/fapi/p7/messages/uci_pdu_definitions.h"
+#include "ocudu/ran/phy_time_unit.h"
+#include "ocudu/ran/rnti.h"
 #include <bitset>
 
 namespace ocudu {
@@ -26,11 +28,9 @@ struct uci_pusch_pdu {
   static constexpr unsigned CSI_PART2_BIT = 3U;
 
   std::bitset<BITMAP_SIZE> pdu_bitmap;
-  uint32_t                 handle;
-  uint16_t                 rnti;
+  rnti_t                   rnti;
   int16_t                  ul_sinr_metric;
-  uint16_t                 timing_advance_offset;
-  int16_t                  timing_advance_offset_ns;
+  phy_time_unit            timing_advance_offset;
   uint16_t                 rssi;
   uint16_t                 rsrp;
   uci_harq_pdu             harq;

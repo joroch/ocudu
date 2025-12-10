@@ -264,7 +264,6 @@ ocudu::fapi::dl_prs_pdu unittest::build_valid_dl_prs_pdu()
   pdu.scs              = subcarrier_spacing::kHz30;
   pdu.cp               = cyclic_prefix::NORMAL;
   pdu.nid_prs          = 1;
-  pdu.pdu_index        = 0;
   pdu.comb_size        = prs_comb_size::two;
   pdu.comb_offset      = 0;
   pdu.num_symbols      = prs_num_symbols::four;
@@ -286,24 +285,20 @@ dl_csi_rs_pdu unittest::build_valid_dl_csi_pdu()
 {
   dl_csi_rs_pdu pdu;
 
-  pdu.scs                                    = subcarrier_spacing::kHz15;
-  pdu.cp                                     = cyclic_prefix::NORMAL;
-  pdu.start_rb                               = 23;
-  pdu.num_rbs                                = 28;
-  pdu.type                                   = csi_rs_type::CSI_RS_NZP;
-  pdu.row                                    = 1;
-  pdu.freq_domain                            = {1, 0, 0, 0, 0, 0};
-  pdu.symb_L0                                = 8;
-  pdu.symb_L1                                = 7;
-  pdu.cdm_type                               = csi_rs_cdm_type::no_CDM;
-  pdu.freq_density                           = csi_rs_freq_density_type::three;
-  pdu.scramb_id                              = 123;
-  pdu.power_control_offset_profile_nr        = 0;
-  pdu.power_control_offset_ss_profile_nr     = power_control_offset_ss::dB0;
-  pdu.csi_rs_maintenance_v3.csi_rs_pdu_index = 0;
-  pdu.precoding_and_beamforming              = build_valid_tx_precoding_and_beamforming_pdu();
-  pdu.bwp_size                               = 56U;
-  pdu.bwp_start                              = 60U;
+  pdu.scs                                = subcarrier_spacing::kHz15;
+  pdu.cp                                 = cyclic_prefix::NORMAL;
+  pdu.start_rb                           = 23;
+  pdu.num_rbs                            = 28;
+  pdu.type                               = csi_rs_type::CSI_RS_NZP;
+  pdu.row                                = 1;
+  pdu.freq_domain                        = {1, 0, 0, 0, 0, 0};
+  pdu.symb_L0                            = 8;
+  pdu.symb_L1                            = 7;
+  pdu.cdm_type                           = csi_rs_cdm_type::no_CDM;
+  pdu.freq_density                       = csi_rs_freq_density_type::three;
+  pdu.power_control_offset_ss_profile_nr = power_control_offset_ss::dB0;
+  pdu.bwp_size                           = 56U;
+  pdu.bwp_start                          = 60U;
 
   return pdu;
 }
@@ -553,14 +548,6 @@ static int generate_ul_sinr_metric()
   return dist(gen);
 }
 
-static unsigned generate_timing_advance_offset()
-{
-  std::uniform_int_distribution<unsigned> dist(0, 100);
-  unsigned                                value = dist(gen);
-
-  return (value < 64U) ? value : 65535U;
-}
-
 static int generate_timing_advance_offset_in_ns()
 {
   std::uniform_int_distribution<int> dist(-32768, 32767);
@@ -620,13 +607,11 @@ uci_pusch_pdu unittest::build_valid_uci_pusch_pdu()
 {
   uci_pusch_pdu pdu;
 
-  pdu.handle                   = generate_handle();
-  pdu.rnti                     = to_value(generate_rnti());
-  pdu.ul_sinr_metric           = static_cast<int16_t>(generate_ul_sinr_metric());
-  pdu.timing_advance_offset    = generate_timing_advance_offset();
-  pdu.timing_advance_offset_ns = static_cast<int16_t>(generate_timing_advance_offset_in_ns());
-  pdu.rssi                     = generate_rssi_or_rsrp();
-  pdu.rsrp                     = generate_rssi_or_rsrp();
+  pdu.rnti                  = generate_rnti();
+  pdu.ul_sinr_metric        = static_cast<int16_t>(generate_ul_sinr_metric());
+  pdu.timing_advance_offset = phy_time_unit::from_seconds(generate_timing_advance_offset_in_ns() / 1e-9);
+  pdu.rssi                  = generate_rssi_or_rsrp();
+  pdu.rsrp                  = generate_rssi_or_rsrp();
 
   // Enable HARQ, CSI Part 1 and CSI Part 2.
   pdu.pdu_bitmap = 14U;
@@ -670,13 +655,11 @@ uci_pucch_pdu_format_0_1 unittest::build_valid_uci_pucch_format01_pdu()
 {
   uci_pucch_pdu_format_0_1 pdu;
 
-  pdu.handle                   = generate_handle();
-  pdu.rnti                     = to_value(generate_rnti());
-  pdu.ul_sinr_metric           = static_cast<int16_t>(generate_ul_sinr_metric());
-  pdu.timing_advance_offset    = generate_timing_advance_offset();
-  pdu.timing_advance_offset_ns = static_cast<int16_t>(generate_timing_advance_offset_in_ns());
-  pdu.rssi                     = generate_rssi_or_rsrp();
-  pdu.rsrp                     = generate_rssi_or_rsrp();
+  pdu.rnti                  = generate_rnti();
+  pdu.ul_sinr_metric        = static_cast<int16_t>(generate_ul_sinr_metric());
+  pdu.timing_advance_offset = phy_time_unit::from_seconds(generate_timing_advance_offset_in_ns() / 1e-9);
+  pdu.rssi                  = generate_rssi_or_rsrp();
+  pdu.rsrp                  = generate_rssi_or_rsrp();
 
   std::uniform_int_distribution<unsigned> dist(0, 1);
   pdu.pucch_format = static_cast<uci_pucch_pdu_format_0_1::format_type>(dist(gen));
@@ -704,13 +687,11 @@ uci_pucch_pdu_format_2_3_4 unittest::build_valid_uci_pucch_format234_pdu()
 {
   uci_pucch_pdu_format_2_3_4 pdu;
 
-  pdu.handle                   = generate_handle();
-  pdu.rnti                     = to_value(generate_rnti());
-  pdu.ul_sinr_metric           = static_cast<int16_t>(generate_ul_sinr_metric());
-  pdu.timing_advance_offset    = generate_timing_advance_offset();
-  pdu.timing_advance_offset_ns = static_cast<int16_t>(generate_timing_advance_offset_in_ns());
-  pdu.rssi                     = generate_rssi_or_rsrp();
-  pdu.rsrp                     = generate_rssi_or_rsrp();
+  pdu.rnti                  = generate_rnti();
+  pdu.ul_sinr_metric        = static_cast<int16_t>(generate_ul_sinr_metric());
+  pdu.timing_advance_offset = phy_time_unit::from_seconds(generate_timing_advance_offset_in_ns() / 1e-9);
+  pdu.rssi                  = generate_rssi_or_rsrp();
+  pdu.rsrp                  = generate_rssi_or_rsrp();
 
   std::uniform_int_distribution<unsigned> dist(0, 2);
   pdu.pucch_format = static_cast<uci_pucch_pdu_format_2_3_4::format_type>(dist(gen));
@@ -1288,10 +1269,8 @@ srs_indication_message unittest::build_valid_srs_indication()
 
   msg.pdus.emplace_back();
   auto& pdu                             = msg.pdus.back();
-  pdu.handle                            = generate_handle();
   pdu.rnti                              = generate_rnti();
-  pdu.timing_advance_offset             = generate_timing_advance_offset();
-  pdu.timing_advance_offset_ns          = generate_timing_advance_offset_in_ns();
+  pdu.timing_advance_offset             = phy_time_unit::from_seconds(generate_timing_advance_offset_in_ns() * 1e-9);
   pdu.usage                             = srs_usage::codebook;
   pdu.report_type                       = srs_report_type::normalized_channel_iq_matrix;
   pdu.positioning.coordinate_system_aoa = srs_coordinate_system_ul_aoa::local;

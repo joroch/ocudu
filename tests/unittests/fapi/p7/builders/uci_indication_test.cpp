@@ -20,27 +20,24 @@ TEST(uci_indication_builder, valid_pusch_pdu_metrics_passes)
     uci_pusch_pdu         pdu;
     uci_pusch_pdu_builder builder(pdu);
 
-    std::optional<float>    ul_sinr_metric;
-    std::optional<unsigned> timing_advance_offset;
-    std::optional<int>      timing_advance_offset_ns;
-    std::optional<float>    rssi;
-    std::optional<float>    rsrp;
-    bool                    rsrp_use_dB = i;
+    std::optional<float> ul_sinr_metric;
+    std::optional<int>   timing_advance_offset_ns;
+    std::optional<float> rssi;
+    std::optional<float> rsrp;
+    bool                 rsrp_use_dB = i;
 
     if (i) {
       ul_sinr_metric.emplace(-30.1F);
-      timing_advance_offset.emplace(10);
       timing_advance_offset_ns.emplace(-100);
       rssi.emplace(-59.3F);
       rsrp.emplace(-36.2F);
     }
 
-    builder.set_metrics_parameters(
-        ul_sinr_metric, timing_advance_offset, timing_advance_offset_ns, rssi, rsrp, rsrp_use_dB);
+    builder.set_metrics_parameters(ul_sinr_metric, timing_advance_offset_ns, rssi, rsrp, rsrp_use_dB);
 
     ASSERT_EQ((ul_sinr_metric) ? static_cast<int>(ul_sinr_metric.value() * 500.F) : -32768, pdu.ul_sinr_metric);
-    ASSERT_EQ((timing_advance_offset) ? timing_advance_offset.value() : 65535U, pdu.timing_advance_offset);
-    ASSERT_EQ((timing_advance_offset_ns) ? timing_advance_offset_ns.value() : -32768, pdu.timing_advance_offset_ns);
+    ASSERT_EQ((timing_advance_offset_ns) ? timing_advance_offset_ns.value() : -32768,
+              pdu.timing_advance_offset.to_seconds() * 1e9);
     ASSERT_EQ((rssi) ? static_cast<unsigned>((rssi.value() + 128.F) * 10.F) : 65535U, pdu.rssi);
     ASSERT_EQ((rsrp) ? static_cast<unsigned>((rsrp.value() + ((rsrp_use_dB) ? 140.F : 128.F)) * 10.F) : 65535U,
               pdu.rsrp);
@@ -122,12 +119,11 @@ TEST(uci_indication_builder, valid_pucch_f01_pdu_metrics_passes)
       rsrp.emplace(-36.2F);
     }
 
-    builder.set_metrics_parameters(
-        ul_sinr_metric, timing_advance_offset, timing_advance_offset_ns, rssi, rsrp, rsrp_use_dB);
+    builder.set_metrics_parameters(ul_sinr_metric, timing_advance_offset_ns, rssi, rsrp, rsrp_use_dB);
 
     ASSERT_EQ((ul_sinr_metric) ? static_cast<int>(ul_sinr_metric.value() * 500.F) : -32768, pdu.ul_sinr_metric);
-    ASSERT_EQ((timing_advance_offset) ? timing_advance_offset.value() : 65535U, pdu.timing_advance_offset);
-    ASSERT_EQ((timing_advance_offset_ns) ? timing_advance_offset_ns.value() : -32768, pdu.timing_advance_offset_ns);
+    ASSERT_EQ((timing_advance_offset) ? timing_advance_offset_ns.value() : -32768,
+              pdu.timing_advance_offset.to_seconds() * 1e9);
     ASSERT_EQ((rssi) ? static_cast<unsigned>((rssi.value() + 128.F) * 10.F) : 65535U, pdu.rssi);
     ASSERT_EQ((rsrp) ? static_cast<unsigned>((rsrp.value() + ((rsrp_use_dB) ? 140.F : 128.F)) * 10.F) : 65535U,
               pdu.rsrp);
@@ -183,26 +179,23 @@ TEST(uci_indication_builder, valid_pucch_f234_pdu_metrics_passes)
     uci_pucch_pdu_format_2_3_4         pdu;
     uci_pucch_pdu_format_2_3_4_builder builder(pdu);
 
-    std::optional<float>    ul_sinr_metric;
-    std::optional<unsigned> timing_advance_offset;
-    std::optional<int>      timing_advance_offset_ns;
-    std::optional<float>    rssi;
-    std::optional<float>    rsrp;
-    bool                    rsrp_use_dB = i;
+    std::optional<float> ul_sinr_metric;
+    std::optional<int>   timing_advance_offset_ns;
+    std::optional<float> rssi;
+    std::optional<float> rsrp;
+    bool                 rsrp_use_dB = i;
 
     if (i) {
       ul_sinr_metric.emplace(-30.1F);
-      timing_advance_offset.emplace(10);
       timing_advance_offset_ns.emplace(-100);
       rssi.emplace(-59.3F);
       rsrp.emplace(-36.2F);
     }
 
-    builder.set_metrics_parameters(
-        ul_sinr_metric, timing_advance_offset, timing_advance_offset_ns, rssi, rsrp, rsrp_use_dB);
+    builder.set_metrics_parameters(ul_sinr_metric, timing_advance_offset_ns, rssi, rsrp, rsrp_use_dB);
     ASSERT_EQ((ul_sinr_metric) ? static_cast<int>(ul_sinr_metric.value() * 500.F) : -32768, pdu.ul_sinr_metric);
-    ASSERT_EQ((timing_advance_offset) ? timing_advance_offset.value() : 65535U, pdu.timing_advance_offset);
-    ASSERT_EQ((timing_advance_offset_ns) ? timing_advance_offset_ns.value() : -32768, pdu.timing_advance_offset_ns);
+    ASSERT_EQ((timing_advance_offset_ns) ? timing_advance_offset_ns.value() : -32768,
+              pdu.timing_advance_offset.to_seconds() * 1e9);
     ASSERT_EQ((rssi) ? static_cast<unsigned>((rssi.value() + 128.F) * 10.F) : 65535U, pdu.rssi);
     ASSERT_EQ((rsrp) ? static_cast<unsigned>((rsrp.value() + ((rsrp_use_dB) ? 140.F : 128.F)) * 10.F) : 65535U,
               pdu.rsrp);
@@ -337,17 +330,15 @@ TEST(uci_indication_builder, add_pusch_pdu_passes)
   uci_indication_message         msg;
   uci_indication_message_builder builder(msg);
 
-  unsigned handle = 8;
-  rnti_t   rnti   = to_rnti(9);
+  rnti_t rnti = to_rnti(9);
 
-  builder.add_pusch_pdu(handle, rnti);
+  builder.add_pusch_pdu(rnti);
 
   ASSERT_EQ(1, msg.pdus.size());
   ASSERT_EQ(uci_pdu_type::PUSCH, msg.pdus.back().pdu_type);
 
   const auto& pdu = msg.pdus.back().pusch_pdu;
-  ASSERT_EQ(to_value(rnti), pdu.rnti);
-  ASSERT_EQ(handle, pdu.handle);
+  ASSERT_EQ(rnti, pdu.rnti);
 }
 
 TEST(uci_indication_builder, add_pucch_f01_passes)
@@ -355,18 +346,16 @@ TEST(uci_indication_builder, add_pucch_f01_passes)
   uci_indication_message         msg;
   uci_indication_message_builder builder(msg);
 
-  unsigned     handle = 4;
   rnti_t       rnti   = to_rnti(5);
   pucch_format format = static_cast<pucch_format>(0);
 
-  builder.add_format_0_1_pucch_pdu(handle, rnti, format);
+  builder.add_format_0_1_pucch_pdu(rnti, format);
 
   ASSERT_EQ(1, msg.pdus.size());
   ASSERT_EQ(uci_pdu_type::PUCCH_format_0_1, msg.pdus.back().pdu_type);
 
   const auto& pdu = msg.pdus.back().pucch_pdu_f01;
-  ASSERT_EQ(to_value(rnti), pdu.rnti);
-  ASSERT_EQ(handle, pdu.handle);
+  ASSERT_EQ(rnti, pdu.rnti);
   ASSERT_EQ((format == ocudu::pucch_format::FORMAT_0) ? uci_pucch_pdu_format_0_1::format_type::format_0
                                                       : uci_pucch_pdu_format_0_1::format_type::format_1,
             pdu.pucch_format);
@@ -377,17 +366,15 @@ TEST(uci_indication_builder, add_pucch_f234_passes)
   uci_indication_message         msg;
   uci_indication_message_builder builder(msg);
 
-  unsigned     handle = 3;
   rnti_t       rnti   = to_rnti(4);
   pucch_format format = static_cast<pucch_format>(3);
 
-  builder.add_format_2_3_4_pucch_pdu(handle, rnti, format);
+  builder.add_format_2_3_4_pucch_pdu(rnti, format);
 
   ASSERT_EQ(1, msg.pdus.size());
   ASSERT_EQ(uci_pdu_type::PUCCH_format_2_3_4, msg.pdus.back().pdu_type);
 
   const auto& pdu = msg.pdus.back().pucch_pdu_f234;
-  ASSERT_EQ(to_value(rnti), pdu.rnti);
-  ASSERT_EQ(handle, pdu.handle);
+  ASSERT_EQ(rnti, pdu.rnti);
   ASSERT_EQ((static_cast<unsigned>(format) - 2U), static_cast<unsigned>(pdu.pucch_format));
 }

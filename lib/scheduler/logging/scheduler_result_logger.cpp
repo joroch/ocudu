@@ -393,14 +393,13 @@ format_each(const static_vector<ItemType, N>& list, const ListItemFormatter& ite
 
 static auto make_csi_rs_log_entry(const csi_rs_info& csi_rs)
 {
-  return make_formattable([type          = csi_rs.type,
-                           crbs          = csi_rs.crbs,
-                           row           = csi_rs.row,
-                           freq_domain   = csi_rs.freq_domain,
-                           symbol0       = csi_rs.symbol0,
-                           cdm_type      = csi_rs.cdm_type,
-                           freq_density  = csi_rs.freq_density,
-                           scrambling_id = csi_rs.scrambling_id](auto& ctx) {
+  return make_formattable([type         = csi_rs.type,
+                           crbs         = csi_rs.crbs,
+                           row          = csi_rs.row,
+                           freq_domain  = csi_rs.freq_domain,
+                           symbol0      = csi_rs.symbol0,
+                           cdm_type     = csi_rs.cdm_type,
+                           freq_density = csi_rs.freq_density](auto& ctx) {
     fmt::format_to(ctx.out(),
                    "\n- CSI-RS: type={} crbs={} row={} freq={} symb0={} cdm_type={} freq_density={}",
                    type == csi_rs_type::CSI_RS_NZP ? "nzp" : "zp",
@@ -410,9 +409,6 @@ static auto make_csi_rs_log_entry(const csi_rs_info& csi_rs)
                    symbol0,
                    to_string(cdm_type),
                    to_string(freq_density));
-    if (type == csi_rs_type::CSI_RS_NZP) {
-      fmt::format_to(ctx.out(), " scramb_id={}", scrambling_id);
-    }
     return ctx.out();
   });
 }

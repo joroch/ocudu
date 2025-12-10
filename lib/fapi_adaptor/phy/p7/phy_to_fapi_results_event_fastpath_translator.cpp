@@ -197,8 +197,7 @@ void phy_to_fapi_results_event_fastpath_translator::notify_pusch_uci_indication(
   builder.set_basic_parameters(result.slot.sfn(), result.slot.slot_index());
 
   // Do not manage handle.
-  static constexpr unsigned   handle      = 0;
-  fapi::uci_pusch_pdu_builder builder_pdu = builder.add_pusch_pdu(handle, result.rnti);
+  fapi::uci_pusch_pdu_builder builder_pdu = builder.add_pusch_pdu(result.rnti);
 
   const channel_state_information& csi_info = result.csi;
 
@@ -390,11 +389,9 @@ static void fill_format_0_1_harq(fapi::uci_pucch_pdu_format_0_1_builder& builder
 /// Adds a PUCCH Format 0 or Format 1 PDU to the given builder using the data provided by result.
 static void add_format_0_1_pucch_pdu(fapi::uci_indication_message_builder& builder, const ul_pucch_results& result)
 {
-  // Do not use the handle for now.
-  static const unsigned                  handle  = 0;
   const ul_pucch_context&                context = result.context;
   fapi::uci_pucch_pdu_format_0_1_builder builder_format01 =
-      builder.add_format_0_1_pucch_pdu(handle, context.rnti, context.format);
+      builder.add_format_0_1_pucch_pdu(context.rnti, context.format);
 
   const channel_state_information& csi_info = result.processor_result.csi;
 
@@ -497,10 +494,8 @@ static void fill_format_2_3_4_csi_part1(fapi::uci_pucch_pdu_format_2_3_4_builder
 /// Adds a PUCCH Format 2, Format 3 or Format 4 PDU to the given builder using the data provided by result.
 static void add_format_2_3_4_pucch_pdu(fapi::uci_indication_message_builder& builder, const ul_pucch_results& result)
 {
-  // Do not use the handle for now.
-  static const unsigned                    handle = 0;
   fapi::uci_pucch_pdu_format_2_3_4_builder builder_format234 =
-      builder.add_format_2_3_4_pucch_pdu(handle, result.context.rnti, result.context.format);
+      builder.add_format_2_3_4_pucch_pdu(result.context.rnti, result.context.format);
 
   const channel_state_information& csi_info = result.processor_result.csi;
 
@@ -573,18 +568,14 @@ void phy_to_fapi_results_event_fastpath_translator::on_new_srs_results(const ul_
   builder.set_basic_parameters(context.slot.sfn(), context.slot.slot_index());
 
   if (context.is_normalized_channel_iq_matrix_report_requested) {
-    // Do not use the handle for now.
-    static const unsigned            handle          = 0;
-    fapi::srs_indication_pdu_builder srs_pdu_builder = builder.add_srs_pdu(handle, context.rnti);
-    srs_pdu_builder.set_metrics_parameters({}, result.processor_result.time_alignment.time_alignment * 1e9);
+    fapi::srs_indication_pdu_builder srs_pdu_builder = builder.add_srs_pdu(context.rnti);
+    srs_pdu_builder.set_metrics_parameters(result.processor_result.time_alignment.time_alignment * 1e9);
     srs_pdu_builder.set_codebook_report_matrix(result.processor_result.channel_matrix);
   }
 
   if (context.is_positioning_report_requested) {
-    // Do not use the handle for now.
-    static const unsigned            handle          = 0;
-    fapi::srs_indication_pdu_builder srs_pdu_builder = builder.add_srs_pdu(handle, context.rnti);
-    srs_pdu_builder.set_metrics_parameters({}, result.processor_result.time_alignment.time_alignment * 1e9);
+    fapi::srs_indication_pdu_builder srs_pdu_builder = builder.add_srs_pdu(context.rnti);
+    srs_pdu_builder.set_metrics_parameters(result.processor_result.time_alignment.time_alignment * 1e9);
 
     // Extract the RSRP which is optional and clamp it if available.
     std::optional<float> rsrp = result.processor_result.rsrp_dB;

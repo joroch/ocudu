@@ -442,8 +442,6 @@ static csi_rs_info build_valid_csi_pdu(mac_dl_sched_result_test_helper& helper)
   result.symbol1              = 4;
   result.cdm_type             = csi_rs_cdm_type::no_CDM;
   result.freq_density         = csi_rs_freq_density_type::one;
-  result.scrambling_id        = 0;
-  result.power_ctrl_offset    = 0;
   result.power_ctrl_offset_ss = 0;
 
   return result;

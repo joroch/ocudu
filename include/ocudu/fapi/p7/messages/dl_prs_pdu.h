@@ -21,10 +21,9 @@ namespace fapi {
 
 /// Downlink PRS PDU information.
 struct dl_prs_pdu {
-  subcarrier_spacing               scs;
+  subcarrier_spacing               scs; // TODO: Probably once the use of the slot poin is merged, this is not needed
   cyclic_prefix                    cp;
   uint16_t                         nid_prs;
-  uint16_t                         pdu_index;
   prs_comb_size                    comb_size;
   uint8_t                          comb_offset;
   prs_num_symbols                  num_symbols;

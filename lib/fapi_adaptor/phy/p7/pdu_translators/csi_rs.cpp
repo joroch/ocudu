@@ -38,11 +38,10 @@ void ocudu::fapi_adaptor::convert_csi_rs_fapi_to_phy(nzp_csi_rs_generator::confi
   proc_pdu.csi_rs_mapping_table_row = fapi_pdu.row;
   csi_rs::convert_freq_domain(proc_pdu.freq_allocation_ref_idx, fapi_pdu.freq_domain, fapi_pdu.row);
 
-  proc_pdu.symbol_l0     = fapi_pdu.symb_L0;
-  proc_pdu.symbol_l1     = fapi_pdu.symb_L1;
-  proc_pdu.cdm           = fapi_pdu.cdm_type;
-  proc_pdu.freq_density  = fapi_pdu.freq_density;
-  proc_pdu.scrambling_id = fapi_pdu.scramb_id;
+  proc_pdu.symbol_l0    = fapi_pdu.symb_L0;
+  proc_pdu.symbol_l1    = fapi_pdu.symb_L1;
+  proc_pdu.cdm          = fapi_pdu.cdm_type;
+  proc_pdu.freq_density = fapi_pdu.freq_density;
 
   proc_pdu.amplitude = translate_amplitude(fapi_pdu.power_control_offset_ss_profile_nr);
 

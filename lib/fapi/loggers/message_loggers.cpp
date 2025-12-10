@@ -123,24 +123,17 @@ static void log_csi_rs_pdu(const dl_csi_rs_pdu& pdu, fmt::memory_buffer& buffer)
 {
   if (pdu.type == csi_rs_type::CSI_RS_NZP) {
     fmt::format_to(std::back_inserter(buffer),
-                   "\n\t- NZP-CSI-RS crbs={}:{} row={} symbL0={} symbL1={} scramb_id={}",
-                   pdu.start_rb,
-                   pdu.num_rbs,
-                   pdu.row,
-                   pdu.symb_L0,
-                   pdu.symb_L1,
-                   pdu.scramb_id);
-    return;
-  }
-
-  if (pdu.type == csi_rs_type::CSI_RS_ZP) {
-    fmt::format_to(std::back_inserter(buffer),
-                   "\n\t- ZP-CSI-RS crbs={}:{} row={} symbL0={} symbL1={}",
+                   "\n\t- NZP-CSI-RS crbs={}:{} row={} symbL0={} symbL1={}",
                    pdu.start_rb,
                    pdu.num_rbs,
                    pdu.row,
                    pdu.symb_L0,
                    pdu.symb_L1);
+    return;
+  }
+
+  if (pdu.type == csi_rs_type::CSI_RS_ZP) {
+    fmt::format_to(std::back_inserter(buffer), "\n\t- ZP-CSI-RS crbs={}:{} row={}", pdu.start_rb, pdu.num_rbs, pdu.row);
     return;
   }
 }
@@ -283,8 +276,8 @@ static void log_uci_pucch_f0_f1_pdu(const uci_pucch_pdu_format_0_1& pdu, fmt::me
   if (pdu.ul_sinr_metric != std::numeric_limits<decltype(pdu.ul_sinr_metric)>::min()) {
     fmt::format_to(std::back_inserter(buffer), " sinr={:.1f}", to_uci_ul_sinr(pdu.ul_sinr_metric));
   }
-  if (pdu.timing_advance_offset_ns != std::numeric_limits<decltype(pdu.timing_advance_offset_ns)>::min()) {
-    fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset_ns);
+  if (pdu.timing_advance_offset != std::numeric_limits<decltype(pdu.timing_advance_offset)>::min()) {
+    fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset.to_seconds() * 1e9);
   }
   if (pdu.rsrp != std::numeric_limits<decltype(pdu.rsrp)>::max()) {
     fmt::format_to(std::back_inserter(buffer), " rsrp={:.1f}", to_uci_ul_rsrp(pdu.rsrp));
@@ -317,8 +310,8 @@ static void log_uci_pucch_f234_pdu(const uci_pucch_pdu_format_2_3_4& pdu, fmt::m
   if (pdu.ul_sinr_metric != std::numeric_limits<decltype(pdu.ul_sinr_metric)>::min()) {
     fmt::format_to(std::back_inserter(buffer), " sinr={:.1f}", to_uci_ul_sinr(pdu.ul_sinr_metric));
   }
-  if (pdu.timing_advance_offset_ns != std::numeric_limits<decltype(pdu.timing_advance_offset_ns)>::min()) {
-    fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset_ns);
+  if (pdu.timing_advance_offset != std::numeric_limits<decltype(pdu.timing_advance_offset)>::min()) {
+    fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset.to_seconds() * 1e-9);
   }
   if (pdu.rsrp != std::numeric_limits<decltype(pdu.rsrp)>::max()) {
     fmt::format_to(std::back_inserter(buffer), " rsrp={:.1f}", to_uci_ul_rsrp(pdu.rsrp));
@@ -348,8 +341,8 @@ static void log_uci_pusch_pdu(const uci_pusch_pdu& pdu, fmt::memory_buffer& buff
   if (pdu.ul_sinr_metric != std::numeric_limits<decltype(pdu.ul_sinr_metric)>::min()) {
     fmt::format_to(std::back_inserter(buffer), " sinr={:.1f}", to_uci_ul_sinr(pdu.ul_sinr_metric));
   }
-  if (pdu.timing_advance_offset_ns != std::numeric_limits<decltype(pdu.timing_advance_offset_ns)>::min()) {
-    fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset_ns);
+  if (pdu.timing_advance_offset != std::numeric_limits<decltype(pdu.timing_advance_offset)>::min()) {
+    fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset.to_seconds() * 1e9);
   }
   if (pdu.rsrp != std::numeric_limits<decltype(pdu.rsrp)>::max()) {
     fmt::format_to(std::back_inserter(buffer), " rsrp={:.1f}", to_uci_ul_rsrp(pdu.rsrp));
@@ -402,8 +395,8 @@ void ocudu::fapi::log_srs_indication(const srs_indication_message& msg,
 
   for (const auto& pdu : msg.pdus) {
     fmt::format_to(std::back_inserter(buffer), "\n\t-  rnti={}", pdu.rnti);
-    if (pdu.timing_advance_offset_ns != std::numeric_limits<decltype(pdu.timing_advance_offset_ns)>::min()) {
-      fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset_ns);
+    if (pdu.timing_advance_offset != std::numeric_limits<decltype(pdu.timing_advance_offset)>::min()) {
+      fmt::format_to(std::back_inserter(buffer), " ta_ns={}", pdu.timing_advance_offset.to_seconds() * 1e-9);
     }
     fmt::format_to(std::back_inserter(buffer), " report_type={}", to_string(pdu.report_type));
     if (pdu.report_type == srs_report_type::positioning && pdu.positioning.ul_relative_toa) {

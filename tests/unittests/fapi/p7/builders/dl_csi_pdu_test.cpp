@@ -28,9 +28,8 @@ TEST(dl_csi_pdu_builder, valid_basic_parameters_passes)
   unsigned                  sym_l1       = 3;
   csi_rs_cdm_type           cdm          = csi_rs_cdm_type::cdm8_FD2_TD4;
   csi_rs_freq_density_type  freq_density = csi_rs_freq_density_type::one;
-  unsigned                  scram_id     = 523;
 
-  builder.set_basic_parameters(start_rb, nof_rb, type, row, freq_domain, sym_l0, sym_l1, cdm, freq_density, scram_id);
+  builder.set_basic_parameters(start_rb, nof_rb, type, row, freq_domain, sym_l0, sym_l1, cdm, freq_density);
 
   ASSERT_EQ(start_rb, pdu.start_rb);
   ASSERT_EQ(nof_rb, pdu.num_rbs);
@@ -41,7 +40,6 @@ TEST(dl_csi_pdu_builder, valid_basic_parameters_passes)
   ASSERT_EQ(sym_l1, pdu.symb_L1);
   ASSERT_EQ(cdm, pdu.cdm_type);
   ASSERT_EQ(freq_density, pdu.freq_density);
-  ASSERT_EQ(scram_id, pdu.scramb_id);
 }
 
 TEST(dl_csi_pdu_builder, valid_bwp_parameters_passes)
@@ -74,15 +72,12 @@ TEST(dl_csi_pdu_builder, valid_vendor_specific_bwp_parameters_passes)
 
 TEST(dl_csi_pdu_builder, valid_tx_power_info_parameters_passes)
 {
-  for (auto power : {0, -8}) {
-    dl_csi_rs_pdu         pdu;
-    dl_csi_rs_pdu_builder builder(pdu);
+  dl_csi_rs_pdu         pdu;
+  dl_csi_rs_pdu_builder builder(pdu);
 
-    power_control_offset_ss ss = power_control_offset_ss::dB3;
+  power_control_offset_ss ss = power_control_offset_ss::dB3;
 
-    builder.set_tx_power_info_parameters(power, ss);
+  builder.set_tx_power_info_parameters(ss);
 
-    ASSERT_EQ(ss, pdu.power_control_offset_ss_profile_nr);
-    ASSERT_EQ(power, pdu.power_control_offset_profile_nr);
-  }
+  ASSERT_EQ(ss, pdu.power_control_offset_ss_profile_nr);
 }

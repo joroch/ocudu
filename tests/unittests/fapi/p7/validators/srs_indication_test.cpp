@@ -63,27 +63,13 @@ INSTANTIATE_TEST_SUITE_P(RNTI,
                                                           test_case_data{1, true},
                                                           test_case_data{32767, true},
                                                           test_case_data{65535, true})));
-
-INSTANTIATE_TEST_SUITE_P(
-    ta,
-    validate_srs_indication_field,
-    testing::Combine(testing::Values(pdu_field_data<srs_indication_message>{"Timing advance offset",
-                                                                            [](srs_indication_message& msg, int value) {
-                                                                              msg.pdus.back().timing_advance_offset =
-                                                                                  value;
-                                                                            }}),
-                     testing::Values(test_case_data{0, true},
-                                     test_case_data{32, true},
-                                     test_case_data{63, true},
-                                     test_case_data{64, false},
-                                     test_case_data{std::numeric_limits<uint16_t>::max() - 1, false},
-                                     test_case_data{std::numeric_limits<uint16_t>::max(), true})));
 INSTANTIATE_TEST_SUITE_P(ta_ns,
                          validate_srs_indication_field,
                          testing::Combine(testing::Values(pdu_field_data<srs_indication_message>{
                                               "Timing advance offset in nanoseconds",
                                               [](srs_indication_message& msg, int value) {
-                                                msg.pdus.back().timing_advance_offset_ns = value;
+                                                msg.pdus.back().timing_advance_offset =
+                                                    phy_time_unit::from_seconds(value * 1e-9);
                                               }}),
                                           testing::Values(test_case_data{static_cast<unsigned>(int16_t(-10000)), true},
                                                           test_case_data{static_cast<unsigned>(int16_t(-16800)), true},
@@ -108,9 +94,8 @@ TEST(validate_srs_indication, invalid_indication_fails)
 {
   auto msg = build_valid_srs_indication();
 
-  msg.pdus.back().timing_advance_offset    = 64U;
-  msg.pdus.back().timing_advance_offset_ns = 17000U;
-  msg.pdus.back().report_type              = static_cast<srs_report_type>(28);
+  msg.pdus.back().timing_advance_offset = phy_time_unit::from_seconds(17000U * 1e-9);
+  msg.pdus.back().report_type           = static_cast<srs_report_type>(28);
 
   const auto& result = validate_srs_indication(msg);
 

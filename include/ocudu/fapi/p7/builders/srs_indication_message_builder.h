@@ -27,23 +27,21 @@ public:
 
   /// \brief Sets the SRS indication PDU basic parameters and returns a reference to the builder.
   /// \note These parameters are specified in SCF-222 v4.0 Section 3.4.10.
-  srs_indication_pdu_builder& set_basic_parameters(uint32_t handle, rnti_t rnti)
+  srs_indication_pdu_builder& set_basic_parameters(rnti_t rnti)
   {
-    pdu.handle = handle;
-    pdu.rnti   = rnti;
+    pdu.rnti = rnti;
 
     return *this;
   }
 
   /// \brief Sets the SRS indication PDU metrics parameters and returns a reference to the builder.
   /// \note These parameters are specified in SCF-222 v4.0 Section 3.4.10.
-  srs_indication_pdu_builder& set_metrics_parameters(std::optional<unsigned> timing_advance_offset,
-                                                     std::optional<int>      timing_advance_offset_ns)
+  srs_indication_pdu_builder& set_metrics_parameters(std::optional<int> timing_advance_offset_ns)
   {
-    pdu.timing_advance_offset    = (timing_advance_offset) ? static_cast<uint16_t>(timing_advance_offset.value())
-                                                           : std::numeric_limits<uint16_t>::max();
-    pdu.timing_advance_offset_ns = (timing_advance_offset_ns) ? static_cast<int16_t>(timing_advance_offset_ns.value())
-                                                              : std::numeric_limits<int16_t>::min();
+    auto timing_advance_offset_ns_value = (timing_advance_offset_ns)
+                                              ? static_cast<int16_t>(timing_advance_offset_ns.value())
+                                              : std::numeric_limits<int16_t>::min();
+    pdu.timing_advance_offset           = phy_time_unit::from_seconds(timing_advance_offset_ns_value * 1e-9);
 
     return *this;
   }
@@ -100,12 +98,12 @@ public:
   }
 
   /// Adds a SRS PDU to the \e SRS.indication message and returns a SRS PDU builder.
-  srs_indication_pdu_builder add_srs_pdu(uint32_t handle, rnti_t rnti)
+  srs_indication_pdu_builder add_srs_pdu(rnti_t rnti)
   {
     auto& pdu = msg.pdus.emplace_back();
 
     srs_indication_pdu_builder builder(pdu);
-    builder.set_basic_parameters(handle, rnti);
+    builder.set_basic_parameters(rnti);
 
     return builder;
   }

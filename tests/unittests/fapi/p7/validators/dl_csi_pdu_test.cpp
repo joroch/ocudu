@@ -143,29 +143,6 @@ INSTANTIATE_TEST_SUITE_P(Freq_density,
                                                           test_case_data{3, true},
                                                           test_case_data{4, false})));
 
-INSTANTIATE_TEST_SUITE_P(Scrambling_ID,
-                         validate_csi_pdu_field,
-                         testing::Combine(testing::Values(pdu_field_data<dl_csi_rs_pdu>{
-                                              "Scrambling ID",
-                                              [](dl_csi_rs_pdu& pdu, int value) { pdu.scramb_id = value; }}),
-                                          testing::Values(test_case_data{0, true},
-                                                          test_case_data{512, true},
-                                                          test_case_data{1023, true},
-                                                          test_case_data{1024, false})));
-
-INSTANTIATE_TEST_SUITE_P(Power_control_offset,
-                         validate_csi_pdu_field,
-                         testing::Combine(testing::Values(pdu_field_data<dl_csi_rs_pdu>{
-                                              "Power control offset",
-                                              [](dl_csi_rs_pdu& pdu, int value) {
-                                                pdu.power_control_offset_profile_nr = value;
-                                              }}),
-                                          testing::Values(test_case_data{unsigned(-9), false},
-                                                          test_case_data{unsigned(-8), true},
-                                                          test_case_data{0, true},
-                                                          test_case_data{15, true},
-                                                          test_case_data{16, false})));
-
 INSTANTIATE_TEST_SUITE_P(Power_control_offset_SS_profile_NR,
                          validate_csi_pdu_field,
                          testing::Combine(testing::Values(pdu_field_data<dl_csi_rs_pdu>{
