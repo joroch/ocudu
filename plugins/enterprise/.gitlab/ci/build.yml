@@ -1,0 +1,91 @@
+include:
+  - project: softwareradiosystems/ocudu
+    ref: $OCUDU_COMMIT
+    file: .gitlab/ci-shared/plugin.yml
+
+stages:
+  - ci
+  - static
+  - build
+
+check ci versions:
+  rules:
+    - if: $ON_MR
+      when: never
+
+is using latest:
+  rules:
+    - if: $ON_MR
+      when: never
+
+no-binaries-added:
+  rules:
+    - if: $ON_MR
+      when: never
+
+#############
+# Builds    #
+#############
+.smoke release:
+  extends: .build_with_plugin
+  variables:
+    OS: ubuntu-24.04
+    COMPILER: gcc
+    ENABLE_FFTW: "False"
+    ENABLE_MKL: "True"
+    CMAKE_BUILD_TYPE: Release
+    MARCH: x86-64-v3
+    INFRASTRUCTURE_TAG: amd64-avx2
+
+smoke release cached:
+  extends:
+    - .smoke release
+    - .cache_get
+  rules:
+    - if: $BLOCKED_MR
+      when: never
+    - if: $CI_MERGE_REQUEST_LABELS =~ /ci-no-cache/
+      when: never
+    - if: $ON_MR
+
+smoke release clean:
+  extends:
+    - .smoke release
+    - .cache_set
+  rules:
+    - if: $BLOCKED_MR
+      when: never
+    - if: $CI_MERGE_REQUEST_LABELS =~ /ci-no-cache/
+
+.smoke dpdk:
+  extends: .build_with_plugin
+  variables:
+    OS: ubuntu-24.04
+    COMPILER: clang
+    CMAKE_BUILD_TYPE: Release
+    ENABLE_FFTW: "False"
+    ENABLE_MKL: "True"
+    ENABLE_DPDK: "True"
+    MARCH: x86-64-v3
+    DPDK_VERSION: "23.11.4_avx2"
+    INFRASTRUCTURE_TAG: amd64-avx2
+
+smoke dpdk cached:
+  extends:
+    - .smoke dpdk
+    - .cache_get
+  rules:
+    - if: $BLOCKED_MR
+      when: never
+    - if: $CI_MERGE_REQUEST_LABELS =~ /ci-no-cache/
+      when: never
+    - if: $ON_MR
+
+smoke dpdk clean:
+  extends:
+    - .smoke dpdk
+    - .cache_set
+  rules:
+    - if: $BLOCKED_MR
+      when: never
+    - if: $CI_MERGE_REQUEST_LABELS =~ /ci-no-cache/

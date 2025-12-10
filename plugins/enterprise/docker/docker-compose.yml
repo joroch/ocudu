@@ -1,0 +1,56 @@
+#
+# Copyright 2021-2025 Software Radio Systems Limited
+#
+# By using this file, you agree to the terms and conditions set
+# forth in the LICENSE file which can be found at the top level of
+# the distribution.
+#
+
+services:
+
+  netconf:
+    image: ocudu/netconf:latest
+    build:
+      context: ./netconf
+      dockerfile: Dockerfile
+    entrypoint: ["entrypoint.sh", "/config/default_config.xml"]
+    container_name: ocudu-netconf
+    ports:
+      # Comment to hide netconf port from outside of the docker network
+      - 830:830
+    volumes:
+      - ./netconf:/config
+      - ./netconf:/etc/netconf-running
+    networks:
+      smo:
+        ipv4_address: 172.21.0.14
+
+  o1_adapter:
+    image: ocudu/o1_adapter:latest
+    build:
+      context: ./o1_adapter
+      dockerfile: Dockerfile
+    container_name: ocudu-o1_adapter
+    ports:
+      - 5000:5000
+    tty: true
+    command: python3 ./o1_adapter.py --netconf_host 172.21.0.14
+    healthcheck:
+      test: curl --fail http://localhost:5000/status || exit 1
+      interval: 10s
+      timeout: 1s
+      retries: 60
+    depends_on:
+      netconf:
+        condition: service_started
+    volumes:
+      # Save generated config file to /tmp/config.yml
+      - ./o1_adapter:/tmp
+      - ./o1_adapter/templates:/usr/src/app/templates
+    networks:
+      smo:
+        ipv4_address: 172.21.0.13
+
+networks:
+  smo:
+    external: true

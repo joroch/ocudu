@@ -1,0 +1,182 @@
+include:
+  - project: softwareradiosystems/ci/tools
+    ref: "23"
+    file: .gitlab/ci-shared/setup/all.yml
+  - project: softwareradiosystems/ci/tools
+    ref: "23"
+    file: .gitlab/ci-shared/features/all.yml
+  - project: softwareradiosystems/ci/tools
+    ref: "23"
+    file: .gitlab/ci-shared/tools/python.yml
+
+stages:
+  - ci
+  - static
+
+variables:
+  SLACK_CHANNEL_OK: "#ci_gnb"
+  SLACK_CHANNEL_FAIL: "#ci_gnb"
+  SLACK_CHANNEL_INFO_MSG: "#ci_gnb_verbose"
+  PY_DIR: docker/o1_adapter
+
+#############
+# CI        #
+#############
+is MR blocked:
+  image: alpine/curl:8.12.1
+  stage: ci
+  retry: 2
+  variables:
+    GIT_LFS_SKIP_SMUDGE: 1
+  script:
+    - apk add --no-cache jq
+    - |
+      MR_JSON=$(
+        curl -s -H "PRIVATE-TOKEN: $CODEBOT_TOKEN" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/blocks" | \
+        jq -r '
+          .[] 
+          | select(.blocking_merge_request.project_id == 36940658) 
+          | select(.blocking_merge_request.target_branch == "dev") 
+          | .blocking_merge_request'
+      )
+      echo $MR_JSON | jq
+    - |
+      if test $(echo $MR_JSON | jq '.id' | wc -l) -gt 1; then
+        echo "Found multiple MRs blocking this one! Only 1 is allowed"
+        exit 1
+      fi
+    - |
+      OCUDU_COMMIT=$(echo $MR_JSON | jq -r '.sha')
+      if [[ -z $OCUDU_COMMIT ]]; then
+        OCUDU_COMMIT=dev
+      else
+        BLOCKED_MR=True
+      fi
+    - echo "OCUDU_COMMIT=$OCUDU_COMMIT" >> info.env
+    - echo "BLOCKED_MR=$BLOCKED_MR" >> info.env
+    - cat info.env
+  artifacts:
+    reports:
+      dotenv: info.env
+  needs: []
+
+.cpp changes:
+  changes: &cpp_changes
+    paths:
+      - CMakeLists.txt
+      - cmake/**/*
+      - include/**/*
+      - lib/**/*
+      - tests/**/*
+
+update ocudu ci reference:
+  image: alpine/git:v2.47.2
+  stage: ci
+  rules:
+    - if: $ON_DEFAULT_BRANCH
+      changes:
+        <<: *cpp_changes
+        compare_to: "$CI_COMMIT_BEFORE_SHA"
+  before_script:
+    - git config --global user.name "${CODEBOT_USERNAME}"
+    - git config --global user.email "${CODEBOT_LONG_USERNAME}@noreply.gitlab.com"
+  script:
+    - git clone --branch dev https://${CODEBOT_USERNAME}:${CODEBOT_TOKEN}@gitlab.com/${CI_PROJECT_NAMESPACE}/ocudu.git ocudu
+    - cd ocudu
+    - echo "$CI_COMMIT_SHA" > .gitlab/ci/plugin_version.txt
+    - git add .gitlab/ci/plugin_version.txt
+    - |
+      git commit -m "ci: update plugin reference"
+    - git push
+  interruptible: false
+  retry: 2
+
+##############
+# CPP        #
+##############
+code-format:
+  extends: .code-format
+  rules:
+    - if: $ON_MR
+      when: never # Inside downstream pipeline
+
+include-guards:
+  extends: .include-guards
+  rules:
+    - if: $ON_MR
+      when: never
+
+trigger cpp:
+  stage: ci
+  rules:
+    - if: $ON_MR
+      changes:
+        <<: *cpp_changes
+  variables:
+    OCUDU_COMMIT: $OCUDU_COMMIT
+    BLOCKED_MR: $BLOCKED_MR
+  trigger:
+    include: .gitlab/ci/build.yml
+    strategy: depend
+  needs:
+    - job: is MR blocked
+      artifacts: true
+
+publish:
+  stage: ci
+  rules:
+    - if: $CI_DESCRIPTION =~ /Release/
+  interruptible: false
+  retry: 2
+  image: alpine:3.16.0 # sh entrypoint
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - apk add git
+  script:
+    # Download private repo and add public as origin
+    - git clone --branch $CI_DEFAULT_BRANCH https://${CODEBOT_USERNAME}:${CODEBOT_TOKEN}@gitlab.com/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}.git /${CI_PROJECT_NAME}
+    - cd /${CI_PROJECT_NAME}
+    - git remote add github_public https://${PUBLIC_TOKEN}@github.com/${PUBLIC_REPO}.git
+    # Push code to github main
+    - git push github_public ${CI_DEFAULT_BRANCH}:${PUBLIC_BRANCH}
+
+##############
+# Containers #
+##############
+tox:
+  stage: ci
+  extends: .tox
+  rules:
+    - if: $ON_MR
+      changes:
+        paths:
+          - $PY_DIR/**/*
+  before_script:
+    - apk add build-base linux-headers libxml2-dev libxslt-dev
+
+trigger docker:
+  stage: ci
+  rules:
+    - if: $CI_MERGE_REQUEST_LABELS =~ /ci-no-docker/
+      when: never
+    - if: $ON_MR
+      changes:
+        paths:
+          - docker/**/*
+    - if: $ON_DEFAULT_BRANCH
+      changes:
+        paths:
+          - docker/**/*
+        compare_to: "$CI_COMMIT_BEFORE_SHA"
+    - if: $CI_DESCRIPTION =~ /Release/
+      variables:
+        CI_DESCRIPTION: $CI_DESCRIPTION
+  trigger:
+    include: docker/.gitlab-ci.yml
+    strategy: depend
+  needs:
+    - job: publish
+      optional: true
+      artifacts: false

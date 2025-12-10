@@ -1,0 +1,47 @@
+/*
+ *
+ * Copyright 2021-2025 Software Radio Systems Limited
+ *
+ * By using this file, you agree to the terms and conditions set
+ * forth in the LICENSE file which can be found at the top level of
+ * the distribution.
+ *
+ */
+
+#include "amf_connections_removal_routine.h"
+#include "ocudu/cu_cp/cu_cp_types.h"
+#include "ocudu/support/async/coroutine.h"
+
+using namespace ocudu::ocucp;
+
+ocudu::async_task<void>
+ocudu::ocucp::start_amf_connection_removal(ngap_repository&                                    ngap_db,
+                                           std::unordered_map<amf_index_t, std::atomic<bool>>& amfs_connected)
+{
+  return launch_async<amf_connections_removal_routine>(ngap_db, amfs_connected);
+}
+
+amf_connections_removal_routine::amf_connections_removal_routine(
+    ngap_repository&                                    ngap_db_,
+    std::unordered_map<amf_index_t, std::atomic<bool>>& amfs_connected_) :
+  amfs_connected(amfs_connected_), ngaps(ngap_db_.get_ngaps()), logger(ocudulog::fetch_basic_logger("CU-CP"))
+{
+}
+
+void amf_connections_removal_routine::operator()(coro_context<async_task<void>>& ctx)
+{
+  CORO_BEGIN(ctx);
+
+  for (ngap_it = ngaps.begin(); ngap_it != ngaps.end(); ngap_it++) {
+    amf_index = ngap_it->first;
+    ngap      = ngap_it->second;
+
+    // Launch procedure to remove AMF connection.
+    CORO_AWAIT(ngap->handle_amf_disconnection_request());
+
+    // Update AMF connection handler state.
+    amfs_connected[amf_index] = false;
+  }
+
+  CORO_RETURN();
+}
