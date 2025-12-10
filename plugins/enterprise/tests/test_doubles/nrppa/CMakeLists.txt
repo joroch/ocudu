@@ -1,0 +1,18 @@
+#
+# Copyright 2021-2025 Software Radio Systems Limited
+#
+# By using this file, you agree to the terms and conditions set
+# forth in the LICENSE file which can be found at the top level of
+# the distribution.
+#
+
+add_library(nrppa_test_doubles nrppa_test_message_validators.cpp nrppa_test_messages.cpp)
+target_link_libraries(nrppa_test_doubles ocudu_enterprise_nrppa ocudu_support ocudulog nrppa_asn1)
+
+target_include_directories(
+    nrppa_test_doubles
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${OCUDU_ENTERPRISE_SRC_DIR}/lib
+    ${OCUDU_ENTERPRISE_SRC_DIR}/include
+)
