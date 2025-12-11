@@ -390,14 +390,15 @@ pages:
     name: pages
     url: https://ocudu.gitlab.io/ocudu
   rules:
-    - if: $CI_PIPELINE_SCHEDULE_DESCRIPTION =~ /Nightly/
-      when: always # Even if previous stages/required jobs fail
-      allow_failure: true
+    - if: $ON_MR
+    # - if: $CI_PIPELINE_SCHEDULE_DESCRIPTION =~ /Nightly/
+    #   when: always # Even if previous stages/required jobs fail
+    #   allow_failure: true
   image: ${CI_REGISTRY_IMAGE}/doxygen:${DOXYGEN_VERSION}-${PLANTUML_VERSION}
   script:
     - mkdir public
-    - mv coverage_html public/
-    - mv codechecker*html public/
+    # - mv coverage_html public/
+    # - mv codechecker*html public/
     - mv docs/index.html public/index.html
     - |
       rm -Rf build
@@ -418,11 +419,11 @@ pages:
       done
   after_script:
     - sed -i 's/commit_hash/'$CI_COMMIT_SHA'/' public/index.html
-  needs:
-    - job: unit coverage dev
-      artifacts: true
-    - job: cppcheck
-      artifacts: true
+  needs: []
+    # - job: unit coverage dev
+    #   artifacts: true
+    # - job: cppcheck
+    #   artifacts: true
   artifacts:
     paths:
       - public
