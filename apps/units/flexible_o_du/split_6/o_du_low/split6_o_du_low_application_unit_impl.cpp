@@ -128,6 +128,7 @@ split6_o_du_low_application_unit_impl::create_flexible_o_du_low(worker_manager& 
       timers,
       notifier,
       plugin->create_fapi_p7_sector_adaptor_factory(*workers.split6_exec, *workers.split6_crtl_exec));
+  dependencies.logger = &logger;
 
   auto odu_low = std::make_unique<split6_flexible_o_du_low>(std::move(dependencies));
 

@@ -27,7 +27,8 @@ struct worker_manager_config;
 /// Generates O-DU low configuration from the given parameters.
 void generate_o_du_low_config(odu::o_du_low_config&                           out_config,
                               const du_low_unit_config&                       du_low_unit_cfg,
-                              span<const o_du_low_unit_config::du_low_config> cells);
+                              span<const o_du_low_unit_config::du_low_config> cells,
+                              ocudulog::basic_logger&                         logger);
 
 /// Fills the DU low worker manager parameters of the given worker manager configuration.
 void fill_du_low_worker_manager_config(worker_manager_config&    config,

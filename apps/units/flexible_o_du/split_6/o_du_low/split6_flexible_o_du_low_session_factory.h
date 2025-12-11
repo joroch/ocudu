@@ -98,12 +98,14 @@ public:
   }
 
   /// Creates the split 6 flexible O-DU low session.
-  std::unique_ptr<split6_flexible_o_du_low_session> create_o_du_low_session(const fapi::fapi_cell_config& config);
+  std::unique_ptr<split6_flexible_o_du_low_session> create_o_du_low_session(const fapi::fapi_cell_config& config,
+                                                                            ocudulog::basic_logger&       logger);
 
 private:
   /// Creates Radio Unit.
   std::unique_ptr<radio_unit> create_radio_unit(split6_flexible_o_du_low_session& odu_low,
-                                                const fapi::fapi_cell_config&     config);
+                                                const fapi::fapi_cell_config&     config,
+                                                ocudulog::basic_logger&           logger);
 
   /// Creates O-DU low.
   o_du_low_unit create_o_du_low(const fapi::fapi_cell_config&     config,

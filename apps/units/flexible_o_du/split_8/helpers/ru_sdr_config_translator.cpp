@@ -18,8 +18,9 @@ using namespace ocudu;
 /// Generates a lower PHY configuration from the given RU and cell configurations.
 static lower_phy_configuration generate_lower_phy_config(const flexible_o_du_ru_config::cell_config& config,
                                                          const ru_sdr_unit_config&                   ru_cfg,
-                                                         unsigned max_processing_delay_slot,
-                                                         unsigned sector_id)
+                                                         unsigned                max_processing_delay_slot,
+                                                         unsigned                sector_id,
+                                                         ocudulog::basic_logger& logger)
 {
   // Static configuration that the gnb supports.
   static constexpr cyclic_prefix cp = cyclic_prefix::NORMAL;
@@ -56,6 +57,7 @@ static lower_phy_configuration generate_lower_phy_config(const flexible_o_du_ru_
   // Set max concurrent PRACH requests to the max processing delay (in slots) plus 2 extra slots: one for sample
   // collection and one for potential processing delay.
   out_cfg.max_nof_prach_concurrent_requests = max_processing_delay_slot + 2;
+  logger.info("[JCLOG] out_cfg.max_nof_prach_concurrent_requests = {}", out_cfg.max_nof_prach_concurrent_requests);
 
   // Select RX buffer size policy.
   if (ru_cfg.device_driver == "zmq") {
@@ -226,7 +228,8 @@ static void generate_radio_config(radio_configuration::radio&                   
 
 ru_sdr_configuration ocudu::generate_ru_sdr_config(const ru_sdr_unit_config&                        ru_cfg,
                                                    span<const flexible_o_du_ru_config::cell_config> cells,
-                                                   unsigned max_processing_delay_slots)
+                                                   unsigned                max_processing_delay_slots,
+                                                   ocudulog::basic_logger& logger)
 {
   ru_sdr_configuration out_cfg;
   out_cfg.are_metrics_enabled = ru_cfg.metrics_cfg.enable_ru_metrics;
@@ -237,7 +240,7 @@ ru_sdr_configuration ocudu::generate_ru_sdr_config(const ru_sdr_unit_config&    
   unsigned sector_id = 0;
   for (const auto& cell : cells) {
     out_cfg.lower_phy_config.push_back(
-        generate_lower_phy_config(cell, ru_cfg, max_processing_delay_slots, sector_id++));
+        generate_lower_phy_config(cell, ru_cfg, max_processing_delay_slots, sector_id++, logger));
   }
 
   return out_cfg;

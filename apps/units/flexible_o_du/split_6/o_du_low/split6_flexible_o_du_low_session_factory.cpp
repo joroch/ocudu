@@ -62,13 +62,14 @@ split6_flexible_o_du_low_session_factory::start_time_calculator::calculate_start
 }
 
 std::unique_ptr<split6_flexible_o_du_low_session>
-split6_flexible_o_du_low_session_factory::create_o_du_low_session(const fapi::fapi_cell_config& config)
+split6_flexible_o_du_low_session_factory::create_o_du_low_session(const fapi::fapi_cell_config& config,
+                                                                  ocudulog::basic_logger&       logger)
 {
   auto odu = std::make_unique<split6_flexible_o_du_low_session>(
       notifier, std::chrono::milliseconds(unit_config.du_report_period));
 
   // Create Radio Unit.
-  auto ru = create_radio_unit(*odu, config);
+  auto ru = create_radio_unit(*odu, config, logger);
   if (!ru) {
     return nullptr;
   }
@@ -77,7 +78,8 @@ split6_flexible_o_du_low_session_factory::create_o_du_low_session(const fapi::fa
   auto odu_low = create_o_du_low(config,
                                  {odu->get_upper_ru_dl_rg_adapter(),
                                   odu->get_upper_ru_ul_request_adapter(),
-                                  workers.get_du_low_executor_mapper()});
+                                  workers.get_du_low_executor_mapper(),
+                                  logger});
 
   if (!odu_low.o_du_lo) {
     return nullptr;
@@ -373,7 +375,8 @@ static double derive_srate_MHz_from_bandwith(unsigned bandwidth_MHz)
 
 std::unique_ptr<radio_unit>
 split6_flexible_o_du_low_session_factory::create_radio_unit(split6_flexible_o_du_low_session& odu_low,
-                                                            const fapi::fapi_cell_config&     config)
+                                                            const fapi::fapi_cell_config&     config,
+                                                            ocudulog::basic_logger&           logger)
 {
   auto ru_config = generate_o_du_ru_config(config,
                                            unit_config.du_low_cfg.expert_phy_cfg.max_processing_delay_slots,
@@ -384,7 +387,8 @@ split6_flexible_o_du_low_session_factory::create_radio_unit(split6_flexible_o_du
   flexible_o_du_ru_dependencies ru_dependencies{workers,
                                                 odu_low.get_upper_ru_ul_adapter(),
                                                 odu_low.get_upper_ru_timing_adapter(),
-                                                odu_low.get_upper_ru_error_adapter()};
+                                                odu_low.get_upper_ru_error_adapter(),
+                                                logger};
 
   if (const auto* cfg = std::get_if<ru_ofh_unit_parsed_config>(&ru_cfg)) {
     auto ru_ofh_dependencies = get_ru_ofh_validation_dependencies(config);

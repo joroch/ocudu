@@ -230,7 +230,8 @@ o_du_unit flexible_o_du_factory::create_flexible_o_du(const o_du_unit_dependenci
   o_du_low_unit_dependencies odu_low_dependencies = {.rg_gateway = du_impl->get_upper_ru_dl_rg_adapter(),
                                                      .rx_symbol_request_notifier =
                                                          du_impl->get_upper_ru_ul_request_adapter(),
-                                                     .workers = dependencies.workers->get_du_low_executor_mapper()};
+                                                     .workers = dependencies.workers->get_du_low_executor_mapper(),
+                                                     *dependencies.logger};
   o_du_low_unit_factory      odu_low_factory(du_lo.hal_config);
   auto                       odu_lo_unit = odu_low_factory.create(odu_low_cfg, odu_low_dependencies);
 
@@ -297,7 +298,8 @@ o_du_unit flexible_o_du_factory::create_flexible_o_du(const o_du_unit_dependenci
   flexible_o_du_ru_dependencies ru_dependencies{*dependencies.workers,
                                                 du_impl->get_upper_ru_ul_adapter(),
                                                 du_impl->get_upper_ru_timing_adapter(),
-                                                du_impl->get_upper_ru_error_adapter()};
+                                                du_impl->get_upper_ru_error_adapter(),
+                                                *dependencies.logger};
 
   std::unique_ptr<radio_unit> ru = create_radio_unit(ru_config, ru_dependencies);
 

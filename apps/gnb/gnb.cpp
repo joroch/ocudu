@@ -477,6 +477,7 @@ int main(int argc, char** argv)
   odu_dependencies.rlc_p              = du_pcaps.rlc.get();
   odu_dependencies.e2_client_handler  = e2_gw_du.get();
   odu_dependencies.metrics_notifier   = &metrics_notifier_forwarder;
+  odu_dependencies.logger             = &gnb_logger;
 
   auto du_inst_and_cmds = o_du_app_unit->create_flexible_o_du_unit(odu_dependencies);
 

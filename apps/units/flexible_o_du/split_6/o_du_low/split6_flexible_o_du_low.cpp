@@ -14,7 +14,7 @@
 using namespace ocudu;
 
 split6_flexible_o_du_low::split6_flexible_o_du_low(split6_flexible_o_du_low_dependencies dependencies) :
-  odu_low_session_manager(std::move(dependencies.odu_low_session_factory)),
+  odu_low_session_manager(std::move(dependencies.odu_low_session_factory), *dependencies.logger),
   mac_p5_adaptor(std::move(dependencies.mac_p5_adaptor)),
   phy_p5_adaptor(std::move(dependencies.phy_p5_adaptor))
 {

@@ -24,9 +24,10 @@ class split6_flexible_o_du_low_metrics_notifier;
 class split6_flexible_o_du_low_session_manager : public fapi::cell_operation_request_notifier
 {
 public:
-  explicit split6_flexible_o_du_low_session_manager(
-      std::unique_ptr<split6_flexible_o_du_low_session_factory> odu_low_session_factory_) :
-    odu_low_session_factory(std::move(odu_low_session_factory_))
+  split6_flexible_o_du_low_session_manager(
+      std::unique_ptr<split6_flexible_o_du_low_session_factory> odu_low_session_factory_,
+      ocudulog::basic_logger&                                   logger_) :
+    odu_low_session_factory(std::move(odu_low_session_factory_)), logger(logger_)
   {
     ocudu_assert(odu_low_session_factory, "Invalid O-DU low session factory");
   }
@@ -40,6 +41,7 @@ public:
 private:
   std::unique_ptr<split6_flexible_o_du_low_session_factory> odu_low_session_factory;
   std::unique_ptr<split6_flexible_o_du_low_session>         flexible_odu_low;
+  ocudulog::basic_logger&                                   logger;
 };
 
 } // namespace ocudu

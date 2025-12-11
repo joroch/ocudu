@@ -62,7 +62,7 @@ o_du_low_unit o_du_low_unit_factory::create(const o_du_low_unit_config& params, 
   o_du_low_cfg.enable_metrics = params.du_low_unit_cfg.metrics_cfg.enable_du_low;
 
   // Generate O-DU low configuration.
-  generate_o_du_low_config(o_du_low_cfg, params.du_low_unit_cfg, params.cells);
+  generate_o_du_low_config(o_du_low_cfg, params.du_low_unit_cfg, params.cells, deps.logger);
 
   // Generate O-DU low dependencies.
   odu::o_du_low_dependencies o_du_low_deps;

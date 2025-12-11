@@ -23,6 +23,7 @@ struct split6_flexible_o_du_low_dependencies {
   std::unique_ptr<split6_flexible_o_du_low_session_factory>                   odu_low_session_factory;
   std::unique_ptr<fapi_adaptor::mac_fapi_p5_sector_adaptor>                   mac_p5_adaptor;
   std::unique_ptr<fapi_adaptor::phy_fapi_p5_sector_operation_request_adaptor> phy_p5_adaptor;
+  ocudulog::basic_logger*                                                     logger;
 };
 
 /// \brief Split 6 flexible O-DU low.

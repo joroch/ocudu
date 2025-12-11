@@ -67,6 +67,7 @@ struct flexible_o_du_ru_dependencies {
   ru_uplink_plane_rx_symbol_notifier& symbol_notifier;
   ru_timing_notifier&                 timing_notifier;
   ru_error_notifier&                  error_notifier;
+  ocudulog::basic_logger&             logger;
 };
 
 } // namespace ocudu

@@ -19,7 +19,8 @@
 using namespace ocudu;
 
 static odu::du_low_config generate_du_low_config(const du_low_unit_config&                       du_low,
-                                                 span<const o_du_low_unit_config::du_low_config> cells)
+                                                 span<const o_du_low_unit_config::du_low_config> cells,
+                                                 ocudulog::basic_logger&                         logger)
 {
   odu::du_low_config out_config;
   out_config.cells.reserve(cells.size());
@@ -156,11 +157,12 @@ static odu::du_low_config generate_du_low_config(const du_low_unit_config&      
                  to_string(cell.freq_range),
                  to_string(cell.duplex));
 
-    upper_phy_cell.nof_tx_ports                                     = cell.nof_tx_antennas;
-    upper_phy_cell.nof_rx_ports                                     = cell.nof_rx_antennas;
-    upper_phy_cell.nof_dl_rg                                        = dl_pipeline_depth + 2;
-    upper_phy_cell.nof_ul_rg                                        = ul_pipeline_depth;
-    upper_phy_cell.nof_prach_buffer                                 = prach_pipeline_depth * nof_slots_per_subframe;
+    upper_phy_cell.nof_tx_ports     = cell.nof_tx_antennas;
+    upper_phy_cell.nof_rx_ports     = cell.nof_rx_antennas;
+    upper_phy_cell.nof_dl_rg        = dl_pipeline_depth + 2;
+    upper_phy_cell.nof_ul_rg        = ul_pipeline_depth;
+    upper_phy_cell.nof_prach_buffer = prach_pipeline_depth * nof_slots_per_subframe;
+    logger.info("[JCLOG] upper_phy_cell.nof_prach_buffer = {}", upper_phy_cell.nof_prach_buffer);
     upper_phy_cell.max_nof_td_prach_occasions                       = prach_cfg.nof_occasions_within_slot;
     upper_phy_cell.max_nof_fd_prach_occasions                       = 1;
     upper_phy_cell.is_prach_long_format                             = is_long_preamble(prach_cfg.format);
@@ -186,9 +188,10 @@ static odu::du_low_config generate_du_low_config(const du_low_unit_config&      
 
 void ocudu::generate_o_du_low_config(odu::o_du_low_config&                           out_config,
                                      const du_low_unit_config&                       du_low_unit_cfg,
-                                     span<const o_du_low_unit_config::du_low_config> cells)
+                                     span<const o_du_low_unit_config::du_low_config> cells,
+                                     ocudulog::basic_logger&                         logger)
 {
-  out_config.du_low_cfg = generate_du_low_config(du_low_unit_cfg, cells);
+  out_config.du_low_cfg = generate_du_low_config(du_low_unit_cfg, cells, logger);
 }
 
 void ocudu::fill_du_low_worker_manager_config(worker_manager_config&    config,
