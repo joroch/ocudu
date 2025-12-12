@@ -448,9 +448,8 @@ public:
       }
     }
 
-    // DL C-Plane is only written in the first symbol of a slot.
-    if (pool_frames_type == ofh::message_type::control_plane &&
-        pool_frames_data_direction == ofh::data_direction::downlink) {
+    // DL and UL C-Plane is only written in the first symbol of a slot.
+    if (pool_frames_type == ofh::message_type::control_plane) {
       return nof_lates;
     }
 
@@ -472,11 +471,10 @@ public:
         }
       }
       if (nof_lates) {
-        logger.info("Sector #{}: Detected {} late {} {} message(s) in the transmitter queue for slot '{}'",
+        logger.info("Sector #{}: Detected {} late {} U-Plane message(s) in the transmitter queue for slot '{}'",
                     sector,
                     nof_lates,
                     pool_frames_data_direction == ofh::data_direction::downlink ? "downlink" : "uplink",
-                    pool_frames_type == ofh::message_type::control_plane ? "C-Plane" : "U-Plane",
                     late_slot);
       }
     }

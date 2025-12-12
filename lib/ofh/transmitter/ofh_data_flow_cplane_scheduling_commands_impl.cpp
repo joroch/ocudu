@@ -155,9 +155,8 @@ data_flow_cplane_scheduling_commands_impl::data_flow_cplane_scheduling_commands_
 void data_flow_cplane_scheduling_commands_impl::enqueue_section_type_1_message(
     const data_flow_cplane_type_1_context& context)
 {
-  data_direction    direction = context.direction;
-  slot_point        slot      = context.slot;
-  slot_symbol_point symbol_point(slot, context.symbol_range.start(), nof_symbols_per_slot);
+  data_direction direction = context.direction;
+  slot_point     slot      = context.slot;
 
   if (OCUDU_UNLIKELY(logger.debug.enabled())) {
     logger.debug("Sector#{}: packing a {} type 1 Control-Plane message for slot '{}' and eAxC '{}'",
@@ -167,7 +166,9 @@ void data_flow_cplane_scheduling_commands_impl::enqueue_section_type_1_message(
                  context.eaxc);
   }
 
-  // Get an ethernet frame buffer.
+  // Get an ethernet frame buffer corresponding to the first symbol in the slot.
+  slot_symbol_point symbol_point(slot, 0, nof_symbols_per_slot);
+
   auto scoped_buffer = frame_pool->reserve(symbol_point);
   if (OCUDU_UNLIKELY(!scoped_buffer)) {
     logger.warning("Sector#{}: not enough space in the buffer pool to create a {} type 1 Control-Plane message for "
