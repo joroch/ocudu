@@ -1,0 +1,160 @@
+/*
+ *
+ * Copyright 2021-2025 Software Radio Systems Limited
+ *
+ * By using this file, you agree to the terms and conditions set
+ * forth in the LICENSE file which can be found at the top level of
+ * the distribution.
+ *
+ */
+
+#include "ocudu/xnap/gateways/xnc_network_gateway_factory.h"
+#include "ocudu/asn1/asn1_utils.h"
+#include "ocudu/gateways/sctp_network_server_factory.h"
+#include "ocudu/pcap/dlt_pcap.h"
+#include "ocudu/support/error_handling.h"
+#include "ocudu/xnap/xnap_message.h"
+#include "ocudu/xnap/xnap_message_notifier.h"
+#include <cstdint>
+
+using namespace ocudu;
+
+namespace {
+
+/// Notifier passed to the CU-CP, which the CU-CP will use to send F1AP Tx PDUs.
+class xnc_to_gw_pdu_notifier final : public xnap_message_notifier
+{
+public:
+  xnc_to_gw_pdu_notifier(std::unique_ptr<sctp_association_sdu_notifier> sctp_sender_,
+                         dlt_pcap&                                      pcap_writer_,
+                         ocudulog::basic_logger&                        logger_) :
+    sctp_sender(std::move(sctp_sender_)), pcap_writer(pcap_writer_), logger(logger_)
+  {
+  }
+
+  /// Handle unpacked Tx F1AP PDU by packing and forwarding it into the SCTP GW.
+  void on_new_message(const xnap_message& msg) override
+  {
+    // pack F1AP PDU into SCTP SDU.
+    byte_buffer   tx_sdu{byte_buffer::fallback_allocation_tag{}};
+    asn1::bit_ref bref(tx_sdu);
+    if (msg.pdu.pack(bref) != asn1::OCUDUASN_SUCCESS) {
+      logger.error("Failed to pack F1AP PDU");
+      return;
+    }
+
+    // Push Tx PDU to pcap.
+    if (pcap_writer.is_write_enabled()) {
+      pcap_writer.push_pdu(tx_sdu.copy());
+    }
+
+    // Forward packed F1AP Tx PDU to SCTP gateway.
+    sctp_sender->on_new_sdu(std::move(tx_sdu));
+  }
+
+private:
+  std::unique_ptr<sctp_association_sdu_notifier> sctp_sender;
+  dlt_pcap&                                      pcap_writer;
+  ocudulog::basic_logger&                        logger;
+};
+
+/// Notifier passed to the SCTP GW, which the GW will use to forward F1AP Rx PDUs to the CU-CP.
+class gw_to_xnc_pdu_notifier final : public sctp_association_sdu_notifier
+{
+public:
+  gw_to_xnc_pdu_notifier(std::unique_ptr<xnap_message_notifier> xnap_notifier_,
+                         dlt_pcap&                              pcap_writer_,
+                         ocudulog::basic_logger&                logger_) :
+    xnap_notifier(std::move(xnap_notifier_)), pcap_writer(pcap_writer_), logger(logger_)
+  {
+  }
+
+  bool on_new_sdu(byte_buffer sdu) override
+  {
+    // Unpack SCTP SDU into F1AP PDU.
+    asn1::cbit_ref bref(sdu);
+    xnap_message   msg;
+    if (msg.pdu.unpack(bref) != asn1::OCUDUASN_SUCCESS) {
+      logger.error("Couldn't unpack F1AP PDU");
+      return false;
+    }
+
+    // Forward SCTP Rx SDU to pcap, if enabled.
+    if (pcap_writer.is_write_enabled()) {
+      pcap_writer.push_pdu(sdu.copy());
+    }
+
+    // Forward unpacked Rx PDU to the CU-CP.
+    xnap_notifier->on_new_message(msg);
+
+    return true;
+  }
+
+private:
+  std::unique_ptr<xnap_message_notifier> xnap_notifier;
+  dlt_pcap&                              pcap_writer;
+  ocudulog::basic_logger&                logger;
+};
+
+/// Adapter of the SCTP server to the F1-C interface of the CU-CP.
+class xnc_sctp_gateway final : public ocucp::xnc_connection_gateway, public sctp_network_association_factory
+{
+public:
+  xnc_sctp_gateway(const xnc_sctp_gateway_config& params_) : params(params_)
+  {
+    // Create SCTP server.
+    sctp_server = create_sctp_network_server(
+        sctp_network_server_config{params.sctp, params.broker, params.io_rx_executor, *this});
+    report_error_if_not(sctp_server != nullptr, "Failed to create SCTP server");
+  }
+
+  void attach_xnc(ocucp::xnc_handler& xnap_handler_) override
+  {
+    xnap_handler = &xnap_handler_;
+
+    // Start listening for new DU SCTP connections.
+    fmt::print("{}: Listening for new connections on {}:{}...\n",
+               params.sctp.if_name,
+               params.sctp.bind_address,
+               params.sctp.bind_port);
+  }
+
+  void listen()
+  {
+    bool result = sctp_server->listen();
+    report_error_if_not(result, "Failed to start SCTP server.\n");
+  }
+
+  std::optional<uint16_t> get_listen_port() const override { return sctp_server->get_listen_port(); }
+
+  std::unique_ptr<sctp_association_sdu_notifier>
+  create(std::unique_ptr<sctp_association_sdu_notifier> sctp_send_notifier) override
+  {
+    // Create an unpacked XNAP PDU notifier and pass it to the CU-CP.
+    auto xnc_sender = std::make_unique<xnc_to_gw_pdu_notifier>(std::move(sctp_send_notifier), params.pcap, logger);
+
+    // std::unique_ptr<xnap_message_notifier> xnc_receiver = xnap_handler->handle_new_connection(std::move(xnc_sender));
+    std::unique_ptr<xnap_message_notifier> xnc_receiver = nullptr;
+
+    // Wrap the received F1AP Rx PDU notifier in an SCTP notifier and return it.
+    if (xnc_receiver == nullptr) {
+      return nullptr;
+    }
+
+    return std::make_unique<gw_to_xnc_pdu_notifier>(std::move(xnc_receiver), params.pcap, logger);
+  }
+
+private:
+  const xnc_sctp_gateway_config params;
+  ocudulog::basic_logger&       logger       = ocudulog::fetch_basic_logger("XNAP");
+  ocucp::xnc_handler*           xnap_handler = nullptr;
+
+  std::unique_ptr<sctp_network_server> sctp_server;
+};
+
+} // namespace
+
+std::unique_ptr<ocucp::xnc_connection_gateway> ocudu::create_xnc_gateway(const xnc_sctp_gateway_config& cfg)
+{
+  return std::make_unique<xnc_sctp_gateway>(cfg);
+}
