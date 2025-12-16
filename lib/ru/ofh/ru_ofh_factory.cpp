@@ -32,6 +32,7 @@ std::unique_ptr<radio_unit> ocudu::create_ofh_ru(const ru_ofh_configuration& con
   controller_cfg.scs                           = config.sector_configs.back().scs;
   controller_cfg.gps_Alpha                     = config.gps_Alpha;
   controller_cfg.gps_Beta                      = config.gps_Beta;
+  controller_cfg.ru_timing_poll_interval       = config.ru_timing_poll_interval;
   controller_cfg.enable_log_warnings_for_lates = config.sector_configs.back().enable_log_warnings_for_lates;
 
   // Create OFH timing controller.

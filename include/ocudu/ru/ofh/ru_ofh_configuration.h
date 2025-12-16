@@ -28,6 +28,8 @@ struct ru_ofh_configuration {
   unsigned gps_Alpha;
   /// GPS Beta - Valid value range: [-32768, 32767].
   int gps_Beta;
+  /// RU timing worker sleeping time between system time checks.
+  std::optional<std::chrono::nanoseconds> ru_timing_poll_interval;
 };
 
 /// Radio Unit dependencies for the Open Fronthaul implementation.

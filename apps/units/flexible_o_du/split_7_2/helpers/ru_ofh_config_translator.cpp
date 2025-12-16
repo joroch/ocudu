@@ -71,6 +71,8 @@ static void generate_config(ru_ofh_configuration&                            out
   out_cfg.gps_Alpha = ru_cfg.gps_Alpha;
   out_cfg.gps_Beta  = ru_cfg.gps_Beta;
 
+  out_cfg.ru_timing_poll_interval = ru_cfg.expert_execution_cfg.ru_timing_poll_interval;
+
   // Add one cell.
   for (unsigned i = 0, e = ru_cfg.cells.size(); i != e; ++i) {
     const ru_ofh_unit_cell_config&              ofh_cell_cfg = ru_cfg.cells[i];

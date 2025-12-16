@@ -38,6 +38,8 @@ struct controller_config {
   int gps_Beta;
   /// If set to true, logs late events as warnings, otherwise as info.
   bool enable_log_warnings_for_lates;
+  /// Timing worker sleeping time between system time checks.
+  std::optional<std::chrono::nanoseconds> ru_timing_poll_interval;
 };
 
 /// Creates an Open Fronthaul timing manager with the given parameters.

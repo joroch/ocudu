@@ -443,6 +443,19 @@ static void configure_cli11_expert_execution_args(CLI::App& app, ru_ofh_unit_exp
         }
       },
       "Sets the cell CPU affinities configuration on a per cell basis");
+
+  // Threads section.
+  CLI::App* threads_subcmd = add_subcommand(app, "threads", "Threads configuration")->configurable();
+
+  CLI::App* ofh_threads = add_subcommand(*threads_subcmd, "ofh", "Open Fronthaul thread configuration")->configurable();
+
+  // RU timing thread polling interval.
+  add_option(*ofh_threads,
+             "--ru_timing_poll_interval",
+             config.ru_timing_poll_interval,
+             "Polling interval of the RU timing worker in nanoseconds")
+      ->capture_default_str()
+      ->check(CLI::Range(0U, 10000U));
 }
 
 #ifdef DPDK_FOUND

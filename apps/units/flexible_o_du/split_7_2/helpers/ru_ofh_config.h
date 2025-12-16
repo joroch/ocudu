@@ -165,8 +165,10 @@ struct ru_ofh_unit_cpu_affinities_cell_config {
 
 /// Expert configuration.
 struct ru_ofh_unit_expert_execution_config {
-  /// RU timing thread.
+  /// RU timing thread affinity.
   os_sched_affinity_bitmask ru_timing_cpu;
+  /// RU timing worker sleeping time between system time checks.
+  std::optional<std::chrono::nanoseconds> ru_timing_poll_interval;
   /// CPU affinities per RU txrx thread.
   std::vector<os_sched_affinity_bitmask> txrx_affinities;
   /// CPU affinities per cell.
@@ -194,7 +196,7 @@ struct ru_ofh_unit_config {
   /// GPS Beta - Valid value range: [-32768, 32767].
   int gps_Beta = 0;
   /// Downlink processing time in microseconds.
-  unsigned dl_processing_time = 400U;
+  unsigned dl_processing_time = 150U;
   /// Uplink request processing time in microseconds.
   unsigned ul_processing_time = 30U;
   /// Loggers.

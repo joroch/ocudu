@@ -38,6 +38,8 @@ struct realtime_worker_cfg {
   int gps_Beta;
   /// If set to true, logs late events as warnings, otherwise as info.
   bool enable_log_warnings_for_lates;
+  /// Sleeping time between system time checks.
+  std::optional<std::chrono::nanoseconds> ru_timing_poll_interval;
 };
 
 /// Realtime worker that generates OTA symbol notifications.

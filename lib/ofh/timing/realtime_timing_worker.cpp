@@ -29,7 +29,9 @@ realtime_timing_worker::realtime_timing_worker(ocudulog::basic_logger&    logger
   nof_symbols_per_slot(get_nsymb_per_slot(cfg.cp)),
   nof_symbols_per_sec(nof_symbols_per_slot * get_nof_slots_per_subframe(scs) * NOF_SUBFRAMES_PER_FRAME * 100),
   symbol_duration(1e9 / nof_symbols_per_sec),
-  sleep_time(std::chrono::duration_cast<std::chrono::nanoseconds>(symbol_duration) / 15),
+  sleep_time(cfg.ru_timing_poll_interval.has_value()
+                 ? *cfg.ru_timing_poll_interval
+                 : std::chrono::duration_cast<std::chrono::nanoseconds>(symbol_duration) / 15),
   enable_log_warnings_for_lates(cfg.enable_log_warnings_for_lates)
 {
   // The GPS time epoch starts on 1980.1.6 so make sure that the system time is set after this date.
