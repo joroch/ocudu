@@ -6,4 +6,14 @@
 # the distribution.
 #
 
-add_subdirectory(gateways)
+set(SOURCES
+        xnc_network_gateway_factory.cpp
+    )
+
+
+add_library(ocudu_xnc_gateway STATIC ${SOURCES})
+
+target_link_libraries(ocudu_xnc_gateway
+	ocudu_cu_cp
+	xnap_asn1
+	ocudu_support)

@@ -16,6 +16,7 @@
 #include "o_cu_cp_unit_impl.h"
 #include "ocudu/cu_cp/cu_cp.h"
 #include "ocudu/e2/e2_cu_metrics_connector.h"
+#include "ocudu/xnap/gateways/xnc_connection_gateway.h"
 
 namespace ocudu {
 
@@ -41,6 +42,7 @@ class e2_gateway_remote_connector;
 
 /// O-RAN CU-CP build dependencies.
 struct o_cu_cp_unit_dependencies {
+  ocucp::xnc_connection_gateway*               xnc_gw                 = nullptr;
   ocucp::cu_cp_executor_mapper*                executor_mapper        = nullptr;
   timer_manager*                               timers                 = nullptr;
   dlt_pcap*                                    ngap_pcap              = nullptr;

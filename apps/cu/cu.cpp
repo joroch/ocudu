@@ -57,6 +57,7 @@
 #include "ocudu/support/tracing/event_tracing.h"
 #include "ocudu/support/versioning/build_info.h"
 #include "ocudu/support/versioning/version.h"
+#include "ocudu/xnap/gateways/xnc_network_gateway_factory.h"
 #include <atomic>
 #include <thread>
 
@@ -354,6 +355,19 @@ int main(int argc, char** argv)
       {f1c_sctp_cfg, *epoll_broker, workers.get_cu_cp_executor_mapper().f1c_rx_executor(), *cu_cp_dlt_pcaps.f1ap});
   std::unique_ptr<ocucp::f1c_connection_server> cu_f1c_gw = ocudu::create_f1c_gateway_server(f1c_server_cfg);
 
+  // Create XN-C GW (TODO cleanup port and PPID args with factory)
+  null_dlt_pcap               xnc_pcap;
+  sctp_network_gateway_config xnc_sctp_cfg = {};
+  f1c_sctp_cfg.if_name                     = "XN-C1";
+  f1c_sctp_cfg.bind_address                = cu_cfg.f1ap_cfg.bind_addr;
+  f1c_sctp_cfg.bind_port                   = F1AP_PORT;
+  f1c_sctp_cfg.ppid                        = F1AP_PPID;
+  /// TODO change RX executor.
+  xnc_sctp_gateway_config xnc_server_cfg(
+      {xnc_sctp_cfg, *epoll_broker, workers.get_cu_cp_executor_mapper().f1c_rx_executor(), xnc_pcap});
+
+  std::unique_ptr<ocucp::xnc_connection_gateway> xnc_gw = ocudu::create_xnc_gateway(xnc_server_cfg);
+
   // Create F1-U GW.
   // > Create GTP-U Demux.
   gtpu_demux_creation_request cu_f1u_gtpu_msg   = {};
@@ -416,6 +430,7 @@ int main(int argc, char** argv)
   o_cu_cp_unit_dependencies o_cucp_deps;
   o_cucp_deps.executor_mapper  = &workers.get_cu_cp_executor_mapper();
   o_cucp_deps.timers           = cu_timers;
+  o_cucp_deps.xnc_gw           = xnc_gw.get();
   o_cucp_deps.ngap_pcap        = cu_cp_dlt_pcaps.ngap.get();
   o_cucp_deps.broker           = epoll_broker.get();
   o_cucp_deps.e2_gw            = e2_gw_cu_cp.get();
