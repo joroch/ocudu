@@ -221,19 +221,24 @@ have the right to contribute the code you are submitting to the project.
 You sign-off by adding the following to your commit messages. Your sign-off must
 match the git user and email associated with the commit.
 
-    This is my commit message
+```bash
+This is my commit message
 
-    Signed-off-by: Your Name <your.name@example.com>
+Signed-off-by: Your Name <your.name@example.com>
+```
 
 Git has a `-s` command line option to do this automatically:
 
-    git commit -s -m 'This is my commit message'
+```bash
+git commit -s -m 'This is my commit message'
+```
 
 If you forgot to do this and have not yet pushed your changes to the remote
-repository, you can amend your commit with the sign-off by running 
+repository, you can amend your commit with the sign-off by running:
 
-    git commit --amend -s 
-
+```bash
+git commit --amend -s
+```
 
 ## Labels
 
