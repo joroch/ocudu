@@ -1,6 +1,7 @@
 # Contributing Guidelines
 
-The OCUDU project accepts contributions via Gitlba merge requests.
+Welcome! We are glad that you want to contribute to OCUDU.
+The project accepts contributions via Gitlab merge requests.
 This document outlines the process to help get your contribution accepted.
 
 ## Reporting a Security Issue
@@ -17,9 +18,6 @@ This will give us a chance to try to fix the issue before it is exploited in the
   * [Proposing an Idea](#proposing-an-idea)
   * [Merge Requests](#merge-requests)
   * [Labels](#labels)
-
-
-Welcome! We are glad that you want to contribute to OCUDU.
 
 As you get started, you are in the best position to give us feedback on areas of
 our project that we need help with including:
@@ -60,7 +58,7 @@ feedback on others’ ideas, and even sharing your own ideas, and experiences.
 
 ## Issues
 
-Issues are used as the primary method for tracking anything to do with the Helm project.
+Issues are used as the primary method for tracking anything to do with the project.
 
 ### Issue Types
 
@@ -84,13 +82,13 @@ There are 5 types of issues (each with their own corresponding [label](#labels))
 ### Issue Lifecycle
 
 The issue lifecycle is mainly driven by the core maintainers, but is good information for those
-contributing to Helm. All issue types follow the same general lifecycle. Differences are noted
+contributing to OCUDU. All issue types follow the same general lifecycle. Differences are noted
 below.
 
 1. Issue creation
 2. Triage
     - The maintainer in charge of triaging will apply the proper labels for the issue. This includes
-      labels for priority, type, and metadata (such as `good first issue`). The only issue priority
+      labels for priority, type, and metadata (such as `good_first_issue`). The only issue priority
       we will be tracking is whether the issue is "critical." If additional levels are needed
       in the future, we will add them.
     - (If needed) Clean up the title to succinctly and clearly state the issue. Also ensure that
@@ -106,7 +104,7 @@ below.
     - Whoever is working on a `feature` or `bug` issue (whether a maintainer or someone from the
       community), should either assign the issue to themselves or make a comment in the issue saying
       that they are taking it.
-    - `proposal` and `support/question` issues should stay open until resolved or if they have not
+    - `proposal` and `question/support` issues should stay open until resolved or if they have not
       been active for more than 30 days. This will help keep the issue queue to a manageable size
       and reduce noise. Should the issue need to stay open, the `keep open` label can be added.
 4. Issue closure
@@ -130,7 +128,7 @@ that you want to work on it. Something like "I want to work on this" is fine.
 
 Before proposing a new idea to the OCUDU project, please make sure to write up a [OCUDU Improvement
 Proposal](https://gitlab.com/ocudu/oips). A OCUDU Improvement Proposal is a
-design document that describes a new feature for the Helm project. The proposal should provide a
+design document that describes a new feature for the OCUDU project. The proposal should provide a
 concise technical specification and rationale for the feature.
 
 It is also worth considering vetting your idea with the community via the
