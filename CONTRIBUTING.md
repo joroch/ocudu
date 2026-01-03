@@ -43,7 +43,7 @@ We welcome many different types of contributions including:
 * Answering questions on Slack/Mailing List
 
 Not everything happens through a Gitlab pull request. Please come to our
-[meetings](TODO) or [contact us](TODO) and let's discuss how we can work
+[meetings](https://ocudu.org) or [contact us](https://ocudu.org) and let's discuss how we can work
 together. 
 
 ### Come to Meetings
@@ -52,7 +52,7 @@ Absolutely everyone is welcome to come to any of our meetings. You never need an
 invite to join us. In fact, we want you to join us, even if you don’t have
 anything you feel like you want to contribute. Just being there is enough!
 
-You can find out more about our meetings [here](TODO). You don’t have to turn on
+You can find out more about our meetings [here](https://ocudu.org). You don’t have to turn on
 your video. The first time you come, introducing yourself is more than enough.
 Over time, we hope that you feel comfortable voicing your opinions, giving
 feedback on others’ ideas, and even sharing your own ideas, and experiences.
@@ -143,7 +143,7 @@ OIPs are submitted to the [OCUDU community repository](https://gitlab.com/ocudu/
 1](https://gitlab.com/ocudu/community/blob/master/hips/hip-0001.md) describes the process to write a
 OIP as well as the review process.
 
-After your proposal has been approved, follow the [developer's guide](TODO) to get started.
+After your proposal has been approved, follow the [developer's guide](https://ocudu.org) to get started.
 
 
 ## Merge Requests
@@ -160,7 +160,7 @@ Please note we have a code of conduct, please follow it in all your interactions
 2. Fork the desired repo; develop and test your code changes.
 3. Submit a merge request, making sure to sign your work and link the related issue.
 
-Coding conventions and standards are explained in the [official developer docs](TODO).
+Coding conventions and standards are explained in the [official developer docs](https://ocudu.org).
 
 ###  Lifecycle
 
