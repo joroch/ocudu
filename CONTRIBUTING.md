@@ -38,7 +38,7 @@ We welcome many different types of contributions including:
 * Bug fixes
 * Documentation
 * Issue Triage
-* Answering questions on Slack/Mailing List
+* Answering questions (e.g. in Gitlab)
 
 Not everything happens through a Gitlab pull request. Please come to our
 [meetings](https://ocudu.org) or [contact us](https://ocudu.org) and let's discuss how we can work
@@ -66,7 +66,7 @@ There are 5 types of issues (each with their own corresponding [label](#labels))
 
 - `question/support`: These are support or functionality inquiries that we want to have a record of
   for future reference. Generally these are questions that are too complex or large to store in the
-  Slack channel or have particular interest to the community as a whole. Depending on the
+  chat (e.g. Slack channel) or have particular interest to the community as a whole. Depending on the
   discussion, these can turn into `feature` or `bug` issues.
 - `proposal`: Used for items that propose a new idea or functionality that require
   a larger community discussion. This allows for feedback from others in the community before a
@@ -76,7 +76,7 @@ There are 5 types of issues (each with their own corresponding [label](#labels))
   a `feature` and does not require a milestone.
 - `feature`: These track specific feature requests and ideas until they are complete. They can
   evolve from a `proposal` or can be submitted individually depending on the size.
-- `bug`: These track bugs with the code.
+- `bug`: These track bugs with the code/infrastructure.
 - `docs`: These track problems with the documentation (i.e. missing or incomplete).
 
 ### Issue Lifecycle
@@ -131,8 +131,8 @@ Proposal](https://gitlab.com/ocudu/oips). A OCUDU Improvement Proposal is a
 design document that describes a new feature for the OCUDU project. The proposal should provide a
 concise technical specification and rationale for the feature.
 
-It is also worth considering vetting your idea with the community via the
-OCUDU developer slack channel. Vetting an idea publicly before going as
+It is also worth considering vetting your idea with the community via Gitlab discussions.
+Vetting an idea publicly before going as
 far as writing a proposal is meant to save the potential author time. Many ideas have been proposed;
 it's quite likely there are others in the community who may be working on a similar proposal, or a
 similar proposal may have already been written.
@@ -172,7 +172,6 @@ Coding conventions and standards are explained in the [official developer docs](
       important work that is in-flight, but useful for others to see. If a MR is a work in progress,
       it **must** be prefaced with "Draft: title". Once the MR is ready for review, remove "Draft:P"
       from the title.
-
 2. Triage
     - The maintainer in charge of triaging will apply the proper labels for the issue. This should
       include at least a size label, `bug` or `feature`, and `awaiting review` once all labels are
@@ -246,7 +245,8 @@ The following tables define the main label types used for OCUDU. They are split 
 
 | Label | Description |
 | ----- | ----------- |
-| `bug` | Marks an issue as a bug or a MR as a bugfix |
+| `bug` | Marks an issue in the main OCUDU codebase as a bug or a MR as a bugfix |
+| `bug::ci` | Marks an issue in the CI/testing code or infrastructure as a bug or a MR as a bugfix |
 | `critical` | Marks an issue or MR as critical. This means that addressing the MR or issue is top priority and must be addressed as soon as possible |
 | `docs` | Indicates the issue or MR is a documentation change |
 | `feature` | Marks the issue as a feature request or a MR as a feature implementation |
