@@ -1,5 +1,3 @@
-<a id="code-guide-overview"></a>
-
 # Code Style Guide
 
 This document establishes the basic guidelines and recommendations for C and C++ programming styles within srsRAN Project code base. Many of the guidelines are C++ specific, however

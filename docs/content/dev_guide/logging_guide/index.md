@@ -1,5 +1,3 @@
-<a id="dev-guide-logging"></a>
-
 # Logging Style Guide
 
 To ensure consistency in the formatting of the log entries, some rules should be followed by the developers.
@@ -17,9 +15,9 @@ rnti=0x4602 h_id=0 prb=[3, 21) symb=[0, 14) mod=QPSK rv=0 tbs=437 crc=OK iter=2.
 
 There are different classes of fields:
 
-> - fields that represent a context (e.g. UE ID, bearer ID, carrier ID)
-> - fields that represent a value (e.g. snr, tbs, etc.)
-> - fields that represent a one-time event (e.g. “Received InitialContextSetupRequest”)
+- fields that represent a context (e.g. UE ID, bearer ID, carrier ID)
+- fields that represent a value (e.g. snr, tbs, etc.)
+- fields that represent a one-time event (e.g. “Received InitialContextSetupRequest”)
 
 Each logging message should have the following structure:
 
