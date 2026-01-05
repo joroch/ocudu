@@ -1,5 +1,3 @@
-<a id="self-generating-docs"></a>
-
 # Self Generating Documentation
 
 The srsRAN Project repository uses **Doxygen** to generate API documentation directly from the annotated C++ source files. In order to contribute to the API

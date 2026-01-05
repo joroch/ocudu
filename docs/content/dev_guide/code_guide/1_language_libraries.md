@@ -1,5 +1,3 @@
-<a id="code-guide-language-libraries"></a>
-
 # Language and libraries
 
 ## C & C++ version
@@ -12,8 +10,8 @@ for toolchains where this feature is not available.
 
 srsRAN Project is compiled and tested using the following toolchains with the following minimum requirements:
 
-> * GCC v11.4.0 (or later)
-> * Clang v14.0.0 (or later)
+* GCC v11.4.0 (or later)
+* Clang v14.0.0 (or later)
 
 #### NOTE
 We recommend using Ubuntu 22.04, with GCC 11.4.0 and Clang 14.0.0

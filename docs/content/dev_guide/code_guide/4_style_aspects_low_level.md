@@ -1,5 +1,3 @@
-<a id="code-guide-style-low-level"></a>
-
 # Style Aspects: Low Level Issues
 
 ## Naming Conventions

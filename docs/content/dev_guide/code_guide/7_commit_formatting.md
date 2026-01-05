@@ -1,5 +1,3 @@
-<a id="commit-formatting"></a>
-
 # Commit Formatting
 
 When committing code to srsRAN Project codebase it is important that commit messages are clear and succinct. This means having clear guidelines for
@@ -13,11 +11,11 @@ component: brief change description
 
 Here, component refers to the section of the codebase being modified by the commit. Some examples of this could be:
 
-> - `mac_test`, `equalizer` - changes are limited to a specific function/class
-> - `phy`, `mac`, `rlc`, etc - multiple changes across a specific layer
-> - `cmake` - changes to the cmake file
-> - `all` - a commit modifies something across the whole codebase
-> - `misc` - a miscellaneous change
+- `mac_test`, `equalizer` - changes are limited to a specific function/class
+- `phy`, `mac`, `rlc`, etc - multiple changes across a specific layer
+- `cmake` - changes to the cmake file
+- `all` - a commit modifies something across the whole codebase
+- `misc` - a miscellaneous change
 
 Multiple components can be used if a commit touches two or more components. Simply separate the components with a comma.  For example:
 
@@ -41,10 +39,10 @@ Note that all words in the subject line are lower case and there is no trailing 
 
 To summarize, here are a few brief points to follow when committing to the srsRAN codebase:
 
-> - Each commit should have a `component` and a `brief outline`
-> - Commit subject lines should be limited to 50 characters in total
-> - The body of a commit should be separated by a line break
-> - Keep all text as succinct as possible
-> - No upper case letters or trailing period in subject line
+- Each commit should have a `component` and a `brief outline`
+- Commit subject lines should be limited to 50 characters in total
+- The body of a commit should be separated by a line break
+- Keep all text as succinct as possible
+- No upper case letters or trailing period in subject line
 
 If you would like more information on writing “good” commits, [this guide](https://cbea.ms/git-commit/) is a useful resource.

@@ -44,11 +44,11 @@ int i = f * get_multiplier();
 
 The codebase uses the standard form of logical operators:
 
-> -`&&`, `||` and `!`
+* `&&`, `||` and `!`
 
 As opposed to the alternative form:
 
-> - `and`, `or` and `not`
+* `and`, `or` and `not`
 
 The following code block shows the correct and incorrect use of logical operators:
 
@@ -185,9 +185,9 @@ Avoid using the `long` type since it can be either 32 or 64-bits depending on th
 
 When declaring a function, the list of arguments shall be ordered as follows:
 
-> 1. Arguments passed by reference or pointer, if any, that are only used to store the function output. These arguments are documented by the Doxygen command `\param[out]`.
-> 2. Arguments passed by reference or pointer, if any, that contain inputs to the function and will also be modified by the function itself. These arguments are documented by the Doxygen command `\param[in,out]`.
-> 3. Arguments passed by value, constant pointer or constant reference, if any, that represent inputs to the function. These arguments are documented by the Doxygen command `\param[in]`. In particular, structures gathering a number of configuration parameters, shall appear last in the argument list.
+1. Arguments passed by reference or pointer, if any, that are only used to store the function output. These arguments are documented by the Doxygen command `\param[out]`.
+2. Arguments passed by reference or pointer, if any, that contain inputs to the function and will also be modified by the function itself. These arguments are documented by the Doxygen command `\param[in,out]`.
+3. Arguments passed by value, constant pointer or constant reference, if any, that represent inputs to the function. These arguments are documented by the Doxygen command `\param[in]`. In particular, structures gathering a number of configuration parameters, shall appear last in the argument list.
 
 For example:
 

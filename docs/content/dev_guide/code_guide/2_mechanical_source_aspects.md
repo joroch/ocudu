@@ -1,5 +1,3 @@
-<a id="code-guide-mechanical-aspects"></a>
-
 # Mechanical source aspects
 
 ## Source Code Formatting
@@ -13,8 +11,6 @@ If you are interested in specific rules regarding spaces, maximum width, etc., t
 When adding new commits to the repository, please make sure you have formatted your new changes with clang-format **before** submitting them.
 
 ---
-
-<a id="comments"></a>
 
 ## Comments
 
