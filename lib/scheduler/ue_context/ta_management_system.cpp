@@ -42,8 +42,9 @@ ue_ta_manager ta_management_system::add_ue(time_alignment_group::id_t         pc
   }
 
   // Create UE context.
-  auto row_id = ues.insert(ue_ta_context{ul_scs, std::move(lc_ch_mgr)}, wheel_list_node{});
+  auto row_id = ues.insert(ue_ta_context{ul_scs, lc_ch_mgr}, wheel_list_node{});
   update_tags(row_id, std::array<time_alignment_group::id_t, 1>{pcell_tag_id});
+  logger.debug("uerow={}: Added to TA management system with TAG Id {}", row_id.value(), pcell_tag_id.value());
 
   return ue_ta_manager{*this, row_id};
 }
@@ -189,6 +190,10 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
     // [Implementation-defined] Discard measurement due to low UL SINR.
     // NOTE: From the testing with COTS UE its observed that N_TA update measurements with UL SINR less than 10 dB were
     // majorly outliers.
+    logger.debug("uerow={}: Discarding TA report. Cause: UL SINR {} dB is below threshold {}",
+                 ue_id.value(),
+                 ul_sinr,
+                 ta_cfg.update_measurement_ul_sinr_threshold);
     return;
   }
 
@@ -197,7 +202,7 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
   auto*          it = std::find_if(
       u.n_ta_reports.begin(), u.n_ta_reports.end(), [tag_id](const auto& meas) { return meas.tag_id == tag_id; });
   if (it == u.n_ta_reports.end()) {
-    logger.warning("Discarding TA report. Cause: TAG Id {} is not configured", tag_id.value());
+    logger.warning("uerow={}: Discarding TA report. Cause: TAG Id {} is not configured", ue_id.value(), tag_id.value());
     return;
   }
   tag_measurement& tag_meas = *it;
@@ -206,6 +211,8 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
   if (tag_meas.forbid_period_start.has_value()) {
     if (next_wheel_index - tag_meas.forbid_period_start.value() < ta_cfg.measurement_prohibit_period) {
       // Within forbid period, discard measurement.
+      logger.debug(
+          "uerow={}: Discarding TA report. Cause: within forbid period for TAG Id {}", ue_id.value(), tag_id.value());
       return;
     }
     tag_meas.forbid_period_start = std::nullopt;
@@ -226,6 +233,11 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
                           tag_meas.n_ta_diff_sq_averager.average(),
                           ta_cfg.outlier_detection_zscore_threshold)) {
       // Outlier detected, discard measurement.
+      logger.debug("uerow={}: Discarding TA report. Cause: outlier detected for TAG Id {} ({} >= {})",
+                   ue_id.value(),
+                   tag_id.value(),
+                   tag_meas.count_until_outlier_detection,
+                   (unsigned)min_samples_for_outlier_detection);
       return;
     }
   }
@@ -239,6 +251,8 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
   wheel_list_node& ue_node = ues.at<ue_component::wheel_next_node>(ue_id);
   if (ue_node.wheel_meas_pos.has_value()) {
     // UE is already in the time wheel.
+    logger.debug(
+        "uerow={}: Not adding UE to time wheel. Cause: already present for TAG Id {}", ue_id.value(), tag_id.value());
     return;
   }
 
@@ -260,6 +274,11 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
     auto& wheel_head       = time_wheel[offset].head;
     ue_node.next           = wheel_head;
     wheel_head             = ue_id;
+  } else {
+    logger.debug("uerow={}: Not adding UE to time wheel. Cause: new T_A {} below threshold for TAG Id {}",
+                 ue_id.value(),
+                 tag_meas.last_t_a,
+                 tag_id.value());
   }
 }
 
