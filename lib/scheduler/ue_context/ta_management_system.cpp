@@ -202,7 +202,8 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
   auto*          it = std::find_if(
       u.n_ta_reports.begin(), u.n_ta_reports.end(), [tag_id](const auto& meas) { return meas.tag_id == tag_id; });
   if (it == u.n_ta_reports.end()) {
-    logger.warning("uerow={}: Discarding TA report. Cause: TAG Id {} is not configured", ue_id.value(), tag_id.value());
+    logger.warning(
+        "uerow={} tagid={}: Discarding TA report. Cause: TAG Id is not configured", ue_id.value(), tag_id.value());
     return;
   }
   tag_measurement& tag_meas = *it;
@@ -211,8 +212,11 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
   if (tag_meas.forbid_period_start.has_value()) {
     if (next_wheel_index - tag_meas.forbid_period_start.value() < ta_cfg.measurement_prohibit_period) {
       // Within forbid period, discard measurement.
-      logger.debug(
-          "uerow={}: Discarding TA report. Cause: within forbid period for TAG Id {}", ue_id.value(), tag_id.value());
+      logger.debug("uerow={} tagid={}: Discarding TA report. Cause: TAG is within forbid period [{}, {})",
+                   ue_id.value(),
+                   tag_id.value(),
+                   tag_meas.forbid_period_start.value(),
+                   tag_meas.forbid_period_start.value() + ta_cfg.measurement_prohibit_period);
       return;
     }
     tag_meas.forbid_period_start = std::nullopt;
@@ -233,11 +237,12 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
                           tag_meas.n_ta_diff_sq_averager.average(),
                           ta_cfg.outlier_detection_zscore_threshold)) {
       // Outlier detected, discard measurement.
-      logger.debug("uerow={}: Discarding TA report. Cause: outlier detected for TAG Id {} ({} >= {})",
+      logger.debug("uerow={} tagid={}: Discarding TA report. Cause: outlier detected ta_diff={} avg={}, sq={}",
                    ue_id.value(),
                    tag_id.value(),
-                   tag_meas.count_until_outlier_detection,
-                   (unsigned)min_samples_for_outlier_detection);
+                   n_ta_diff_,
+                   tag_meas.n_ta_diff_averager.average(),
+                   tag_meas.n_ta_diff_sq_averager.average());
       return;
     }
   }
@@ -274,11 +279,17 @@ void ta_management_system::handle_ul_n_ta_update_indication(soa::row_id         
     auto& wheel_head       = time_wheel[offset].head;
     ue_node.next           = wheel_head;
     wheel_head             = ue_id;
-  } else {
-    logger.debug("uerow={}: Not adding UE to time wheel. Cause: new T_A {} below threshold for TAG Id {}",
+    logger.debug("uerow={} tagid={}: Added UE to time wheel at time_offset={} (meas_start_time={} next_time={})",
                  ue_id.value(),
-                 tag_meas.last_t_a,
-                 tag_id.value());
+                 tag_id.value(),
+                 offset,
+                 ue_node.meas_start_time.value(),
+                 next_wheel_index);
+  } else {
+    logger.debug("uerow={} tagid={}: Not adding UE to time wheel. Cause: new T_A {} below threshold",
+                 ue_id.value(),
+                 tag_id.value(),
+                 tag_meas.last_t_a);
   }
 }
 
