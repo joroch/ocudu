@@ -719,9 +719,18 @@ void rlc_tx_am_entity::handle_status_pdu(rlc_am_status_pdu status) noexcept OCUD
    *     retransmission.
    */
   // Process ACKs
-  uint32_t stop_sn = status.get_nacks().empty()
-                         ? status.ack_sn
-                         : status.get_nacks()[0].nack_sn; // Stop processing ACKs at the first NACK, if it exists.
+  uint32_t stop_sn;
+  if (status.get_nacks().empty()) {
+    // Stop at ack_sn or sn_under_segmentation, whichever is smaller.
+    if (sn_under_segmentation != INVALID_RLC_SN && tx_mod_base(sn_under_segmentation) < tx_mod_base(status.ack_sn)) {
+      stop_sn = sn_under_segmentation;
+    } else {
+      stop_sn = status.ack_sn;
+    }
+  } else {
+    // Stop at the first nack_sn.
+    stop_sn = status.get_nacks()[0].nack_sn;
+  }
 
   std::optional<uint32_t> max_deliv_pdcp_sn      = {}; // initialize with not value set
   std::optional<uint32_t> max_deliv_retx_pdcp_sn = {}; // initialize with not value set

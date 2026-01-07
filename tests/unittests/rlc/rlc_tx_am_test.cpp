@@ -13,6 +13,7 @@
 #include "ocudu/ran/pdsch/pdsch_constants.h"
 #include "ocudu/support/executors/manual_task_worker.h"
 #include "ocudu/support/rtsan.h"
+#include "ocudu/support/test_utils.h"
 #include <gtest/gtest.h>
 #include <list>
 
@@ -91,6 +92,21 @@ public:
   void report_metrics(const rlc_metrics& metrics) override {}
 };
 
+ocudu::log_sink_spy& test_spy = []() -> ocudu::log_sink_spy& {
+  if (!ocudulog::install_custom_sink(
+          ocudu::log_sink_spy::name(),
+          std::unique_ptr<ocudu::log_sink_spy>(new ocudu::log_sink_spy(ocudulog::get_default_log_formatter())))) {
+    report_fatal_error("Unable to create logger spy");
+  }
+  auto* spy = static_cast<ocudu::log_sink_spy*>(ocudulog::find_sink(ocudu::log_sink_spy::name()));
+  if (spy == nullptr) {
+    report_fatal_error("Unable to create logger spy");
+  }
+
+  ocudulog::fetch_basic_logger("RLC", *spy, true);
+  return *spy;
+}();
+
 /// Fixture class for RLC AM Tx tests
 /// It requires TEST_P() and INSTANTIATE_TEST_SUITE_P() to create/spawn tests for each supported SN size
 class rlc_tx_am_test : public ::testing::Test, public ::testing::WithParamInterface<rlc_am_sn_size>
@@ -101,6 +117,9 @@ protected:
     // init test's logger
     ocudulog::init();
     logger.set_level(ocudulog::basic_levels::debug);
+
+    // reset log spy
+    test_spy.reset_counters();
 
     // init RLC logger
     ocudulog::fetch_basic_logger("RLC", false).set_level(ocudulog::basic_levels::debug);
@@ -738,6 +757,54 @@ TEST_P(rlc_tx_am_test, invalid_status_report_ack_sn_larger_than_tx_next)
 
   // Verify protocol error notification
   ASSERT_EQ(tester->proto_err_count, 1);
+}
+
+TEST_P(rlc_tx_am_test, valid_status_report_ack_sn_larger_than_tx_next)
+{
+  const uint32_t n_sdus   = 5;
+  const uint32_t sdu_size = 9;
+
+  const uint32_t n_splits = 3;
+
+  const uint32_t n_pdus      = n_sdus * n_splits - 1;
+  const uint32_t header_size = (sn_size == rlc_am_sn_size::size12bits ? 2 : 3);
+  const uint32_t so_size     = 2;
+  const uint32_t pdu_size    = header_size + so_size + (sdu_size / n_splits);
+
+  const uint32_t unsent_sdu_bytes = sdu_size / n_splits - so_size; // Subtract 2 extra bytes from 1st segment (no SO).
+  tx_segmented_pdus(n_pdus, pdu_size, n_sdus, sdu_size, unsent_sdu_bytes + header_size + so_size);
+
+  uint32_t remaining_bytes = rlc->get_buffer_state().pending_bytes;
+  EXPECT_NE(remaining_bytes, 0);
+
+  // Since SN=4 is currently under segmentation, we may receive an ACK=5; SN=4 must not be removed from TX window.
+  {
+    rlc_am_status_pdu status_pdu(sn_size);
+    status_pdu.ack_sn = n_sdus;
+    rlc->on_status_pdu(std::move(status_pdu));
+  }
+  pcell_worker.run_pending_tasks();
+  ue_worker.run_pending_tasks();
+
+  // Unchanged; SN=4 is still under segmentation..
+  EXPECT_EQ(rlc->get_buffer_state().pending_bytes, remaining_bytes);
+
+  // Read the remaining segment.
+  std::vector<uint8_t> pdu_buf;
+  size_t               pdu_len;
+  pdu_buf.resize(remaining_bytes);
+  pdu_len = rlc->pull_pdu(pdu_buf);
+  pdu_buf.resize(pdu_len);
+  EXPECT_EQ(pdu_len, remaining_bytes);
+
+  pcell_worker.run_pending_tasks();
+  ue_worker.run_pending_tasks();
+
+  EXPECT_EQ(rlc->get_buffer_state().pending_bytes, 0);
+
+  // No warnings or errors
+  EXPECT_EQ(test_spy.get_warning_counter(), 0);
+  EXPECT_EQ(test_spy.get_error_counter(), 0);
 }
 
 TEST_P(rlc_tx_am_test, retx_pdu_without_segmentation)
