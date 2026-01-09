@@ -10,13 +10,12 @@
 
 #pragma once
 
+#include "ocudu/cu_cp/cu_cp_xnc_handler.h"
 #include <cstdint>
 #include <optional>
 
 namespace ocudu {
 namespace ocucp {
-
-class xnc_handler;
 
 /// Connection gateway responsible for handling new connection requests/drops coming
 /// from neighbour gNBs via the XN-C interface and converting them to CU-CP commands.
@@ -26,7 +25,7 @@ public:
   virtual ~xnc_connection_gateway() = default;
 
   /// Attach a XN-C handler to the XN-C gateway.
-  virtual void attach_xnc(xnc_handler& xnc_handler_) = 0;
+  virtual void attach_xnc(cu_cp_xnc_handler& xnc_handler_) = 0;
 
   /// Get port on which the F1-C Server is listening for new connections.
   ///

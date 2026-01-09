@@ -12,13 +12,14 @@
 
 #include "../xnap_repository.h"
 #include "ocudu/cu_cp/common_task_scheduler.h"
+#include "ocudu/cu_cp/cu_cp_xnc_handler.h"
 
 namespace ocudu::ocucp {
 
 class cu_cp_routine_manager;
 struct cu_cp_configuration;
 
-class xnc_connection_manager
+class xnc_connection_manager : public cu_cp_xnc_handler
 {
 public:
   xnc_connection_manager(xnap_repository&       xnaps_,
@@ -28,6 +29,9 @@ public:
 
   /// TODO.
   void connect_to_neighbours();
+
+  std::unique_ptr<xnap_message_notifier>
+  handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier) override;
 
   void stop();
 

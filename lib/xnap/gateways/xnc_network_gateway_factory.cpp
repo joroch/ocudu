@@ -10,6 +10,7 @@
 
 #include "ocudu/xnap/gateways/xnc_network_gateway_factory.h"
 #include "ocudu/asn1/asn1_utils.h"
+#include "ocudu/cu_cp/cu_cp_xnc_handler.h"
 #include "ocudu/gateways/sctp_network_server_factory.h"
 #include "ocudu/pcap/dlt_pcap.h"
 #include "ocudu/support/error_handling.h"
@@ -108,7 +109,7 @@ public:
     report_error_if_not(sctp_server != nullptr, "Failed to create SCTP server");
   }
 
-  void attach_xnc(ocucp::xnc_handler& xnap_handler_) override
+  void attach_xnc(ocucp::cu_cp_xnc_handler& xnap_handler_) override
   {
     xnap_handler = &xnap_handler_;
 
@@ -133,8 +134,9 @@ public:
     // Create an unpacked XNAP PDU notifier and pass it to the CU-CP.
     auto xnc_sender = std::make_unique<xnc_to_gw_pdu_notifier>(std::move(sctp_send_notifier), params.pcap, logger);
 
-    // std::unique_ptr<xnap_message_notifier> xnc_receiver = xnap_handler->handle_new_connection(std::move(xnc_sender));
-    std::unique_ptr<xnap_message_notifier> xnc_receiver = nullptr;
+    std::unique_ptr<xnap_message_notifier> xnc_receiver =
+        xnap_handler->handle_new_xnc_connection(std::move(xnc_sender));
+    // std::unique_ptr<xnap_message_notifier> xnc_receiver = nullptr;
 
     // Wrap the received XNAP Rx PDU notifier in an SCTP notifier and return it.
     if (xnc_receiver == nullptr) {
@@ -147,7 +149,7 @@ public:
 private:
   const xnc_sctp_gateway_config params;
   ocudulog::basic_logger&       logger       = ocudulog::fetch_basic_logger("XNAP");
-  ocucp::xnc_handler*           xnap_handler = nullptr;
+  ocucp::cu_cp_xnc_handler*     xnap_handler = nullptr;
 
   std::unique_ptr<sctp_network_server> sctp_server;
 };

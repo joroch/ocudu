@@ -55,33 +55,33 @@ void xnc_connection_manager::stop()
     return;
   }
 
+  /*
   baton               stop_baton;
   scoped_baton_sender signal_stop{stop_baton};
+    // Stop and delete AMF connections.
+    while (not cu_cp_exec.defer([this, signal_stop = std::move(signal_stop)]() mutable {
+      common_task_sched.schedule_async_task(
+          launch_async([this, signal_stop = std::move(signal_stop)](coro_context<async_task<void>>& ctx) mutable {
+            CORO_BEGIN(ctx);
+            // Disconnect XNAP connection(s).
+            CORO_AWAIT(disconnect_neighbours());
 
-  // Stop and delete AMF connections.
-  while (not cu_cp_exec.defer([this, signal_stop = std::move(signal_stop)]() mutable {
-    common_task_sched.schedule_async_task(
-        launch_async([this, signal_stop = std::move(signal_stop)](coro_context<async_task<void>>& ctx) mutable {
-          CORO_BEGIN(ctx);
-          // Disconnect XNAP connection(s).
-          CORO_AWAIT(disconnect_neighbours());
+            // XNAP disconnection successfully finished.
+            // Dispatch main async task loop destruction via defer so that the current coroutine ends successfully.
+            while (not cu_cp_exec.defer([signal_stop = std::move(signal_stop)]() mutable { signal_stop.post(); })) {
+              logger.warning("Unable to stop AMF Manager. Retrying...");
+              std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
 
-          // XNAP disconnection successfully finished.
-          // Dispatch main async task loop destruction via defer so that the current coroutine ends successfully.
-          while (not cu_cp_exec.defer([signal_stop = std::move(signal_stop)]() mutable { signal_stop.post(); })) {
-            logger.warning("Unable to stop AMF Manager. Retrying...");
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          }
-
-          CORO_RETURN();
-        }));
-  })) {
-    logger.warning("Failed to dispatch AMF stop task. Retrying...");
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-
+            CORO_RETURN();
+          }));
+    })) {
+      logger.warning("Failed to dispatch AMF stop task. Retrying...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
   // Wait for AMF stop to complete.
   stop_baton.wait();
+  */
 
   stopped = true;
 }
@@ -96,9 +96,12 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
     return nullptr;
   }
 
-  // Find XNAP neighbours
+  // TODO
+  // Find XNAP neighbour.
+  std::unique_ptr<xnap_message_notifier> rx_pdu_notifier = nullptr;
 
   // We dispatch the task to allocate a DU processor and "attach" it to the notifier
+  /*
   while (not cu_cp_exec.execute([this, shared_ctxt, sender_notifier = std::move(xnap_tx_pdu_notifier)]() mutable {
     // Create a new DU processor.
     du_index_t du_index = dus.add_du(std::move(sender_notifier));
@@ -120,6 +123,7 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
     logger.debug("Failed to dispatch CU-CP DU connection task. Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
+  */
 
   return rx_pdu_notifier;
 }
