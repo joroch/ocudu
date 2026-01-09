@@ -10,15 +10,10 @@
 
 #pragma once
 
-#include "../ngap_repository.h"
-#include "../ue_manager/ue_manager_impl.h"
+#include "../xnap_repository.h"
 #include "ocudu/cu_cp/common_task_scheduler.h"
-#include "ocudu/cu_cp/cu_cp.h"
-#include "ocudu/ran/plmn_identity.h"
-#include <future>
 
-namespace ocudu {
-namespace ocucp {
+namespace ocudu::ocucp {
 
 class cu_cp_routine_manager;
 struct cu_cp_configuration;
@@ -26,7 +21,7 @@ struct cu_cp_configuration;
 class xnc_connection_manager
 {
 public:
-  xnc_connection_manager(xnap_repository&       ngaps_,
+  xnc_connection_manager(xnap_repository&       xnaps_,
                          timer_manager&         timers_,
                          task_executor&         cu_cp_exec_,
                          common_task_scheduler& common_task_sched_);
@@ -46,10 +41,9 @@ private:
   common_task_scheduler&  common_task_sched;
   ocudulog::basic_logger& logger;
 
-  std::unordered_map<amf_index_t, std::atomic<bool>> amfs_connected;
+  std::unordered_map<xnc_peer_index_t, std::atomic<bool>> xnaps_connected;
 
   std::atomic<bool> stopped{false};
 };
 
-} // namespace ocucp
-} // namespace ocudu
+} // namespace ocudu::ocucp

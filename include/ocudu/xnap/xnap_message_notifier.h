@@ -14,13 +14,13 @@ namespace ocudu {
 
 struct xnap_message;
 
-/// Notifier interface used to notify outgoing F1AP messages.
+/// Notifier interface used to notify outgoing XNAP messages.
 class xnap_message_notifier
 {
 public:
   virtual ~xnap_message_notifier() = default;
 
-  /// This callback is invoked on each outgoing F1AP message.
+  /// This callback is invoked on each outgoing XNAP message.
   virtual void on_new_message(const xnap_message& msg) = 0;
 };
 

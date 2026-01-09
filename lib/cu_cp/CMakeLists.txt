@@ -29,6 +29,7 @@ set(SOURCES
         du_processor/du_processor_repository.cpp
         metrics_handler/metrics_handler_impl.cpp
         ngap_repository.cpp
+        xnap_repository.cpp
         paging/paging_message_handler.cpp
         routines/amf_connection_loss_routine.cpp
         routines/amf_connection_setup_routine.cpp

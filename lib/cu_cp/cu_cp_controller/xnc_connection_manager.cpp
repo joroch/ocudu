@@ -17,6 +17,7 @@
 #include "ocudu/ngap/ngap.h"
 #include "ocudu/ran/plmn_identity.h"
 #include "ocudu/support/synchronization/baton.h"
+#include "ocudu/xnap/xnap_message_notifier.h"
 #include <chrono>
 #include <thread>
 
@@ -42,7 +43,7 @@ void xnc_connection_manager::connect_to_neighbours()
     CORO_BEGIN(ctx);
 
     // TODO try to connect to all neighbours.
-    // CORO_AWAIT_VALUE(success, start_amf_connection_setup(ngaps, amfs_connected));
+    // CORO_AWAIT_VALUE(success, start_xnc_connection_setup(ngaps, amfs_connected));
 
     CORO_RETURN();
   }));
@@ -86,7 +87,7 @@ void xnc_connection_manager::stop()
 }
 
 std::unique_ptr<xnap_message_notifier>
-xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> f1ap_tx_pdu_notifier)
+xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier)
 {
   // Note: This function may be called from a different execution context than the CU-CP.
 
@@ -95,15 +96,10 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
     return nullptr;
   }
 
-  // Verify that there is space for new DU connection.
-  // TODO.
-
-  // We create a "detached" notifier, that has no associated DU processor yet.
-  auto shared_ctxt     = std::make_shared<shared_du_connection_context>(*this);
-  auto rx_pdu_notifier = std::make_unique<f1_gw_to_cu_cp_pdu_adapter>(*this, shared_ctxt);
+  // Find XNAP neighbours
 
   // We dispatch the task to allocate a DU processor and "attach" it to the notifier
-  while (not cu_cp_exec.execute([this, shared_ctxt, sender_notifier = std::move(f1ap_tx_pdu_notifier)]() mutable {
+  while (not cu_cp_exec.execute([this, shared_ctxt, sender_notifier = std::move(xnap_tx_pdu_notifier)]() mutable {
     // Create a new DU processor.
     du_index_t du_index = dus.add_du(std::move(sender_notifier));
     if (du_index == du_index_t::invalid) {

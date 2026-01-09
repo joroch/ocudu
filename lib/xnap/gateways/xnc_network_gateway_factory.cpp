@@ -136,7 +136,7 @@ public:
     // std::unique_ptr<xnap_message_notifier> xnc_receiver = xnap_handler->handle_new_connection(std::move(xnc_sender));
     std::unique_ptr<xnap_message_notifier> xnc_receiver = nullptr;
 
-    // Wrap the received F1AP Rx PDU notifier in an SCTP notifier and return it.
+    // Wrap the received XNAP Rx PDU notifier in an SCTP notifier and return it.
     if (xnc_receiver == nullptr) {
       return nullptr;
     }

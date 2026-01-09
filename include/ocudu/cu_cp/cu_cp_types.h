@@ -49,6 +49,8 @@ const uint16_t MAX_NOF_CU_UPS = 65535;
 const uint64_t MAX_NOF_CU_UES = 4294967295; // 2^32 - 1
 /// Maximum number of AMFs supported by CU-CP (implementation-defined).
 const uint16_t MAX_NOF_AMFS = 65535;
+/// Maximum number of XN-C peers supported by CU-CP (implementation-defined).
+const uint16_t MAX_NOF_XNC_PEERS = 65535;
 
 /// \brief ue_index internally used to identify the UE CU-CP-wide.
 /// \remark The ue_index is derived from the maximum number of DUs and the maximum number of UEs per DU.
@@ -113,6 +115,9 @@ constexpr std::underlying_type_t<du_cell_index_t> du_cell_index_to_uint(du_cell_
 
 /// Maximum number of AMFs supported by CU-CP (implementation-defined).
 enum class amf_index_t : uint16_t { min = 0, max = MAX_NOF_AMFS - 1, invalid = MAX_NOF_AMFS };
+
+/// Maximum number of XN-C peers supported by CU-CP (implementation-defined).
+enum class xnc_peer_index_t : uint16_t { min = 0, max = MAX_NOF_XNC_PEERS - 1, invalid = MAX_NOF_XNC_PEERS };
 
 /// Convert integer to AMF index type.
 constexpr amf_index_t uint_to_amf_index(std::underlying_type_t<amf_index_t> index)
