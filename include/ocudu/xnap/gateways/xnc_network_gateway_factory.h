@@ -23,6 +23,8 @@ class task_executor;
 struct xnc_sctp_gateway_config {
   /// SCTP configuration.
   sctp_network_gateway_config sctp;
+  /// SCTP peer config.
+  std::vector<sctp_network_peer_config> peers;
   /// IO broker responsible for handling SCTP Rx data and notifications.
   io_broker& broker;
   /// Execution context used to process received SCTP packets.

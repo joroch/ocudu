@@ -360,11 +360,12 @@ int main(int argc, char** argv)
   sctp_network_gateway_config xnc_sctp_cfg = {};
   f1c_sctp_cfg.if_name                     = "XN-C1";
   f1c_sctp_cfg.bind_address                = cu_cfg.f1ap_cfg.bind_addr;
-  f1c_sctp_cfg.bind_port                   = F1AP_PORT;
-  f1c_sctp_cfg.ppid                        = F1AP_PPID;
+  f1c_sctp_cfg.bind_port                   = XNAP_PORT;
+  f1c_sctp_cfg.ppid                        = XNAP_PPID;
   /// TODO change RX executor.
-  xnc_sctp_gateway_config xnc_server_cfg(
-      {xnc_sctp_cfg, *epoll_broker, workers.get_cu_cp_executor_mapper().f1c_rx_executor(), xnc_pcap});
+  std::vector<sctp_network_peer_config> peers;
+  xnc_sctp_gateway_config               xnc_server_cfg(
+      {xnc_sctp_cfg, peers, *epoll_broker, workers.get_cu_cp_executor_mapper().f1c_rx_executor(), xnc_pcap});
 
   std::unique_ptr<ocucp::xnc_connection_gateway> xnc_gw = ocudu::create_xnc_gateway(xnc_server_cfg);
 

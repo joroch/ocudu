@@ -74,6 +74,7 @@ cu_cp_impl::cu_cp_impl(const cu_cp_configuration& config_) :
   cu_up_db(cu_up_repository_config{cfg, e1ap_ev_notifier, common_task_sched, ocudulog::fetch_basic_logger("CU-CP")}),
   paging_handler(du_db),
   ngap_db(ngap_repository_config{cfg, get_cu_cp_ngap_handler(), paging_handler, ocudulog::fetch_basic_logger("CU-CP")}),
+  xnc_db({ocudulog::fetch_basic_logger("CU-CP")}),
   mobility_mng(cfg.mobility.mobility_manager_config, mobility_manager_ev_notifier, ngap_db, du_db, ue_mng),
   controller(cfg,
              get_cu_cp_amf_reconnection_handler(),
@@ -81,6 +82,7 @@ cu_cp_impl::cu_cp_impl(const cu_cp_configuration& config_) :
              ngap_db,
              cu_up_db,
              du_db,
+             xnc_db,
              *cfg.services.cu_cp_executor),
   metrics_hdlr(std::make_unique<metrics_handler_impl>(*cfg.services.cu_cp_executor,
                                                       *cfg.services.timers,
@@ -131,7 +133,18 @@ bool cu_cp_impl::start()
     report_fatal_error("Failed to initiate CU-CP setup");
   }
   // Block waiting for CU-CP setup to complete.
-  return fut.get();
+  if (not fut.get()) {
+    return false; // Could not connect to AMF.
+  }
+
+  // Setup succeeded, connect to peers.
+  if (not cfg.services.cu_cp_executor->execute([this, &p]() {
+        // Start AMF connection procedure.
+        controller.xnc_connection_handler().connect_to_neighbours();
+      })) {
+    report_fatal_error("Failed to initiate CU-CP setup");
+  }
+  return true;
 }
 
 void cu_cp_impl::stop()

@@ -231,6 +231,9 @@ private:
   // AMF connections beeing managed by the CU-CP.
   ngap_repository ngap_db;
 
+  // AMF connections beeing managed by the CU-CP.
+  xnap_repository xnc_db;
+
   // Mobility manager.
   mobility_manager mobility_mng;
 

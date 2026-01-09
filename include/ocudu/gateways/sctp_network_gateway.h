@@ -22,10 +22,12 @@ constexpr uint16_t E1AP_PPID  = 64; ///< E1AP PPID, see TS 37.482, section 7.
 constexpr uint16_t E2_CP_PPID = 70; ///< E2-CP PPID assigned by IANA
 constexpr uint16_t E2_UP_PPID = 71; ///< E2-UP PPID assigned by IANA
 constexpr uint16_t E2_DU_PPID = 72; ///< E2-DU PPID assigned by IANA
+constexpr uint16_t XNAP_PPID  = 62; ///< XNAP PPID, see TS 38.472, section 7.
 
 constexpr uint16_t NGAP_PORT = 38412; ///< NGAP port, see TS 38.412, section 7.
 constexpr uint16_t E1AP_PORT = 38462; ///< E1AP port, see TS 38.462, section 7.
 constexpr uint16_t F1AP_PORT = 38472; ///< F1AP port, see TS 38.472, section 7.
+constexpr uint16_t XNAP_PORT = 38472; ///< F1AP port, see TS 38.472, section 7.
 
 /// \brief Configuration for SCTP network gateway that is common to the server and client.
 struct sctp_network_gateway_config : public common_network_gateway_config {
@@ -44,6 +46,14 @@ struct sctp_network_gateway_config : public common_network_gateway_config {
   std::optional<std::chrono::milliseconds> hb_interval;
   std::optional<int32_t>                   assoc_max_rxt;
   std::optional<bool>                      nodelay;
+};
+
+/// TODO use peer config in connector config too.
+/// TODO Docs.
+struct sctp_network_peer_config {
+  std::string dest_name;
+  std::string connect_address;
+  int         connect_port = 0;
 };
 
 /// \brief Configuration for SCTP network client
