@@ -121,7 +121,7 @@ public:
     bench->pg_sch.run_slot(bench->res_grid);
 
     // Log scheduling results.
-    sched_res_logger.on_scheduler_result(bench->res_grid[0].result);
+    sched_res_logger.on_scheduler_result(current_slot, bench->res_grid[0].result);
 
     // Check sched result consistency.
     test_scheduler_result_consistency(bench->cell_cfg, bench->res_grid);

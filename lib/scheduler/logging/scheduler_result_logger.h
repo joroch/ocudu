@@ -12,21 +12,19 @@
 
 #include "ocudu/ocudulog/logger.h"
 #include "ocudu/ran/pci.h"
+#include "ocudu/ran/slot_point.h"
+#include "ocudu/scheduler/result/scheduler_result_handler.h"
 
 namespace ocudu {
 
-struct sched_result;
-
-class scheduler_result_logger
+class scheduler_result_logger : public scheduler_result_handler
 {
 public:
   explicit scheduler_result_logger(bool log_broadcast_, pci_t pci_);
 
-  /// Log scheduler result for a specific cell and slot.
-  /// \param[in] result Scheduling result for this slot.
-  /// \param[in] slot_latency Latency that it took for the scheduler to make the decision for the slot.
-  void on_scheduler_result(const sched_result&       result,
-                           std::chrono::microseconds slot_latency = std::chrono::microseconds{0});
+  void on_scheduler_result(slot_point                sl,
+                           const sched_result&       result,
+                           std::chrono::microseconds slot_latency = std::chrono::microseconds{0}) override;
 
 private:
   void log_debug(const sched_result& result, std::chrono::microseconds slot_latency);

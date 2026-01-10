@@ -791,9 +791,11 @@ void scheduler_result_logger::log_info(const sched_result& result, std::chrono::
   }
 }
 
-void scheduler_result_logger::on_scheduler_result(const sched_result&       result,
+void scheduler_result_logger::on_scheduler_result(slot_point                sl,
+                                                  const sched_result&       result,
                                                   std::chrono::microseconds decision_latency)
 {
+  (void)sl;
   if (not enabled) {
     return;
   }

@@ -173,7 +173,7 @@ protected:
 
     bench->fallback_sched.run_slot(bench->res_grid);
 
-    result_logger.on_scheduler_result(bench->res_grid[0].result);
+    result_logger.on_scheduler_result(current_slot, bench->res_grid[0].result);
 
     // Check sched result consistency.
     test_scheduler_result_consistency(bench->cell_cfg, bench->res_grid);
@@ -826,9 +826,9 @@ TEST_F(fallback_scheduler_tdd_tester, test_allocation_in_appropriate_slots_in_td
   auto                cell_cfg           = create_custom_cell_config_request(k0);
   setup_sched(create_expert_config(max_msg4_mcs_index), cell_cfg);
 
-  const unsigned MAX_UES            = 4;
-  const unsigned MAX_TEST_RUN_SLOTS = 40;
-  const unsigned MAC_SRB0_SDU_SIZE  = 129;
+  static constexpr unsigned MAX_UES            = 4;
+  static constexpr unsigned MAX_TEST_RUN_SLOTS = 40;
+  static constexpr unsigned MAC_SRB0_SDU_SIZE  = 129;
 
   // Add UEs.
   for (unsigned idx = 0; idx < MAX_UES; idx++) {
@@ -887,8 +887,8 @@ TEST_F(fallback_scheduler_tdd_tester, test_allocation_in_partial_slots_tdd)
   expert_cfg.ue.min_k1               = 2;
   setup_sched(expert_cfg, cell_cfg);
 
-  const unsigned MAX_TEST_RUN_SLOTS = 40;
-  const unsigned MAC_SRB0_SDU_SIZE  = 129;
+  static constexpr unsigned MAX_TEST_RUN_SLOTS = 40;
+  static constexpr unsigned MAC_SRB0_SDU_SIZE  = 129;
 
   // Add a single UE.
   add_ue(to_rnti(0x4601), to_du_ue_index(0));
@@ -920,10 +920,10 @@ class fallback_scheduler_head_scheduling : public base_fallback_tester,
                                            public ::testing::TestWithParam<fallback_sched_test_params>
 {
 protected:
-  const unsigned MAX_NOF_SLOTS_GRID_IS_BUSY = 4;
-  const unsigned MAX_TEST_RUN_SLOTS         = 2100;
+  static constexpr unsigned MAX_NOF_SLOTS_GRID_IS_BUSY = 4;
+  static constexpr unsigned MAX_TEST_RUN_SLOTS         = 2100;
   // NOTE: Ensure that the SDU size is small enough so that there is no segmentation when tested for SRB1.
-  const unsigned MAC_SRB_SDU_SIZE = 101;
+  static constexpr unsigned MAC_SRB_SDU_SIZE = 101;
 
   fallback_scheduler_head_scheduling() : base_fallback_tester(GetParam().duplx_mode, false)
   {
@@ -1196,11 +1196,11 @@ protected:
     unsigned missed_srb_cnt = 0;
   };
 
-  const unsigned SRB_PACKETS_TOT_TX = 20;
-  const unsigned MAX_UES            = 1;
-  const unsigned MAX_TEST_RUN_SLOTS = 2100;
+  static constexpr unsigned SRB_PACKETS_TOT_TX = 20;
+  static constexpr unsigned MAX_UES            = 1;
+  static constexpr unsigned MAX_TEST_RUN_SLOTS = 2100;
   // NOTE: Ensure that the SDU size is small enough so that there is no segmentation when tested for SRB1.
-  const unsigned MAC_SRB0_SDU_SIZE = 101;
+  static constexpr unsigned MAC_SRB0_SDU_SIZE = 101;
 
   std::vector<ue_retx_tester> ues_testers;
 };
@@ -1409,10 +1409,10 @@ protected:
     std::vector<h_state> latest_harq_states;
   };
 
-  const unsigned SRB_PACKETS_TOT_TX    = 10;
-  const unsigned MAX_UES               = 10;
-  const unsigned MAX_TEST_RUN_SLOTS    = 200;
-  const unsigned MAX_MAC_SRB0_SDU_SIZE = 1600;
+  static constexpr unsigned SRB_PACKETS_TOT_TX    = 10;
+  static constexpr unsigned MAX_UES               = 10;
+  static constexpr unsigned MAX_TEST_RUN_SLOTS    = 200;
+  static constexpr unsigned MAX_MAC_SRB0_SDU_SIZE = 1600;
 
   std::vector<ue_retx_tester> ues_testers;
 };
@@ -1531,9 +1531,9 @@ protected:
   };
 
   ul_fallback_sched_test_params params;
-  const unsigned                MAX_UES                  = 10;
-  const unsigned                MAX_TEST_RUN_SLOTS       = 100;
-  const unsigned                MAX_MAC_UL_SRB1_SDU_SIZE = 3000;
+  static constexpr unsigned     MAX_UES                  = 10;
+  static constexpr unsigned     MAX_TEST_RUN_SLOTS       = 100;
+  static constexpr unsigned     MAX_MAC_UL_SRB1_SDU_SIZE = 3000;
 
   std::vector<ue_ul_tester> ues_testers;
 };
@@ -1590,7 +1590,7 @@ protected:
   }
 
   ul_fallback_sched_test_params params;
-  const unsigned                MAX_TEST_RUN_SLOTS = 100;
+  static constexpr unsigned     MAX_TEST_RUN_SLOTS = 100;
   slot_point                    slot_generate_srb_traffic;
 };
 
@@ -1644,8 +1644,8 @@ protected:
   // Helper that generates the slot for the SRB0 buffer update.
   static unsigned generate_srb_traffic_slot() { return test_rgen::uniform_int(20U, 30U); }
 
-  const unsigned MAC_SRB_SDU_SIZE   = 101;
-  const unsigned MAX_TEST_RUN_SLOTS = 50;
+  static constexpr unsigned MAC_SRB_SDU_SIZE   = 101;
+  static constexpr unsigned MAX_TEST_RUN_SLOTS = 50;
 };
 
 TEST_F(fallback_sched_ue_w_out_pucch_cfg, when_srb0_is_retx_ed_only_pucch_common_is_scheduled)

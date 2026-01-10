@@ -15,7 +15,7 @@
 namespace ocudu {
 
 /// The number of OFDM symbols per slot is constant for all numerologies.
-const unsigned NOF_OFDM_SYM_PER_SLOT_NORMAL_CP   = 14;
-const unsigned NOF_OFDM_SYM_PER_SLOT_EXTENDED_CP = 12;
+constexpr unsigned NOF_OFDM_SYM_PER_SLOT_NORMAL_CP   = 14;
+constexpr unsigned NOF_OFDM_SYM_PER_SLOT_EXTENDED_CP = 12;
 
 } // namespace ocudu

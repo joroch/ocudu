@@ -10,9 +10,15 @@
 
 #include "cell_scheduler.h"
 #include "logging/scheduler_metrics_handler.h"
-#include "ue_scheduling/ue_scheduler_impl.h"
 
 using namespace ocudu;
+
+#ifndef OCUDU_HAS_SCHEDVIZ
+std::unique_ptr<scheduler_result_handler> ocudu::create_scheduler_result_handler(const cell_configuration& /*unused*/)
+{
+  return nullptr;
+}
+#endif
 
 cell_scheduler::cell_scheduler(const scheduler_expert_config&                  sched_cfg,
                                const sched_cell_configuration_request_message& msg,
@@ -24,6 +30,7 @@ cell_scheduler::cell_scheduler(const scheduler_expert_config&                  s
   event_logger(cell_cfg.cell_index, cell_cfg.pci),
   metrics(metrics_handler),
   result_logger(sched_cfg.log_broadcast_messages, cell_cfg.pci),
+  result_handler(create_scheduler_result_handler(cell_cfg_)),
   logger(ocudulog::fetch_basic_logger("SCHED")),
   ssb_sch(cell_cfg),
   pdcch_sch(cell_cfg),
@@ -38,6 +45,8 @@ cell_scheduler::cell_scheduler(const scheduler_expert_config&                  s
   // Register new cell in the UE scheduler.
   ue_sched = ue_sched_.add_cell(ue_cell_scheduler_creation_request{
       msg.cell_index, &pdcch_sch, &pucch_alloc, &uci_alloc, &res_grid, &metrics, &event_logger});
+
+  result_handler = create_scheduler_result_handler(cell_cfg);
 }
 
 void cell_scheduler::handle_si_update_request(const si_scheduling_update_request& msg)
@@ -56,7 +65,8 @@ void cell_scheduler::handle_crc_indication(const ul_crc_indication& crc_ind)
       crc_ind.crcs.begin(), crc_ind.crcs.end(), [](const auto& pdu) { return pdu.ue_index == INVALID_DU_UE_INDEX; });
 
   if (has_msg3_crcs) {
-    ul_crc_indication msg3_crcs{}, ue_crcs{};
+    ul_crc_indication msg3_crcs{};
+    ul_crc_indication ue_crcs{};
     msg3_crcs.sl_rx      = crc_ind.sl_rx;
     msg3_crcs.cell_index = crc_ind.cell_index;
     ue_crcs.sl_rx        = crc_ind.sl_rx;
@@ -128,7 +138,11 @@ void cell_scheduler::run_slot(slot_point sl_tx)
   event_logger.log();
 
   // > Log the scheduler results.
-  result_logger.on_scheduler_result(last_result(), slot_dur);
+  result_logger.on_scheduler_result(sl_tx, last_result(), slot_dur);
+
+  if (result_handler) {
+    result_handler->on_scheduler_result(sl_tx, last_result(), slot_dur);
+  }
 
   // > Push the scheduler results to the metrics handler.
   metrics.push_result(sl_tx, last_result(), slot_dur);

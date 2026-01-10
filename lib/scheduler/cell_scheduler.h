@@ -24,6 +24,8 @@
 #include "pucch_scheduling/pucch_allocator_impl.h"
 #include "uci_scheduling/uci_allocator_impl.h"
 #include "ue_scheduling/ue_scheduler.h"
+#include "ocudu/scheduler/result/scheduler_result_handler.h"
+#include <memory>
 
 namespace ocudu {
 
@@ -81,10 +83,11 @@ private:
   cell_resource_allocator res_grid;
 
   /// Logger of cell events and scheduling results.
-  scheduler_event_logger  event_logger;
-  cell_metrics_handler&   metrics;
-  scheduler_result_logger result_logger;
-  ocudulog::basic_logger& logger;
+  scheduler_event_logger                    event_logger;
+  cell_metrics_handler&                     metrics;
+  scheduler_result_logger                   result_logger;
+  std::unique_ptr<scheduler_result_handler> result_handler;
+  ocudulog::basic_logger&                   logger;
 
   ssb_scheduler                 ssb_sch;
   pdcch_resource_allocator_impl pdcch_sch;

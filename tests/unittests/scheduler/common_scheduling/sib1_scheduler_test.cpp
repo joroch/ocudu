@@ -335,7 +335,7 @@ void test_sib1_scheduler(subcarrier_spacing                         scs_common,
     }
 
     // Log results.
-    t_bench.sched_res_logger.on_scheduler_result(t_bench.get_slot_res_grid().result);
+    t_bench.sched_res_logger.on_scheduler_result(t_bench.sl_tx, t_bench.get_slot_res_grid().result);
 
     // Update SLOT.
     t_bench.slot_indication();
@@ -395,7 +395,7 @@ void test_sib1_periodicity(sib1_rtx_periodicity sib1_rtx_period, ssb_periodicity
     }
 
     // Log results.
-    t_bench.sched_res_logger.on_scheduler_result(t_bench.get_slot_res_grid().result);
+    t_bench.sched_res_logger.on_scheduler_result(t_bench.sl_tx, t_bench.get_slot_res_grid().result);
 
     // Update SLOT.
     t_bench.slot_indication();
@@ -449,7 +449,7 @@ void test_ssb_sib1_collision(arfcn_t              freq_arfcn,
     test_dl_resource_grid_collisions(t_bench.cfg, res_slot_grid.result.dl);
 
     // Log results.
-    t_bench.sched_res_logger.on_scheduler_result(t_bench.get_slot_res_grid().result);
+    t_bench.sched_res_logger.on_scheduler_result(t_bench.sl_tx, t_bench.get_slot_res_grid().result);
 
     // Update SLOT.
     t_bench.slot_indication();
@@ -739,7 +739,7 @@ TEST_P(sib1_tdd_partial_slot_test, successful_sib1_allocation_in_partial_slot)
     }
 
     // Log results.
-    t_bench.sched_res_logger.on_scheduler_result(t_bench.res_grid[0].result);
+    t_bench.sched_res_logger.on_scheduler_result(t_bench.sl_tx, t_bench.res_grid[0].result);
 
     // Update SLOT.
     t_bench.slot_indication();

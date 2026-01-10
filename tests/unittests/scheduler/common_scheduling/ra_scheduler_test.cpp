@@ -95,7 +95,7 @@ protected:
 
     ra_sch.run_slot(res_grid);
 
-    result_logger.on_scheduler_result(res_grid[0].result);
+    result_logger.on_scheduler_result(next_slot, res_grid[0].result);
 
     // Check sched result consistency.
     ASSERT_NO_FATAL_FAILURE(test_result_consistency());

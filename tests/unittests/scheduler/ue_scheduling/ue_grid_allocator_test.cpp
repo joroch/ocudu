@@ -110,7 +110,7 @@ protected:
     alloc.post_process_results();
 
     // Log scheduler results.
-    res_logger.on_scheduler_result(res_grid[0].result);
+    res_logger.on_scheduler_result(current_slot, res_grid[0].result);
   }
 
   bool run_until(const std::function<void()>& to_run, unique_function<bool()> until, unsigned max_slot_count = 1000)
