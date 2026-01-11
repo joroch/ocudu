@@ -12,11 +12,11 @@
 
 #include "ocudu/asn1/xnap/xnap.h"
 
-namespace ocudu {
+namespace ocudu::ocucp {
 
 /// XNAP message definition which is transferred between CU-CPs.
 struct xnap_message {
   asn1::xnap::xn_ap_pdu_c pdu;
 };
 
-} // namespace ocudu
+} // namespace ocudu::ocucp

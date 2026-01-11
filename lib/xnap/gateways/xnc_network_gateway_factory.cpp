@@ -19,6 +19,7 @@
 #include <cstdint>
 
 using namespace ocudu;
+using namespace ocudu::ocucp;
 
 namespace {
 

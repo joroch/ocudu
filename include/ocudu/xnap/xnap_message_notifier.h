@@ -10,7 +10,7 @@
 
 #pragma once
 
-namespace ocudu {
+namespace ocudu::ocucp {
 
 struct xnap_message;
 
@@ -24,4 +24,4 @@ public:
   virtual void on_new_message(const xnap_message& msg) = 0;
 };
 
-} // namespace ocudu
+} // namespace ocudu::ocucp

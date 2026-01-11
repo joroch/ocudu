@@ -6,4 +6,16 @@
 # the distribution.
 #
 
+set(SOURCES
+        xnap_impl.cpp
+    )
+
+
+add_library(ocudu_xnap STATIC ${SOURCES})
+
+target_link_libraries(ocudu_xnap
+	ocudu_cu_cp
+	xnap_asn1
+	ocudu_support)
+
 add_subdirectory(gateways)
