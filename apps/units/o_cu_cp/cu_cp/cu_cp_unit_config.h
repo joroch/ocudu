@@ -161,6 +161,12 @@ struct cu_cp_unit_e1ap_config {
   unsigned procedure_timeout = 1000;
 };
 
+/// E1AP-CU-CP configuration parameters.
+struct cu_cp_unit_xnap_config {
+  /// TODO
+  std::string bind_addr = "127.0.30.1";
+};
+
 /// RLC UM TX configuration
 struct cu_cp_unit_rlc_tx_um_config {
   /// Number of bits used for sequence number.
@@ -354,6 +360,8 @@ struct cu_cp_unit_config {
   cu_cp_unit_metrics_config metrics;
   /// AMF configuration.
   cu_cp_unit_amf_config amf_config;
+  /// XNAP configuration.
+  cu_cp_unit_xnap_config xnap_config;
   // List of all AMFs the CU-CP should connect to.
   std::vector<cu_cp_unit_amf_config_item> extra_amfs;
   /// Mobility configuration.

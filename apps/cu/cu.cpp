@@ -356,12 +356,13 @@ int main(int argc, char** argv)
   std::unique_ptr<ocucp::f1c_connection_server> cu_f1c_gw = ocudu::create_f1c_gateway_server(f1c_server_cfg);
 
   // Create XN-C GW (TODO cleanup port and PPID args with factory)
+  cu_cp_unit_config           cp_unit_cfg = o_cu_cp_app_unit->get_o_cu_cp_unit_config().cucp_cfg;
   null_dlt_pcap               xnc_pcap;
   sctp_network_gateway_config xnc_sctp_cfg = {};
-  f1c_sctp_cfg.if_name                     = "XN-C1";
-  f1c_sctp_cfg.bind_address                = cu_cfg.f1ap_cfg.bind_addr;
-  f1c_sctp_cfg.bind_port                   = XNAP_PORT;
-  f1c_sctp_cfg.ppid                        = XNAP_PPID;
+  xnc_sctp_cfg.if_name                     = "XN-C1";
+  xnc_sctp_cfg.bind_address                = cp_unit_cfg.xnap_config.bind_addr;
+  xnc_sctp_cfg.bind_port                   = XNAP_PORT;
+  xnc_sctp_cfg.ppid                        = XNAP_PPID;
   /// TODO change RX executor.
   std::vector<sctp_network_peer_config> peers;
   xnc_sctp_gateway_config               xnc_server_cfg(

@@ -192,6 +192,12 @@ static void configure_cli11_amf_args(CLI::App& app, cu_cp_unit_amf_config& confi
   configure_cli11_amf_item_args(app, config.amf);
 }
 
+static void configure_cli11_xnap_args(CLI::App& app, cu_cp_unit_xnap_config& config)
+{
+  add_option(app, "--bind_addr", config.bind_addr, "Local IP address to bind for XNAP interface")
+      ->check(CLI::ValidIPV4);
+}
+
 static void configure_cli11_report_args(CLI::App& app, cu_cp_unit_report_config& report_params)
 {
   add_option(app, "--report_cfg_id", report_params.report_cfg_id, "Report configuration id to be configured")
@@ -486,6 +492,9 @@ static void configure_cli11_cu_cp_args(CLI::App& app, cu_cp_unit_config& cu_cp_p
         }
       },
       "Sets the list of extra AMFs for the CU-CP to connect to");
+
+  CLI::App* xnap_subcmd = app.add_subcommand("xnap", "XNAP parameters")->configurable();
+  configure_cli11_xnap_args(*xnap_subcmd, cu_cp_params.xnap_config);
 
   CLI::App* mobility_subcmd = app.add_subcommand("mobility", "Mobility configuration");
   configure_cli11_mobility_args(*mobility_subcmd, cu_cp_params.mobility_config);
