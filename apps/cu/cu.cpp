@@ -359,7 +359,7 @@ int main(int argc, char** argv)
   cu_cp_unit_config           cp_unit_cfg = o_cu_cp_app_unit->get_o_cu_cp_unit_config().cucp_cfg;
   null_dlt_pcap               xnc_pcap;
   sctp_network_gateway_config xnc_sctp_cfg = {};
-  xnc_sctp_cfg.if_name                     = "XN-C1";
+  xnc_sctp_cfg.if_name                     = "XN-C";
   xnc_sctp_cfg.bind_address                = cp_unit_cfg.xnap_config.bind_addr;
   xnc_sctp_cfg.bind_port                   = XNAP_PORT;
   xnc_sctp_cfg.ppid                        = XNAP_PPID;
@@ -368,7 +368,7 @@ int main(int argc, char** argv)
   xnc_sctp_gateway_config               xnc_server_cfg(
       {xnc_sctp_cfg, peers, *epoll_broker, workers.get_cu_cp_executor_mapper().f1c_rx_executor(), xnc_pcap});
 
-  std::unique_ptr<ocucp::xnc_connection_gateway> xnc_gw = ocudu::create_xnc_gateway(xnc_server_cfg);
+  std::unique_ptr<ocucp::xnc_connection_gateway> cu_xnc_gw = ocudu::create_xnc_gateway(xnc_server_cfg);
 
   // Create F1-U GW.
   // > Create GTP-U Demux.
@@ -432,7 +432,7 @@ int main(int argc, char** argv)
   o_cu_cp_unit_dependencies o_cucp_deps;
   o_cucp_deps.executor_mapper  = &workers.get_cu_cp_executor_mapper();
   o_cucp_deps.timers           = cu_timers;
-  o_cucp_deps.xnc_gw           = xnc_gw.get();
+  o_cucp_deps.xnc_gw           = cu_xnc_gw.get();
   o_cucp_deps.ngap_pcap        = cu_cp_dlt_pcaps.ngap.get();
   o_cucp_deps.broker           = epoll_broker.get();
   o_cucp_deps.e2_gw            = e2_gw_cu_cp.get();
@@ -470,6 +470,9 @@ int main(int argc, char** argv)
 
   // Connect F1-C to O-CU-CP and start listening for new F1-C connection requests.
   cu_f1c_gw->attach_cu_cp(o_cucp_obj.get_cu_cp().get_f1c_handler());
+
+  // Connect XN-C to O-CU-CP and start listening for new XN-C connection requests.
+  cu_xnc_gw->attach_cu_cp(o_cucp_obj.get_cu_cp().get_xnc_handler());
 
   // Create and start O-CU-UP
   o_cu_up_unit_dependencies o_cuup_unit_deps;

@@ -10,19 +10,20 @@
 
 #pragma once
 
+#include "adapters/xnap_adapters.h"
 #include "ocudu/cu_cp/cu_cp_configuration.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
+#include "ocudu/cu_cp/cu_cp_xnc_handler.h"
+#include "ocudu/xnap/xnap.h"
 #include "ocudu/xnap/xnap_message_notifier.h"
 
 namespace ocudu::ocucp {
 
 struct cu_cp_configuration;
 
-/// TODO create real XNAP interface.
-struct xnap_interface {};
-
 struct xnap_repository_config {
-  ocudulog::basic_logger& logger;
+  const cu_cp_configuration& cu_cp;
+  ocudulog::basic_logger&    logger;
 };
 
 class xnap_repository
@@ -30,9 +31,9 @@ class xnap_repository
 public:
   explicit xnap_repository(xnap_repository_config cfg_);
 
-  /// \brief Adds a NGAP object to the CU-CP.
+  /// \brief Adds a XNAP object to the CU-CP.
   /// \return A pointer to the interface of the added NGAP object if it was successfully created, a nullptr otherwise.
-  xnap_interface* add_xnap(xnc_peer_index_t xnc_index, const cu_cp_configuration::ngap_config& config);
+  xnap_interface* add_xnap(xnc_peer_index_t xnc_index, const cu_cp_configuration::xnap_config& config);
 
   /// \brief Get the all NGAP interfaces.
   std::map<xnc_peer_index_t, xnap_interface*> get_xnaps();
@@ -48,7 +49,7 @@ public:
 private:
   struct xnap_context {
     // CU-CP handler of XNAP events.
-    // ngap_cu_cp_adapter ngap_to_cu_cp_notifier;
+    xnap_cu_cp_adapter xnap_to_cu_cp_notifier;
 
     std::unique_ptr<xnap_interface> xnap;
 

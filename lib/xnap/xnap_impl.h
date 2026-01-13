@@ -22,14 +22,16 @@ class xnap_impl final : public xnap_interface
 public:
   xnap_impl(const xnap_configuration& xnap_cfg_,
             xnap_cu_cp_notifier&      cu_cp_notifier_,
-            xnc_connection_gateway&   xn_gateway,
             timer_manager&            timers_,
             task_executor&            ctrl_exec_);
   ~xnap_impl();
 
-  // NGAP connection manager functions.
+  // XNAP connection manager functions.
   bool             handle_xn_peer_tnl_connection_request() override;
   async_task<void> handle_xn_setup_request_required(unsigned max_setup_retries) override;
+
+  // XNAP message handling.
+  void handle_message(const xnap_message& msg) override;
 
 private:
   class tx_pdu_notifier_with_logging final : public xnap_message_notifier

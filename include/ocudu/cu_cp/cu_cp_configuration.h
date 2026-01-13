@@ -81,6 +81,10 @@ struct cu_cp_configuration {
     std::vector<supported_tracking_area> supported_tas;
   };
 
+  struct xnap_config {
+    std::string dest_addr;
+  };
+
   struct ngap_params {
     /// NGAP configurations.
     std::vector<ngap_config> ngaps;

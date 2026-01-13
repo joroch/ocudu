@@ -9,17 +9,7 @@
  */
 
 #include "xnc_connection_manager.h"
-#include "../cu_cp_impl_interface.h"
-#include "../routines/amf_connection_removal_routine.h"
-#include "../routines/amf_connection_setup_routine.h"
-#include "../routines/amf_reconnection_routine.h"
-#include "ocudu/cu_cp/cu_cp_configuration.h"
-#include "ocudu/ngap/ngap.h"
-#include "ocudu/ran/plmn_identity.h"
-#include "ocudu/support/synchronization/baton.h"
 #include "ocudu/xnap/xnap_message_notifier.h"
-#include <chrono>
-#include <thread>
 
 using namespace ocudu;
 using namespace ocucp;
@@ -36,17 +26,25 @@ xnc_connection_manager::xnc_connection_manager(xnap_repository&       xnaps_,
 {
 }
 
-void xnc_connection_manager::connect_to_neighbours()
+void xnc_connection_manager::start()
 {
   // Schedules setup routine to be executed in sequence with other CU-CP procedures.
   common_task_sched.schedule_async_task(launch_async([this](coro_context<async_task<void>>& ctx) mutable {
     CORO_BEGIN(ctx);
 
     // TODO try to connect to all neighbours.
-    // CORO_AWAIT_VALUE(success, start_xnc_connection_setup(ngaps, amfs_connected));
+    connect_to_neighbours();
 
     CORO_RETURN();
   }));
+}
+
+void xnc_connection_manager::connect_to_neighbours()
+{
+  std::map<xnc_peer_index_t, xnap_interface*> xn = xnaps.get_xnaps();
+  // for (auto& xnap_it : xn) {
+  //   xnap_it.second()
+  // }
 }
 
 void xnc_connection_manager::stop()

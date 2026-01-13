@@ -62,6 +62,7 @@ public:
 
   cu_cp_f1c_handler& get_f1c_handler() { return du_mng; }
   cu_cp_e1_handler&  get_e1_handler() { return cu_up_mng; }
+  cu_cp_xnc_handler& get_xnc_handler() { return xnc_mng; }
 
 private:
   const cu_cp_configuration& cfg;

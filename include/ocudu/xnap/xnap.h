@@ -50,11 +50,7 @@ class xnap_cu_cp_notifier
 public:
   virtual ~xnap_cu_cp_notifier() = default;
 
-  /// \brief Request scheduling a task for a UE.
-  /// \param[in] ue_index The index of the UE.
-  /// \param[in] task The task to schedule.
-  /// \returns True if the task was successfully scheduled, false otherwise.
-  virtual bool schedule_async_task(ue_index_t ue_index, async_task<void> task) = 0;
+  // TODO.
 };
 
 /// Combined entry point for the NGAP object.

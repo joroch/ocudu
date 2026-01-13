@@ -8,6 +8,7 @@
 
 set(SOURCES
         xnap_impl.cpp
+        xnap_factory.cpp
     )
 
 

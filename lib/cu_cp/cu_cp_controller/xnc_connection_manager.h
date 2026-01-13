@@ -27,8 +27,7 @@ public:
                          task_executor&         cu_cp_exec_,
                          common_task_scheduler& common_task_sched_);
 
-  /// TODO.
-  void connect_to_neighbours();
+  void start();
 
   std::unique_ptr<xnap_message_notifier>
   handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier) override;
@@ -36,6 +35,7 @@ public:
   void stop();
 
 private:
+  void        connect_to_neighbours();
   void        handle_connection_setup_result(amf_index_t amf_index, bool success);
   amf_index_t plmn_to_amf_index(plmn_identity plmn) const;
 

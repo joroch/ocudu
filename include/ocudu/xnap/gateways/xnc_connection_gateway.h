@@ -25,7 +25,7 @@ public:
   virtual ~xnc_connection_gateway() = default;
 
   /// Attach a XN-C handler to the XN-C gateway.
-  virtual void attach_xnc(cu_cp_xnc_handler& xnc_handler_) = 0;
+  virtual void attach_cu_cp(cu_cp_xnc_handler& xnc_handler_) = 0;
 
   /// Get port on which the F1-C Server is listening for new connections.
   ///

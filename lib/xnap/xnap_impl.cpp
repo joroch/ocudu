@@ -18,7 +18,6 @@ using namespace ocucp;
 
 xnap_impl::xnap_impl(const xnap_configuration& ngap_cfg_,
                      xnap_cu_cp_notifier&      cu_cp_notifier_,
-                     xnc_connection_gateway&   n2_gateway,
                      timer_manager&            timers_,
                      task_executor&            ctrl_exec_) :
   logger(ocudulog::fetch_basic_logger("XNAP")),
@@ -48,6 +47,8 @@ bool xnap_impl::handle_xn_peer_tnl_connection_request()
   */
   return true;
 }
+
+void xnap_impl::handle_message(const xnap_message& msg) {}
 
 // TODO fix return type.
 async_task<void> xnap_impl::handle_xn_setup_request_required(unsigned max_setup_retries)

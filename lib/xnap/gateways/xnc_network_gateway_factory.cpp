@@ -110,9 +110,14 @@ public:
     report_error_if_not(sctp_server != nullptr, "Failed to create SCTP server");
   }
 
-  void attach_xnc(ocucp::cu_cp_xnc_handler& xnap_handler_) override
+  void attach_cu_cp(ocucp::cu_cp_xnc_handler& xnap_handler_) override
   {
     xnap_handler = &xnap_handler_;
+
+    // Start listening for new DU SCTP connections.
+    bool result = sctp_server->listen();
+    report_error_if_not(
+        result, "Failed to start XN-C SCTP server. {}:{}\n", params.sctp.bind_address, params.sctp.bind_port);
 
     // Start listening for new DU SCTP connections.
     fmt::print("{}: Listening for new connections on {}:{}...\n",

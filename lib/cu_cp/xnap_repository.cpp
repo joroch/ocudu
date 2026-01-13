@@ -10,9 +10,8 @@
 
 #include "xnap_repository.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
-#include "ocudu/ngap/ngap_context.h"
-#include "ocudu/ngap/ngap_factory.h"
 #include "ocudu/support/ocudu_assert.h"
+#include "ocudu/xnap/xnap_factory.h"
 
 using namespace ocudu;
 using namespace ocucp;
@@ -22,10 +21,17 @@ xnap_repository::xnap_repository(xnap_repository_config cfg_) : cfg(cfg_), logge
   /// TODO
 }
 
-xnap_interface* xnap_repository::add_xnap(xnc_peer_index_t xnc_index, const cu_cp_configuration::ngap_config& config)
+xnap_interface* xnap_repository::add_xnap(xnc_peer_index_t xnc_index, const cu_cp_configuration::xnap_config& config)
 {
-  // Create NGAP object
-  auto it = xnap_db.insert(std::make_pair(xnc_index, xnap_context{}));
+  // Create XNAP object
+  xnap_context xnap_ctxt;
+  // TODO connect XNAP handler to CU-CP.
+
+  xnap_configuration xnap_cfg = {};
+  xnap_ctxt.xnap              = create_xnap(
+      xnap_cfg, xnap_ctxt.xnap_to_cu_cp_notifier, *cfg.cu_cp.services.timers, *cfg.cu_cp.services.cu_cp_executor);
+
+  auto it = xnap_db.insert(std::make_pair(xnc_index, std::move(xnap_ctxt)));
   ocudu_assert(it.second, "Unable to insert NGAP in map");
 
   /// TODO
