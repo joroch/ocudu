@@ -48,6 +48,9 @@ include:
           allow_failure: false
       apply_rules:
         - if: $ON_DEFAULT_BRANCH
+        - if: $ON_MR
+          when: manual
+          allow_failure: true
 
 # Additional CI/CD settings not supported by Terraform provider
 configure_cicd_settings:
@@ -65,4 +68,6 @@ configure_cicd_settings:
         paths:
           - .gitlab/main.tf
         compare_to: "$CI_COMMIT_BEFORE_SHA"
-
+    - if: $ON_MR && $GITLAB_TOKEN
+      when: manual
+      allow_failure: true
