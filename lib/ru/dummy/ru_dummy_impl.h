@@ -41,30 +41,24 @@ namespace ocudu {
 /// any RF device.
 ///
 /// It determines the timing from the system time.
-class ru_dummy_impl : public radio_unit,
-                      private ru_controller,
-                      private ru_operation_controller,
-                      private ru_downlink_plane_handler,
-                      private ru_uplink_plane_handler
+class ru_dummy_impl : public radio_unit, private ru_operation_controller
 {
 public:
   /// Creates a dummy radio unit from its configuration.
   explicit ru_dummy_impl(const ru_dummy_configuration& config, ru_dummy_dependencies dependencies) noexcept;
 
   // See the radio_unit interface for documentation.
-  ru_controller& get_controller() override { return *this; }
-
-  // See the radio_unit interface for documentation.
-  ru_downlink_plane_handler& get_downlink_plane_handler() override { return *this; }
-
-  // See the radio_unit interface for documentation.
-  ru_uplink_plane_handler& get_uplink_plane_handler() override { return *this; }
-
-  // See the radio_unit interface for documentation.
   ru_metrics_collector* get_metrics_collector() override { return are_metrics_enabled ? &metrics_collector : nullptr; }
 
   // See the radio_unit interface for documentation.
-  ru_center_frequency_controller* get_center_frequency_controller() override { return nullptr; }
+  ru_operation_controller& get_operation_controller() override { return *this; }
+
+  // See the radio_unit interface for documentation.
+  radio_unit_sector* get_radio_unit_sector(unsigned sector_id) override
+  {
+    ocudu_assert(sector_id < sectors.size(), "Invalid sector if '{}'", sector_id);
+    return sectors[sector_id].get();
+  }
 
 private:
   /// Minimum loop time.
@@ -75,51 +69,6 @@ private:
 
   // See ru_controller for documentation.
   void stop() override;
-
-  // See interface for documentation.
-  ru_operation_controller& get_operation_controller() override { return *this; }
-
-  // See interface for documentation.
-  ru_gain_controller* get_gain_controller() override { return nullptr; }
-
-  // See interface for documentation.
-  ru_cfo_controller* get_cfo_controller() override { return nullptr; }
-
-  // See interface for documentation.
-  ru_tx_time_offset_controller* get_tx_time_offset_controller() override { return nullptr; }
-
-  // See ru_downlink_plane_handler for documentation.
-  void handle_dl_data(const resource_grid_context& context, const shared_resource_grid& grid) override
-  {
-    interval<unsigned> sector_range(0, sectors.size());
-    ocudu_assert(sector_range.contains(context.sector),
-                 "Sector identifier (i.e., {}) is out-of-bounds {}.",
-                 context.sector,
-                 sector_range);
-    sectors[context.sector]->handle_dl_data(context, grid);
-  }
-
-  // See ru_uplink_plane_handler for documentation.
-  void handle_prach_occasion(const prach_buffer_context& context, shared_prach_buffer buffer) override
-  {
-    interval<unsigned> sector_range(0, sectors.size());
-    ocudu_assert(sector_range.contains(context.sector),
-                 "Sector identifier (i.e., {}) is out-of-bounds {}.",
-                 context.sector,
-                 sector_range);
-    sectors[context.sector]->handle_prach_occasion(context, std::move(buffer));
-  }
-
-  // See ru_uplink_plane_handler for documentation.
-  void handle_new_uplink_slot(const resource_grid_context& context, const shared_resource_grid& grid) override
-  {
-    interval<unsigned> sector_range(0, sectors.size());
-    ocudu_assert(sector_range.contains(context.sector),
-                 "Sector identifier (i.e., {}) is out-of-bounds {}.",
-                 context.sector,
-                 sector_range);
-    sectors[context.sector]->handle_new_uplink_slot(context, grid);
-  }
 
   /// Defer loop task if the RU is running.
   /// \remark A fatal error is triggered if the executor fails to defer the loop task.

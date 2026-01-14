@@ -8,12 +8,12 @@
  *
  */
 
-#include "ru_ofh_rx_symbol_handler_impl.h"
+#include "ru_sector_ofh_rx_symbol_handler_impl.h"
 #include "ocudu/phy/support/shared_resource_grid.h"
 
 using namespace ocudu;
 
-void ru_ofh_rx_symbol_handler_impl::on_new_uplink_symbol(const ofh::uplane_rx_symbol_context& context,
+void ru_sector_ofh_rx_symbol_handler_impl::on_new_uplink_symbol(const ofh::uplane_rx_symbol_context& context,
                                                          shared_resource_grid                 grid,
                                                          bool                                 is_valid)
 {
@@ -25,7 +25,7 @@ void ru_ofh_rx_symbol_handler_impl::on_new_uplink_symbol(const ofh::uplane_rx_sy
   notifier.on_new_uplink_symbol(ru_context, grid, is_valid);
 }
 
-void ru_ofh_rx_symbol_handler_impl::on_new_prach_window_data(const prach_buffer_context& context,
+void ru_sector_ofh_rx_symbol_handler_impl::on_new_prach_window_data(const prach_buffer_context& context,
                                                              shared_prach_buffer         buffer)
 {
   notifier.on_new_prach_window_data(context, std::move(buffer));

@@ -15,11 +15,11 @@
 
 namespace ocudu {
 
-/// RU received symbol handler for the Open Fronthaul interface.
-class ru_ofh_rx_symbol_handler_impl : public ofh::uplane_rx_symbol_notifier
+/// RU sector received symbol handler for the Open Fronthaul interface.
+class ru_sector_ofh_rx_symbol_handler_impl : public ofh::uplane_rx_symbol_notifier
 {
 public:
-  explicit ru_ofh_rx_symbol_handler_impl(ru_uplink_plane_rx_symbol_notifier& notifier_) : notifier(notifier_) {}
+  explicit ru_sector_ofh_rx_symbol_handler_impl(ru_uplink_plane_rx_symbol_notifier& notifier_) : notifier(notifier_) {}
 
   // See interface for documentation.
   void

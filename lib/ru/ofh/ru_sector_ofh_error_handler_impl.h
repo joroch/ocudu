@@ -15,11 +15,11 @@
 
 namespace ocudu {
 
-/// Radio Unit error handler for the Open Fronthaul interface.
-class ru_ofh_error_handler_impl : public ofh::error_notifier
+/// Radio Unit sector error handler for the Open Fronthaul interface.
+class ru_sector_ofh_error_handler_impl : public ofh::error_notifier
 {
 public:
-  explicit ru_ofh_error_handler_impl(ru_error_notifier& notifier_) : error_notifier(notifier_) {}
+  explicit ru_sector_ofh_error_handler_impl(ru_error_notifier& notifier_) : error_notifier(notifier_) {}
 
   // See interface for documentation.
   void on_late_downlink_message(const ofh::error_context& context) override;

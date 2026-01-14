@@ -43,6 +43,7 @@ struct ru_dummy_dependencies {
   ocudulog::basic_logger& logger;
   /// Asynchronous task executor.
   task_executor* executor = nullptr;
+  // :TODO: update these 3 notifiers to have 1 per sector.
   /// Radio Unit uplink plane received symbol notifier.
   ru_uplink_plane_rx_symbol_notifier& symbol_notifier;
   /// Radio Unit timing notifier.

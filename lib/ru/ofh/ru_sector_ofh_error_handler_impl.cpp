@@ -8,11 +8,11 @@
  *
  */
 
-#include "ru_ofh_error_handler_impl.h"
+#include "ru_sector_ofh_error_handler_impl.h"
 
 using namespace ocudu;
 
-void ru_ofh_error_handler_impl::on_late_downlink_message(const ofh::error_context& context)
+void ru_sector_ofh_error_handler_impl::on_late_downlink_message(const ofh::error_context& context)
 {
   ru_error_context ru_err_context;
   ru_err_context.slot   = context.slot;
@@ -21,7 +21,7 @@ void ru_ofh_error_handler_impl::on_late_downlink_message(const ofh::error_contex
   error_notifier.on_late_downlink_message(ru_err_context);
 }
 
-void ru_ofh_error_handler_impl::on_late_uplink_message(const ofh::error_context& context)
+void ru_sector_ofh_error_handler_impl::on_late_uplink_message(const ofh::error_context& context)
 {
   ru_error_context ru_err_context;
   ru_err_context.slot   = context.slot;
@@ -30,7 +30,7 @@ void ru_ofh_error_handler_impl::on_late_uplink_message(const ofh::error_context&
   error_notifier.on_late_uplink_message(ru_err_context);
 }
 
-void ru_ofh_error_handler_impl::on_late_prach_message(const ofh::error_context& context)
+void ru_sector_ofh_error_handler_impl::on_late_prach_message(const ofh::error_context& context)
 {
   ru_error_context ru_err_context;
   ru_err_context.slot   = context.slot;

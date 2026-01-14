@@ -13,9 +13,21 @@
 
 using namespace ocudu;
 
+ru_ofh_controller_impl::ru_ofh_controller_impl(ocudulog::basic_logger&               logger_,
+                                               ofh::operation_controller&            timing_controller_,
+                                               std::vector<ru_operation_controller*> sector_controllers_) :
+  logger(logger_), timing_controller(timing_controller_), sector_controllers(std::move(sector_controllers_))
+{
+  ocudu_assert(std::all_of(sector_controllers.begin(),
+                           sector_controllers.end(),
+                           [](const auto& elem) { return elem != nullptr; }),
+               "Invalid sector controller");
+}
+
 void ru_ofh_controller_impl::start()
 {
   logger.info("Starting the operation of the Open Fronthaul interface");
+  timing_controller.start();
   for (auto* sector : sector_controllers) {
     sector->start();
   }
@@ -28,17 +40,6 @@ void ru_ofh_controller_impl::stop()
   for (auto* sector : sector_controllers) {
     sector->stop();
   }
+  timing_controller.stop();
   logger.info("Stopped the operation of the Open Fronthaul interface");
-}
-
-void ru_ofh_controller_impl::set_sector_controllers(std::vector<ofh::operation_controller*> controllers)
-{
-  ocudu_assert(!controllers.empty(), "Invalid sector controllers");
-
-  sector_controllers = std::move(controllers);
-
-  ocudu_assert(std::all_of(sector_controllers.begin(),
-                           sector_controllers.end(),
-                           [](const auto& elem) { return elem != nullptr; }),
-               "Invalid sector controller");
 }
