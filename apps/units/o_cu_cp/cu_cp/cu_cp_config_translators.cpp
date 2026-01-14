@@ -391,6 +391,11 @@ ocucp::cu_cp_configuration ocudu::generate_cu_cp_config(const cu_cp_unit_config&
     out_cfg.ngap.ngaps.push_back(ocucp::cu_cp_configuration::ngap_config{nullptr, supported_tas});
   }
 
+  // XNAP. TODO support more then one.
+  ocucp::cu_cp_configuration::xnap_config xn_config{};
+  xn_config.peer_addr = cu_cfg.xnap_config.peer_addr;
+  out_cfg.xnap.xnaps.push_back(xn_config);
+
   out_cfg.rrc.force_reestablishment_fallback = cu_cfg.rrc_config.force_reestablishment_fallback;
   out_cfg.rrc.force_resume_fallback          = cu_cfg.rrc_config.force_resume_fallback;
   out_cfg.rrc.rrc_procedure_guard_time_ms    = std::chrono::milliseconds{cu_cfg.rrc_config.rrc_procedure_guard_time_ms};

@@ -116,13 +116,19 @@ constexpr std::underlying_type_t<du_cell_index_t> du_cell_index_to_uint(du_cell_
 /// Maximum number of AMFs supported by CU-CP (implementation-defined).
 enum class amf_index_t : uint16_t { min = 0, max = MAX_NOF_AMFS - 1, invalid = MAX_NOF_AMFS };
 
-/// Maximum number of XN-C peers supported by CU-CP (implementation-defined).
-enum class xnc_peer_index_t : uint16_t { min = 0, max = MAX_NOF_XNC_PEERS - 1, invalid = MAX_NOF_XNC_PEERS };
-
 /// Convert integer to AMF index type.
 constexpr amf_index_t uint_to_amf_index(std::underlying_type_t<amf_index_t> index)
 {
   return static_cast<amf_index_t>(index);
+}
+
+/// Maximum number of XN-C peers supported by CU-CP (implementation-defined).
+enum class xnc_peer_index_t : uint16_t { min = 0, max = MAX_NOF_XNC_PEERS - 1, invalid = MAX_NOF_XNC_PEERS };
+
+/// Convert integer to AMF index type.
+constexpr xnc_peer_index_t uint_to_xnc_peer_index(std::underlying_type_t<xnc_peer_index_t> index)
+{
+  return static_cast<xnc_peer_index_t>(index);
 }
 
 /// Convert AMF index type to integer.

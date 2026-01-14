@@ -16,16 +16,18 @@ using namespace ocudu;
 using namespace asn1::xnap;
 using namespace ocucp;
 
-xnap_impl::xnap_impl(const xnap_configuration& ngap_cfg_,
+xnap_impl::xnap_impl(const xnap_configuration& xnap_cfg_,
                      xnap_cu_cp_notifier&      cu_cp_notifier_,
                      timer_manager&            timers_,
                      task_executor&            ctrl_exec_) :
   logger(ocudulog::fetch_basic_logger("XNAP")),
+  xnap_cfg(xnap_cfg_),
   cu_cp_notifier(cu_cp_notifier_),
   timers(timers_),
   ctrl_exec(ctrl_exec_),
   tx_pdu_notifier(*this)
 {
+  fmt::println("XN-C peer: {}", xnap_cfg.peer_addr);
 }
 
 // Note: For fwd declaration of member types, dtor cannot be trivial.

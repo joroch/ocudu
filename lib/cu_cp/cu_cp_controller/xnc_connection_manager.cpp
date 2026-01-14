@@ -28,6 +28,7 @@ xnc_connection_manager::xnc_connection_manager(xnap_repository&       xnaps_,
 
 void xnc_connection_manager::start()
 {
+  fmt::println("XNC connection manager start");
   // Schedules setup routine to be executed in sequence with other CU-CP procedures.
   common_task_sched.schedule_async_task(launch_async([this](coro_context<async_task<void>>& ctx) mutable {
     CORO_BEGIN(ctx);
@@ -42,9 +43,9 @@ void xnc_connection_manager::start()
 void xnc_connection_manager::connect_to_neighbours()
 {
   std::map<xnc_peer_index_t, xnap_interface*> xn = xnaps.get_xnaps();
-  // for (auto& xnap_it : xn) {
-  //   xnap_it.second()
-  // }
+  for (const std::pair<const xnc_peer_index_t, xnap_interface*>& xnap_it : xn) {
+    fmt::println("Connecting to peer :{}", xnap_it.second->get_peer_address());
+  }
 }
 
 void xnc_connection_manager::stop()

@@ -48,6 +48,8 @@ public:
 
 private:
   struct xnap_context {
+    // Peer address.
+    std::string peer_addr;
     // CU-CP handler of XNAP events.
     xnap_cu_cp_adapter xnap_to_cu_cp_notifier;
 

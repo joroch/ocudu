@@ -206,6 +206,28 @@ void sctp_network_server_impl::handle_socket_shutdown(const char* cause)
   io_sub.reset();
 }
 
+void sctp_network_server_impl::handle_data(transport_layer_address dest_addr, span<const uint8_t> payload)
+{
+  logger.debug("{} assoc={}: Received {} bytes", payload.size());
+
+  transport_layer_address::native_type native_addr = dest_addr.native();
+  int                                  bytes_sent  = ::sctp_sendmsg(get_socket_fd(),
+                                  payload.data(),
+                                  payload.size(),
+                                  const_cast<struct sockaddr*>(native_addr.addr),
+                                  native_addr.addrlen,
+                                  htonl(0),
+                                  0,
+                                  stream_no,
+                                  0,
+                                  0);
+  if (bytes_sent == -1) {
+    logger.error(": Closing SCTP association. Cause: Couldn't send {} B of data. errno={}",
+                 payload.size_bytes(),
+                 ::strerror(errno));
+  }
+}
+
 void sctp_network_server_impl::handle_data(int assoc_id, span<const uint8_t> payload)
 {
   auto assoc_it = associations.find(assoc_id);

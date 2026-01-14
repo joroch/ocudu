@@ -19,7 +19,9 @@ namespace ocudu::ocucp {
 struct xnap_message;
 
 // TODO.
-struct xnap_configuration {};
+struct xnap_configuration {
+  std::string peer_addr;
+};
 
 /// This interface is used to push XNAP messages to the XNAP interface.
 class xnap_message_handler
@@ -36,6 +38,9 @@ class xnap_connection_manager
 {
 public:
   virtual ~xnap_connection_manager() = default;
+
+  /// \breif Get IP address of peer.
+  virtual std::string get_peer_address() = 0;
 
   /// \brief Request a new TNL association to the AMF.
   virtual bool handle_xn_peer_tnl_connection_request() = 0;

@@ -81,10 +81,6 @@ struct cu_cp_configuration {
     std::vector<supported_tracking_area> supported_tas;
   };
 
-  struct xnap_config {
-    std::string dest_addr;
-  };
-
   struct ngap_params {
     /// NGAP configurations.
     std::vector<ngap_config> ngaps;
@@ -92,6 +88,15 @@ struct cu_cp_configuration {
     std::chrono::milliseconds amf_reconnection_retry_time = std::chrono::milliseconds{1000};
     /// Option to run CU-CP without a core.
     bool no_core = false;
+  };
+
+  struct xnap_config {
+    std::string peer_addr;
+  };
+
+  struct xnap_params {
+    /// XNAP configurations.
+    std::vector<xnap_config> xnaps;
   };
 
   struct rrc_params {
@@ -140,6 +145,8 @@ struct cu_cp_configuration {
   admission_params admission;
   /// NGAP layer-specific parameters.
   ngap_params ngap;
+  /// XNAP layer-specific parameters.
+  xnap_params xnap; // TODO change for params.
   /// RRC layer-specific parameters.
   rrc_params rrc;
   /// F1AP layer-specific parameters.

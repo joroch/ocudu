@@ -165,6 +165,7 @@ struct cu_cp_unit_e1ap_config {
 struct cu_cp_unit_xnap_config {
   /// TODO
   std::string bind_addr = "127.0.30.1";
+  std::string peer_addr = "127.0.30.2"; // TODO make a vector.
 };
 
 /// RLC UM TX configuration

@@ -45,6 +45,8 @@ public:
 
   std::optional<uint16_t> get_listen_port() override;
 
+  void handle_data(transport_layer_address dest_addr, span<const uint8_t> payload);
+
 private:
   class sctp_send_notifier;
 
@@ -71,6 +73,7 @@ private:
   void handle_socket_shutdown(const char* cause);
 
   void handle_data(int assoc_id, span<const uint8_t> payload);
+
   void handle_notification(span<const uint8_t>           payload,
                            const struct sctp_sndrcvinfo& sri,
                            const sockaddr&               src_addr,
