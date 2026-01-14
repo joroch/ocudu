@@ -95,6 +95,10 @@ o_cu_cp_unit ocudu::build_o_cu_cp(const o_cu_cp_unit_config& unit_cfg, o_cu_cp_u
                                                                      dependencies.executor_mapper->n2_rx_executor())));
   }
 
+  for (unsigned i = 0, e = cu_cp_cfg.xnap.xnaps.size(); i != e; ++i) {
+    cu_cp_cfg.xnap.xnaps[i].xnc_gw = dependencies.xnc_gw; // TODO need to support multiple xnc_gw?
+  }
+
   for (unsigned i = 0, e = n2_clients.size(); i != e; ++i) {
     cu_cp_cfg.ngap.ngaps[i].n2_gw = n2_clients[i].get();
   }

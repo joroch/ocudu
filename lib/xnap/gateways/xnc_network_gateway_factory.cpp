@@ -126,6 +126,8 @@ public:
                params.sctp.bind_port);
   }
 
+  void init_association(transport_layer_address dest_addr) { bool result = sctp_server->init_association(dest_addr); }
+
   void listen()
   {
     bool result = sctp_server->listen();

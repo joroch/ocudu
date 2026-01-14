@@ -45,6 +45,8 @@ public:
 
   std::optional<uint16_t> get_listen_port() override;
 
+  bool init_association(transport_layer_address dest_addr) override;
+
   void handle_data(transport_layer_address dest_addr, span<const uint8_t> payload);
 
 private:

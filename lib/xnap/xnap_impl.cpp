@@ -17,11 +17,13 @@ using namespace asn1::xnap;
 using namespace ocucp;
 
 xnap_impl::xnap_impl(const xnap_configuration& xnap_cfg_,
+                     xnc_connection_gateway&   xnc_gw_,
                      xnap_cu_cp_notifier&      cu_cp_notifier_,
                      timer_manager&            timers_,
                      task_executor&            ctrl_exec_) :
   logger(ocudulog::fetch_basic_logger("XNAP")),
   xnap_cfg(xnap_cfg_),
+  xnc_gw(xnc_gw_),
   cu_cp_notifier(cu_cp_notifier_),
   timers(timers_),
   ctrl_exec(ctrl_exec_),
@@ -40,13 +42,8 @@ bool xnap_impl::handle_xn_peer_tnl_connection_request()
     tx_pdu_notifier.disconnect();
   }
 
-  /*
-  std::unique_ptr<ngap_message_notifier> pdu_notifier = conn_handler.connect_to_amf();
-  if (pdu_notifier == nullptr) {
-    return false;
-  }
-  tx_pdu_notifier.connect(std::move(pdu_notifier));
-  */
+  auto dest_addr = transport_layer_address::create_from_string(xnap_cfg.peer_addr);
+  xnc_gw.init_association(dest_addr);
   return true;
 }
 

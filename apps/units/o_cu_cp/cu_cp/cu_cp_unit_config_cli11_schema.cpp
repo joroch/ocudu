@@ -196,6 +196,7 @@ static void configure_cli11_xnap_args(CLI::App& app, cu_cp_unit_xnap_config& con
 {
   add_option(app, "--bind_addr", config.bind_addr, "Local IP address to bind for XNAP interface")
       ->check(CLI::ValidIPV4);
+  add_option(app, "--peer_addr", config.peer_addr, "Peer IP address to bind for XNAP interface")->check(CLI::ValidIPV4);
 }
 
 static void configure_cli11_report_args(CLI::App& app, cu_cp_unit_report_config& report_params)

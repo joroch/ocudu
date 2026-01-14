@@ -38,6 +38,9 @@ public:
   /// \brief Get port to which server binded and is listening for connections.
   virtual std::optional<uint16_t> get_listen_port() = 0;
 
+  /// \brief Initiate new SCTP association to peer.
+  virtual bool init_association(transport_layer_address dest_addr) = 0;
+
   /// \breif Send data to destination address. It does not require an association to be
   /// already created. This should be used only for initial messages.
   void handle_data(transport_layer_address dest_addr, span<const uint8_t> payload);

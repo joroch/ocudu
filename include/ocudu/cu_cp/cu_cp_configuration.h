@@ -23,6 +23,7 @@
 #include "ocudu/rrc/rrc_ue_config.h"
 #include "ocudu/support/async/async_task.h"
 #include "ocudu/support/executors/task_executor.h"
+#include "ocudu/xnap/gateways/xnc_connection_gateway.h"
 #include <chrono>
 
 namespace ocudu {
@@ -91,7 +92,8 @@ struct cu_cp_configuration {
   };
 
   struct xnap_config {
-    std::string peer_addr;
+    std::string             peer_addr;
+    xnc_connection_gateway* xnc_gw;
   };
 
   struct xnap_params {

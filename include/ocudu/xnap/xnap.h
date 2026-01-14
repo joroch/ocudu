@@ -13,6 +13,7 @@
 #include "xnap_message.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
 #include "ocudu/support/async/async_task.h"
+#include "ocudu/xnap/gateways/xnc_connection_gateway.h"
 
 namespace ocudu::ocucp {
 

@@ -44,7 +44,7 @@ void xnc_connection_manager::connect_to_neighbours()
 {
   std::map<xnc_peer_index_t, xnap_interface*> xn = xnaps.get_xnaps();
   for (const std::pair<const xnc_peer_index_t, xnap_interface*>& xnap_it : xn) {
-    fmt::println("Connecting to peer :{}", xnap_it.second->get_peer_address());
+    fmt::println("Connecting to peer :{}", xnap_it.second->handle_xn_peer_tnl_connection_request());
   }
 }
 

@@ -21,6 +21,7 @@ class xnap_impl final : public xnap_interface
 {
 public:
   xnap_impl(const xnap_configuration& xnap_cfg_,
+            xnc_connection_gateway&   xnc_gw_,
             xnap_cu_cp_notifier&      cu_cp_notifier_,
             timer_manager&            timers_,
             task_executor&            ctrl_exec_);
@@ -70,6 +71,7 @@ private:
 
   ocudulog::basic_logger& logger;
   xnap_configuration      xnap_cfg;
+  xnc_connection_gateway& xnc_gw;
 
   xnap_cu_cp_notifier& cu_cp_notifier;
   timer_manager&       timers;

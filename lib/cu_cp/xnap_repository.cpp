@@ -19,7 +19,7 @@ using namespace ocucp;
 xnap_repository::xnap_repository(xnap_repository_config cfg_) : cfg(cfg_), logger(cfg.logger)
 {
   /// TODO
-  for (const auto& xn : cfg.cu_cp.xnap.xnaps) {
+  for (const cu_cp_configuration::xnap_config& xn : cfg.cu_cp.xnap.xnaps) {
     uint16_t idx = 0;
     add_xnap(uint_to_xnc_peer_index(idx++), xn);
   }
@@ -34,8 +34,11 @@ xnap_interface* xnap_repository::add_xnap(xnc_peer_index_t xnc_index, const cu_c
 
   xnap_configuration xnap_cfg = {};
   xnap_cfg.peer_addr          = config.peer_addr;
-  xnap_ctxt.xnap              = create_xnap(
-      xnap_cfg, xnap_ctxt.xnap_to_cu_cp_notifier, *cfg.cu_cp.services.timers, *cfg.cu_cp.services.cu_cp_executor);
+  xnap_ctxt.xnap              = create_xnap(xnap_cfg,
+                               *config.xnc_gw,
+                               xnap_ctxt.xnap_to_cu_cp_notifier,
+                               *cfg.cu_cp.services.timers,
+                               *cfg.cu_cp.services.cu_cp_executor);
 
   auto it = xnap_db.insert(std::make_pair(xnc_index, std::move(xnap_ctxt)));
   ocudu_assert(it.second, "Unable to insert NGAP in map");

@@ -206,6 +206,29 @@ void sctp_network_server_impl::handle_socket_shutdown(const char* cause)
   io_sub.reset();
 }
 
+bool sctp_network_server_impl::init_association(transport_layer_address dest_addr)
+{
+  logger.warning("{}: Inicializing association to {}", node_cfg.if_name, dest_addr);
+
+  std::array<uint8_t, 5>               test        = {};
+  transport_layer_address::native_type native_addr = dest_addr.native();
+  int                                  bytes_sent  = ::sctp_sendmsg(get_socket_fd(),
+                                  test.data(),
+                                  test.size(),
+                                  const_cast<struct sockaddr*>(native_addr.addr),
+                                  native_addr.addrlen,
+                                  htonl(node_cfg.ppid),
+                                  0,
+                                  stream_no,
+                                  0,
+                                  0);
+  if (bytes_sent == -1) {
+    logger.error(": Closing SCTP association. Cause: could not initialize association. errno={}", ::strerror(errno));
+    return false;
+  }
+  return true;
+}
+
 void sctp_network_server_impl::handle_data(transport_layer_address dest_addr, span<const uint8_t> payload)
 {
   logger.debug("{} assoc={}: Received {} bytes", payload.size());
