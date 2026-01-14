@@ -37,8 +37,8 @@ public:
   };
 
   /// \brief Exchanges a request from the pool by the given one.
-  /// \param[in] request The given request, it is copied into <tt>request.slot.system_slot() % REQUEST_ARRAY_SIZE</tt>.
-  /// \return The previous request at position <tt> request.slot.system_slot() % REQUEST_ARRAY_SIZE </tt>.
+  /// \param[in] request The given request, it is copied into <tt>request.slot.system_slot() % request_array_size</tt>.
+  /// \return The previous request at position <tt>request.slot.system_slot() % request_array_size</tt>.
   request_type exchange(request_type request)
   {
     return requests[request.slot.system_slot()].exchange(std::move(request));
@@ -54,18 +54,25 @@ private:
 
     /// \brief Exchanges the previous request with a new request.
     /// \param[in] new_request New request.
-    /// \return A copy of the previous request.
+    /// \return A copy of the previous request if there is no other exchange happening simultaneously, otherwise the
+    /// same request.
     request_type exchange(request_type new_request)
     {
-      std::unique_lock<std::mutex> lock(mutex);
-      request_type                 old_request = std::move(request);
-      request                                  = std::move(new_request);
+      // Return the same request if there's another request exchange happening simultaneously.
+      if (reserved_flag.fetch_or(1)) {
+        return std::move(new_request);
+      }
+
+      request_type old_request = std::move(request);
+      request                  = std::move(new_request);
+      reserved_flag            = 0;
+
       return old_request;
     }
 
   private:
-    request_type request;
-    std::mutex   mutex;
+    request_type         request;
+    std::atomic<uint8_t> reserved_flag = 0;
   };
 
   /// Request storage, indexed by slots.
