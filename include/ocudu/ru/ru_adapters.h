@@ -31,43 +31,57 @@ namespace ocudu {
 class upper_phy_ru_dl_rg_adapter : public upper_phy_rg_gateway
 {
 public:
+  explicit upper_phy_ru_dl_rg_adapter(unsigned nof_sectors) : dl_handlers(nof_sectors) {}
+
   // See interface for documentation.
   void send(const resource_grid_context& context, shared_resource_grid grid) override
   {
-    ocudu_assert(dl_handler, "Adapter is not connected.");
-    dl_handler->handle_dl_data(context, grid);
+    ocudu_assert(context.sector < dl_handlers.size(), "Unsupported sector {}", context.sector);
+    dl_handlers[context.sector]->handle_dl_data(context, grid);
   }
 
-  /// Connects this adapter with the given RU downlink handler.
-  void connect(ru_downlink_plane_handler& handler) { dl_handler = &handler; }
+  /// Connects this adapter with the given RU downlink handler and sector.
+  void map_handler(unsigned sector, ru_downlink_plane_handler& handler)
+  {
+    ocudu_assert(sector < dl_handlers.size(), "Unsupported sector {}", sector);
+
+    dl_handlers[sector] = &handler;
+  }
 
 private:
-  ru_downlink_plane_handler* dl_handler = nullptr;
+  std::vector<ru_downlink_plane_handler*> dl_handlers;
 };
 
 /// Upper PHY - Radio Unit uplink request adapter.
 class upper_phy_ru_ul_request_adapter : public upper_phy_rx_symbol_request_notifier
 {
 public:
+  explicit upper_phy_ru_ul_request_adapter(unsigned nof_sectors) : ul_handlers(nof_sectors) {}
+
   // See interface for documentation.
   void on_prach_capture_request(const prach_buffer_context& context, shared_prach_buffer buffer) override
   {
-    ocudu_assert(ul_handler, "Adapter is not connected");
-    ul_handler->handle_prach_occasion(context, std::move(buffer));
+    ocudu_assert(context.sector < ul_handlers.size(), "Unsupported sector {}", context.sector);
+    ul_handlers[context.sector]->handle_prach_occasion(context, std::move(buffer));
   }
 
   // See interface for documentation.
   void on_uplink_slot_request(const resource_grid_context& context, const shared_resource_grid& grid) override
   {
-    ocudu_assert(ul_handler, "Adapter is not connected");
-    ul_handler->handle_new_uplink_slot(context, grid);
+    ocudu_assert(context.sector < ul_handlers.size(), "Unsupported sector {}", context.sector);
+    ul_handlers[context.sector]->handle_new_uplink_slot(context, grid);
   }
 
-  /// Connects this adapter with the given RU uplink handler.
-  void connect(ru_uplink_plane_handler& handler) { ul_handler = &handler; }
+  /// Maps this adapter with the given RU uplink handler and sector.
+  void map_handler(unsigned sector, ru_uplink_plane_handler& handler)
+  {
+    ocudu_assert(sector < ul_handlers.size(), "Unsupported sector {}", sector);
+
+    ul_handlers[sector] = &handler;
+  }
 
 private:
-  ru_uplink_plane_handler* ul_handler = nullptr;
+  std::vector<ru_uplink_plane_handler*> ul_handlers;
 };
 
 /// Upper PHY - Radio Unit uplink adapter.

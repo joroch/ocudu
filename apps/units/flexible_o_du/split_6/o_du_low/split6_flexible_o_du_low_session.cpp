@@ -9,6 +9,7 @@
  */
 
 #include "split6_flexible_o_du_low_session.h"
+#include "split6_constants.h"
 #include "ocudu/du/du_low/du_low.h"
 #include "ocudu/du/du_operation_controller.h"
 #include "ocudu/fapi_adaptor/mac/p7/mac_fapi_p7_sector_adaptor.h"
@@ -24,7 +25,7 @@ using namespace ocudu;
 split6_flexible_o_du_low_session::~split6_flexible_o_du_low_session()
 {
   // Stop RU.
-  ru->get_controller().get_operation_controller().stop();
+  ru->get_operation_controller().stop();
 
   // Stop O-DU low.
   odu_low->get_operation_controller().stop();
@@ -45,11 +46,12 @@ void split6_flexible_o_du_low_session::set_dependencies(
   ru             = std::move(radio);
 
   // Connect the RU adaptor to the RU.
-  ru_dl_rg_adapt.connect(ru->get_downlink_plane_handler());
-  ru_ul_request_adapt.connect(ru->get_uplink_plane_handler());
-
+  ocudu_assert(ru->get_radio_unit_sector(split6_du_low::CELL_ID), "Invalid Radio Unit cell");
   // Connect all the sectors of the DU low to the RU adaptors.
   for (unsigned i = 0; i != NOF_CELLS_SUPPORTED; ++i) {
+    ru_dl_rg_adapt.map_handler(i, ru->get_radio_unit_sector(split6_du_low::CELL_ID)->get_downlink_plane_handler());
+    ru_ul_request_adapt.map_handler(i, ru->get_radio_unit_sector(split6_du_low::CELL_ID)->get_uplink_plane_handler());
+
     // Make connections between DU and RU.
     auto& upper = odu_low->get_du_low().get_upper_phy(i);
     ru_ul_adapt.map_handler(i, upper.get_rx_symbol_handler());
@@ -64,7 +66,7 @@ void split6_flexible_o_du_low_session::set_dependencies(
   }
 
   odu_low->get_operation_controller().start();
-  ru->get_controller().get_operation_controller().start();
+  ru->get_operation_controller().start();
 
   // Initialize metrics collector.
   if (report_period.count() != 0 && notifier) {

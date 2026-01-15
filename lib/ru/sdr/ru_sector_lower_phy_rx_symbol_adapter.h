@@ -16,11 +16,11 @@
 
 namespace ocudu {
 
-/// Implements a lower physical layer to Radio Unit receive symbol adapter.
-class ru_lower_phy_rx_symbol_adapter : public lower_phy_rx_symbol_notifier
+/// Implements a lower physical layer to Radio Unit sector receive symbol adapter.
+class ru_sector_lower_phy_rx_symbol_adapter : public lower_phy_rx_symbol_notifier
 {
 public:
-  explicit ru_lower_phy_rx_symbol_adapter(ru_uplink_plane_rx_symbol_notifier& rx_symbol_handler_) :
+  explicit ru_sector_lower_phy_rx_symbol_adapter(ru_uplink_plane_rx_symbol_notifier& rx_symbol_handler_) :
     rx_symbol_handler(rx_symbol_handler_)
   {
   }

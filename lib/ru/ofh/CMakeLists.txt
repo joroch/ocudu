@@ -14,6 +14,7 @@ set(SOURCES
         ru_ofh_impl.cpp
         ru_ofh_metrics_collector_impl.cpp
         ru_sector_ofh_controller_impl.cpp
+        ru_sector_ofh_downlink_plane_handler_proxy.cpp
         ru_sector_ofh_error_handler_impl.cpp
         ru_sector_ofh_impl.cpp
         ru_sector_ofh_rx_symbol_handler_impl.cpp

@@ -19,11 +19,11 @@
 
 namespace ocudu {
 
-/// Lower phy to RU error adapter class.
-class ru_lower_phy_error_adapter : public lower_phy_error_notifier
+/// Lower phy to RU sector error adapter class.
+class ru_sector_lower_phy_error_adapter : public lower_phy_error_notifier
 {
 public:
-  ru_lower_phy_error_adapter(ocudulog::basic_logger& logger_, ru_error_notifier& notifier_) :
+  ru_sector_lower_phy_error_adapter(ocudulog::basic_logger& logger_, ru_error_notifier& notifier_) :
     logger(logger_), notifier(notifier_)
   {
   }

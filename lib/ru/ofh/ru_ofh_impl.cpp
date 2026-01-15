@@ -40,6 +40,10 @@ ru_ofh_impl::ru_ofh_impl(ru_ofh_impl_dependencies&& dependencies) :
 
   // Configure the OTA notifiers.
   std::vector<ofh::ota_symbol_boundary_notifier*> notifiers;
+
+  // :TODO: only add the first cell slot indication notifier.
+  notifiers.push_back(&sectors.front()->get_slot_indication_notifier());
+
   for (const auto& sector : sectors) {
     std::vector<ofh::ota_symbol_boundary_notifier*> sector_notifier = sector->get_ota_notifiers();
     for (auto* notifier : sector_notifier) {

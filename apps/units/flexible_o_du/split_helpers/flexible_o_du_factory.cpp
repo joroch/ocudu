@@ -32,6 +32,7 @@
 #include "ocudu/fapi_adaptor/phy/phy_fapi_fastpath_adaptor.h"
 #include "ocudu/fapi_adaptor/phy/phy_fapi_sector_fastpath_adaptor.h"
 #include "ocudu/ntn/ntn_configuration_manager_config.h"
+#include "ocudu/phy/upper/channel_processors/ssb/pbch_encoder.h"
 
 using namespace ocudu;
 
@@ -311,32 +312,49 @@ o_du_unit flexible_o_du_factory::create_flexible_o_du(const o_du_unit_dependenci
   // Add RU command-line commands.
   o_du.commands.cmdline.commands.push_back(std::make_unique<change_log_level_app_command>());
 
+  std::vector<ru_gain_controller*>           ru_gain_controllers;
+  std::vector<ru_cfo_controller*>            ru_cfo_controllers;
+  std::vector<ru_tx_time_offset_controller*> ru_timeoffset_controllers;
+  for (unsigned i = 0, e = du_cells.size(); i != e; ++i) {
+    auto& sector_controller = ru->get_radio_unit_sector(i)->get_controller();
+    if (auto* controller = sector_controller.get_gain_controller()) {
+      ru_gain_controllers.push_back(controller);
+    }
+    if (auto* controller = sector_controller.get_cfo_controller()) {
+      ru_cfo_controllers.push_back(controller);
+    }
+    if (auto* controller = sector_controller.get_tx_time_offset_controller()) {
+      ru_timeoffset_controllers.push_back(controller);
+    }
+  }
+
   // Create the RU gain commands.
-  if (auto* controller = ru->get_controller().get_gain_controller()) {
-    o_du.commands.cmdline.commands.push_back(std::make_unique<tx_gain_app_command>(*controller));
-    o_du.commands.cmdline.commands.push_back(std::make_unique<rx_gain_app_command>(*controller));
+  if (!ru_gain_controllers.empty()) {
+    o_du.commands.cmdline.commands.push_back(std::make_unique<tx_gain_app_command>(ru_gain_controllers));
+    o_du.commands.cmdline.commands.push_back(std::make_unique<rx_gain_app_command>(ru_gain_controllers));
   }
 
   // Create the RU CFO command.
-  if (auto* controller = ru->get_controller().get_cfo_controller()) {
-    o_du.commands.cmdline.commands.push_back(std::make_unique<cfo_app_command>(*controller));
+  if (!ru_cfo_controllers.empty()) {
+    o_du.commands.cmdline.commands.push_back(std::make_unique<cfo_app_command>(ru_cfo_controllers));
   }
 
   // Create the RU transmit time offset command.
-  if (auto* controller = ru->get_controller().get_tx_time_offset_controller()) {
-    o_du.commands.cmdline.commands.push_back(std::make_unique<tx_time_offset_app_command>(*controller));
+  if (!ru_timeoffset_controllers.empty()) {
+    o_du.commands.cmdline.commands.push_back(std::make_unique<tx_time_offset_app_command>(ru_timeoffset_controllers));
   }
 
   // Create the NTN Configuration Manager if at least one NTN cell is present.
   ocudu_ntn::ntn_configuration_manager_config ntn_manager_config =
       generate_ntn_configuration_manager_config(du_hi.gnb_id, du_hi.cells_cfg);
 
-  if (not ntn_manager_config.cells.empty()) {
+  // :TODO: Remove the hardcode.
+  if (not ntn_manager_config.cells.empty() || !ru->get_radio_unit_sector(0)) {
     o_du.ntn_configurator_manager = create_ntn_configuration_manager(
         ntn_manager_config,
         odu_instance->get_o_du_high().get_du_high().get_du_configurator(),
         odu_instance->get_o_du_high().get_du_high().get_du_manager_time_mapper_accessor(),
-        ru->get_controller(),
+        ru->get_radio_unit_sector(0)->get_controller(),
         dependencies.timer_ctrl->get_timer_manager(),
         dependencies.workers->get_du_high_executor_mapper().du_control_executor());
 

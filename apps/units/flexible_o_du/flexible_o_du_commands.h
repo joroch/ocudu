@@ -23,10 +23,10 @@ namespace ocudu {
 /// Application command to change the transmission gain.
 class tx_gain_app_command : public app_services::cmdline_command
 {
-  ru_gain_controller& controller;
+  std::vector<ru_gain_controller*> controllers;
 
 public:
-  explicit tx_gain_app_command(ru_gain_controller& controller_) : controller(controller_) {}
+  explicit tx_gain_app_command(std::vector<ru_gain_controller*> controller_) : controllers(std::move(controller_)) {}
 
   // See interface for documentation.
   std::string_view get_name() const override { return "tx_gain"; }
@@ -47,13 +47,20 @@ public:
       fmt::print("Invalid port ID.\n");
       return;
     }
+
+    if (port_id.value() >= controllers.size() || !controllers[port_id.value()]) {
+      fmt::print("Setting TX gain was not successful. The radio does not have a controller for sector '{}'.\n",
+                 port_id.value());
+      return;
+    }
+
     expected<double, std::string> gain_dB = app_services::parse_double(args.back());
     if (not gain_dB.has_value()) {
       fmt::print("Invalid gain value.\n");
       return;
     }
 
-    if (!controller.set_tx_gain(port_id.value(), gain_dB.value())) {
+    if (!controllers[port_id.value()]->set_tx_gain(port_id.value(), gain_dB.value())) {
       fmt::print("Setting TX gain was not successful. The radio may not support this feature.\n");
       return;
     }
@@ -65,10 +72,10 @@ public:
 /// Application command to change the reception gain.
 class rx_gain_app_command : public app_services::cmdline_command
 {
-  ru_gain_controller& controller;
+  std::vector<ru_gain_controller*> controllers;
 
 public:
-  explicit rx_gain_app_command(ru_gain_controller& controller_) : controller(controller_) {}
+  explicit rx_gain_app_command(std::vector<ru_gain_controller*> controllers_) : controllers(std::move(controllers_)) {}
 
   // See interface for documentation.
   std::string_view get_name() const override { return "rx_gain"; }
@@ -89,13 +96,20 @@ public:
       fmt::print("Invalid port ID.\n");
       return;
     }
+
+    if (port_id.value() >= controllers.size() || !controllers[port_id.value()]) {
+      fmt::print("Setting RX gain was not successful. The radio does not have a controller for sector '{}'.\n",
+                 port_id.value());
+      return;
+    }
+
     expected<double, std::string> gain_dB = app_services::parse_double(args.back());
     if (not gain_dB.has_value()) {
       fmt::print("Invalid gain value.\n");
       return;
     }
 
-    if (!controller.set_rx_gain(port_id.value(), gain_dB.value())) {
+    if (!controllers[port_id.value()]->set_rx_gain(port_id.value(), gain_dB.value())) {
       fmt::print("Setting RX gain was not successful. The radio may not support this feature.\n");
       return;
     }
@@ -174,10 +188,10 @@ public:
 /// Application command to set the carrier frequency offset.
 class cfo_app_command : public app_services::cmdline_command
 {
-  ru_cfo_controller& controller;
+  std::vector<ru_cfo_controller*> controllers;
 
 public:
-  explicit cfo_app_command(ru_cfo_controller& controller_) : controller(controller_) {}
+  explicit cfo_app_command(std::vector<ru_cfo_controller*> controllers_) : controllers(std::move(controllers_)) {}
 
   // See interface for documentation.
   std::string_view get_name() const override { return "cfo"; }
@@ -198,6 +212,13 @@ public:
       fmt::print("Invalid sector identifier.\n");
       return;
     }
+
+    if (sector_id.value() >= controllers.size() || !controllers[sector_id.value()]) {
+      fmt::print("Setting CFO was not successful. The radio does not have a controller for sector '{}'.\n",
+                 sector_id.value());
+      return;
+    }
+
     expected<double, std::string> cfo = app_services::parse_double(args.back());
     if (not cfo.has_value()) {
       fmt::print("Invalid CFO value.\n");
@@ -206,12 +227,12 @@ public:
 
     cfo_compensation_request cfo_reqs;
     cfo_reqs.cfo_hz = cfo.value();
-    if (!controller.set_tx_cfo(sector_id.value(), cfo_reqs)) {
+    if (!controllers[sector_id.value()]->set_tx_cfo(sector_id.value(), cfo_reqs)) {
       fmt::print("Setting TX CFO was not successful. The radio may not support this feature.\n");
       return;
     }
 
-    if (!controller.set_rx_cfo(sector_id.value(), cfo_reqs)) {
+    if (!controllers[sector_id.value()]->set_rx_cfo(sector_id.value(), cfo_reqs)) {
       fmt::print("Setting RX CFO was not successful. The radio may not support this feature.\n");
       return;
     }
@@ -223,10 +244,13 @@ public:
 /// Application command to set the transmit time offset.
 class tx_time_offset_app_command : public app_services::cmdline_command
 {
-  ru_tx_time_offset_controller& controller;
+  std::vector<ru_tx_time_offset_controller*> controllers;
 
 public:
-  explicit tx_time_offset_app_command(ru_tx_time_offset_controller& controller_) : controller(controller_) {}
+  explicit tx_time_offset_app_command(std::vector<ru_tx_time_offset_controller*> controllers_) :
+    controllers(std::move(controllers_))
+  {
+  }
 
   // See interface for documentation.
   std::string_view get_name() const override { return "tx_time_offset"; }
@@ -251,6 +275,13 @@ public:
       fmt::print("Invalid sector identifier.\n");
       return;
     }
+
+    if (sector_id.value() >= controllers.size() || !controllers[sector_id.value()]) {
+      fmt::print("Setting TX time offset was not successful. The radio does not have a controller for sector '{}'.\n",
+                 sector_id.value());
+      return;
+    }
+
     expected<double, std::string> tx_time_offset_us = app_services::parse_double(args.back());
     if (not tx_time_offset_us.has_value()) {
       fmt::print("Invalid transmit time offset format.\n");
@@ -258,7 +289,8 @@ public:
     }
 
     phy_time_unit tx_time_offset = phy_time_unit::from_seconds(*tx_time_offset_us * 1e-6);
-    if (!controller.set_tx_time_offset(sector_id.value(), tx_time_offset)) {
+
+    if (!controllers[sector_id.value()]->set_tx_time_offset(sector_id.value(), tx_time_offset)) {
       fmt::print("Setting TX time offset was not successful. The radio may not support this feature.\n");
       return;
     }

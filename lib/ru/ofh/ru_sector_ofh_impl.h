@@ -65,6 +65,9 @@ public:
   /// Sets the OFH sector managed by this RU sector.
   void set_ofh_sector(std::unique_ptr<ofh::sector> sector);
 
+  /// Returns the OTA notifier used for the SLOT.indication.
+  ofh::ota_symbol_boundary_notifier& get_slot_indication_notifier() { return timing_notifier; }
+
   /// Returns the OTA notifiers of this OFH Radio Unit sector.
   std::vector<ofh::ota_symbol_boundary_notifier*> get_ota_notifiers();
 

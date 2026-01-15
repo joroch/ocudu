@@ -52,7 +52,7 @@ std::vector<ofh::ota_symbol_boundary_notifier*> ru_sector_ofh_impl::get_ota_noti
   std::vector<ofh::ota_symbol_boundary_notifier*> notifiers;
 
   // Add first the timing notifier.
-  notifiers.push_back(&timing_notifier);
+  // notifiers.push_back(&timing_notifier);
 
   if (ofh_sector) {
     notifiers.push_back(&ofh_sector->get_transmitter().get_ota_symbol_boundary_notifier());
