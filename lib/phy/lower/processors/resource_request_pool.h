@@ -58,28 +58,21 @@ private:
     /// same request.
     request_type exchange(request_type new_request)
     {
-      uint16_t slot_key = new_request.slot.system_slot() % request_array_size;
-
-      // Return the same request if there's another simultaneous exchange for this slot.
-      if (OCUDU_UNLIKELY((reserved_flag.load() >> slot_key) & 1)) {
+      // Return the same request if there's another request exchange happening simultaneously.
+      if (reserved_flag.fetch_or(1)) {
         return std::move(new_request);
       }
 
-      // Flag this exchange to avoid concurrent access for this slot.
-      reserved_flag.fetch_or(static_cast<uint16_t>(1u << slot_key));
-
       request_type old_request = std::move(request);
       request                  = std::move(new_request);
-
-      // Unflag the exchange.
-      reserved_flag.fetch_and(static_cast<uint16_t>(~(1u << slot_key)));
+      reserved_flag            = 0;
 
       return old_request;
     }
 
   private:
-    request_type          request;
-    std::atomic<uint16_t> reserved_flag = 0;
+    request_type         request;
+    std::atomic<uint8_t> reserved_flag = 0;
   };
 
   /// Request storage, indexed by slots.
