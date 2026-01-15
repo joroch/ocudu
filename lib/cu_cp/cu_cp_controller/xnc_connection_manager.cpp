@@ -30,21 +30,25 @@ void xnc_connection_manager::start()
 {
   fmt::println("XNC connection manager start");
   // Schedules setup routine to be executed in sequence with other CU-CP procedures.
-  common_task_sched.schedule_async_task(launch_async([this](coro_context<async_task<void>>& ctx) mutable {
-    CORO_BEGIN(ctx);
+  common_task_sched.schedule_async_task(launch_async(
+      [this, xn_it = std::map<xnc_peer_index_t, xnap_interface*>::iterator{}, xnaps_map = xnaps.get_xnaps()](
+          coro_context<async_task<void>>& ctx) mutable {
+        CORO_BEGIN(ctx);
 
-    // TODO try to connect to all neighbours.
-    connect_to_neighbours();
+        // TODO try to connect to all neighbours.
+        for (xn_it = xnaps_map.begin(); xn_it != xnaps_map.end(); ++xn_it) {
+          CORO_AWAIT(xn_it->second->handle_xn_setup_request_required(1));
+        }
 
-    CORO_RETURN();
-  }));
+        CORO_RETURN();
+      }));
 }
 
 void xnc_connection_manager::connect_to_neighbours()
 {
   std::map<xnc_peer_index_t, xnap_interface*> xn = xnaps.get_xnaps();
   for (const std::pair<const xnc_peer_index_t, xnap_interface*>& xnap_it : xn) {
-    fmt::println("Connecting to peer :{}", xnap_it.second->handle_xn_peer_tnl_connection_request());
+    xnap_it.second->handle_xn_setup_request_required(1);
   }
 }
 

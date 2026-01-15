@@ -126,7 +126,10 @@ public:
                params.sctp.bind_port);
   }
 
-  void init_association(transport_layer_address dest_addr) { bool result = sctp_server->init_association(dest_addr); }
+  void init_association(transport_layer_address dest_addr, byte_buffer payload)
+  {
+    bool result = sctp_server->init_association(dest_addr, std::move(payload));
+  }
 
   void listen()
   {
@@ -139,12 +142,12 @@ public:
   std::unique_ptr<sctp_association_sdu_notifier>
   create(std::unique_ptr<sctp_association_sdu_notifier> sctp_send_notifier) override
   {
+    fmt::print("got CONN_UP!!!");
     // Create an unpacked XNAP PDU notifier and pass it to the CU-CP.
     auto xnc_sender = std::make_unique<xnc_to_gw_pdu_notifier>(std::move(sctp_send_notifier), params.pcap, logger);
 
     std::unique_ptr<xnap_message_notifier> xnc_receiver =
         xnap_handler->handle_new_xnc_connection(std::move(xnc_sender));
-    // std::unique_ptr<xnap_message_notifier> xnc_receiver = nullptr;
 
     // Wrap the received XNAP Rx PDU notifier in an SCTP notifier and return it.
     if (xnc_receiver == nullptr) {

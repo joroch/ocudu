@@ -9,6 +9,7 @@
 set(SOURCES
         xnap_impl.cpp
         xnap_factory.cpp
+        procedures/xn_setup_procedure.cpp
     )
 
 

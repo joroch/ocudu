@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "ocudu/adt/byte_buffer.h"
 #include "ocudu/cu_cp/cu_cp_xnc_handler.h"
 #include "ocudu/support/io/transport_layer_address.h"
 #include <cstdint>
@@ -29,7 +30,7 @@ public:
   virtual void attach_cu_cp(cu_cp_xnc_handler& xnc_handler_) = 0;
 
   /// Initiate SCTP association with peer.
-  virtual void init_association(transport_layer_address dest_addr) = 0;
+  virtual void init_association(transport_layer_address dest_addr, byte_buffer payload) = 0;
 
   /// Get port on which the F1-C Server is listening for new connections.
   ///
