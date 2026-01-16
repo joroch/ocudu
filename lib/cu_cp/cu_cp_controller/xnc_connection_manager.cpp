@@ -179,7 +179,8 @@ void xnc_connection_manager::stop()
 }
 
 std::unique_ptr<xnap_message_notifier>
-xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier)
+xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier,
+                                                  const sctp_association_info&           assoc_info)
 {
   // Note: This function may be called from a different execution context than the CU-CP.
 
@@ -194,25 +195,26 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
 
   // Find XNAP neighbour. This needs to be done over the CU-CP execution context, so
   // we dispatch the task to find the correct XNAP and "attach" it to the notifier
-  while (not cu_cp_exec.execute([this, shared_ctxt, sender_notifier = std::move(xnap_tx_pdu_notifier)]() mutable {
-    // Find XNAP based on address of peer.
-    // TODO.
-    xnc_peer_index_t xnc_index = {}; //= xnaps.find_xnap();
-    if (xnc_index == xnc_peer_index_t::invalid) {
-      logger.warning("Rejecting new DU connection. Cause: Failed to create a new DU");
-      return;
-    }
+  while (not cu_cp_exec.execute(
+      [this, shared_ctxt, sender_notifier = std::move(xnap_tx_pdu_notifier), addr = assoc_info.peer_addr]() mutable {
+        // Find XNAP based on address of peer.
+        // TODO.
+        xnc_peer_index_t xnc_index = xnaps.find_xnap(addr);
+        if (xnc_index == xnc_peer_index_t::invalid) {
+          logger.warning("Rejecting new DU connection. Cause: Failed to create a new DU");
+          return;
+        }
 
-    // Register the XNAP peer in the shared XNAP connection context.
-    // shared_ctxt->connect_xnc(xnc_index);
+        // Register the XNAP peer in the shared XNAP connection context.
+        shared_ctxt->connect_xnc(xnc_index);
 
-    // if (not xnc_connections.insert(std::make_pair(xnc_index, std::move(shared_ctxt))).second) {
-    //   logger.error("Failed to store new DU connection {}", xnc_index);
-    //   return;
-    // }
+        if (not xnc_connections.insert(std::make_pair(xnc_index, std::move(shared_ctxt))).second) {
+          logger.error("Failed to store new DU connection {}", fmt::underlying(xnc_index));
+          return;
+        }
 
-    // logger.info("Added TNL association to XN-C {}", xnc_index);
-  })) {
+        // logger.info("Added TNL association to XN-C {}", xnc_index);
+      })) {
     logger.debug("Failed to dispatch CU-CP DU connection task. Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }

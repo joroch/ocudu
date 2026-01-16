@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "ocudu/gateways/sctp_network_server.h" // TODO THIS should not be included!!!
 #include "ocudu/xnap/xnap_message_notifier.h"
 #include <memory>
 
@@ -32,7 +33,8 @@ public:
   /// object go out of scope, the CU-CP will be notified that a GW event occurred that resulted in the association
   /// being shutdown.
   virtual std::unique_ptr<xnap_message_notifier>
-  handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier) = 0;
+  handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier,
+                            const sctp_association_info&           assoc_info) = 0;
 };
 
 } // namespace ocucp

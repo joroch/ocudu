@@ -65,3 +65,12 @@ xnap_interface* xnap_repository::find_xnap(xnc_peer_index_t xnc_index)
   }
   return it->second.xnap.get();
 }
+
+xnc_peer_index_t xnap_repository::find_xnap(const transport_layer_address& peer_addr)
+{
+  auto it = xnap_db.end(); // TODO.
+  if (it == xnap_db.end()) {
+    return xnc_peer_index_t::invalid;
+  }
+  return it->first;
+}

@@ -30,7 +30,8 @@ public:
   void start();
 
   std::unique_ptr<xnap_message_notifier>
-  handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier) override;
+  handle_new_xnc_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier,
+                            const sctp_association_info&           assoc_info) override;
 
   void stop();
 
@@ -48,7 +49,7 @@ private:
   common_task_scheduler&  common_task_sched;
   ocudulog::basic_logger& logger;
 
-  std::unordered_map<xnc_peer_index_t, std::atomic<bool>> xnaps_connected;
+  std::map<xnc_peer_index_t, std::shared_ptr<shared_xnc_connection_context>> xnc_connections;
 
   std::atomic<bool> stopped{false};
 };

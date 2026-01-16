@@ -39,6 +39,8 @@ public:
   /// \return A pointer to the interface of the added NGAP object if it was successfully found, a nullptr otherwise.
   xnap_interface* find_xnap(xnc_peer_index_t xnc_index);
 
+  xnc_peer_index_t find_xnap(const transport_layer_address& peer_addr);
+
   /// \brief Get the all NGAP interfaces.
   std::map<xnc_peer_index_t, xnap_interface*> get_xnaps();
 
