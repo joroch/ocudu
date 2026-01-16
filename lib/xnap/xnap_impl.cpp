@@ -31,6 +31,8 @@ xnap_impl::xnap_impl(const xnap_configuration& xnap_cfg_,
   tx_pdu_notifier(*this)
 {
   fmt::println("XN-C peer: {}", xnap_cfg.peer_addr);
+  peer_addr = transport_layer_address::create_from_string(xnap_cfg.peer_addr);
+  peer_addr.set_port(38422);
 }
 
 // Note: For fwd declaration of member types, dtor cannot be trivial.
@@ -49,7 +51,10 @@ bool xnap_impl::handle_xn_peer_tnl_connection_request()
   return true;
 }
 
-void xnap_impl::handle_message(const xnap_message& msg) {}
+void xnap_impl::handle_message(const xnap_message& msg)
+{
+  fmt::println("Got mail :)!");
+}
 
 // TODO fix return type.
 async_task<void> xnap_impl::handle_xn_setup_request_required(unsigned max_setup_retries)

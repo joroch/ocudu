@@ -68,9 +68,13 @@ xnap_interface* xnap_repository::find_xnap(xnc_peer_index_t xnc_index)
 
 xnc_peer_index_t xnap_repository::find_xnap(const transport_layer_address& peer_addr)
 {
-  auto it = xnap_db.end(); // TODO.
-  if (it == xnap_db.end()) {
-    return xnc_peer_index_t::invalid;
+  for (const std::pair<const xnc_peer_index_t, xnap_context>& xn : xnap_db) {
+    auto peer = xn.second.xnap->get_peer_address();
+    if (peer == peer_addr) {
+      fmt::println("Found XN-C: {}", fmt::underlying(xn.first));
+      return xn.first;
+    }
   }
-  return it->first;
+  fmt::println("Could not find XN-C");
+  return xnc_peer_index_t::invalid;
 }

@@ -28,9 +28,9 @@ public:
   ~xnap_impl();
 
   // XNAP connection manager functions.
-  bool             handle_xn_peer_tnl_connection_request() override;
-  async_task<void> handle_xn_setup_request_required(unsigned max_setup_retries) override;
-  std::string      get_peer_address() override { return xnap_cfg.peer_addr; }
+  bool                    handle_xn_peer_tnl_connection_request() override;
+  async_task<void>        handle_xn_setup_request_required(unsigned max_setup_retries) override;
+  transport_layer_address get_peer_address() override { return peer_addr; }
 
   // XNAP message handling.
   void handle_message(const xnap_message& msg) override;
@@ -71,11 +71,12 @@ private:
 
   ocudulog::basic_logger& logger;
   xnap_configuration      xnap_cfg;
-  xnc_connection_gateway& xnc_gw;
+  transport_layer_address peer_addr;
 
-  xnap_cu_cp_notifier& cu_cp_notifier;
-  timer_manager&       timers;
-  task_executor&       ctrl_exec;
+  xnc_connection_gateway& xnc_gw;
+  xnap_cu_cp_notifier&    cu_cp_notifier;
+  timer_manager&          timers;
+  task_executor&          ctrl_exec;
 
   tx_pdu_notifier_with_logging tx_pdu_notifier;
 };

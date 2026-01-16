@@ -41,7 +41,7 @@ public:
   virtual ~xnap_connection_manager() = default;
 
   /// \breif Get IP address of peer.
-  virtual std::string get_peer_address() = 0;
+  virtual transport_layer_address get_peer_address() = 0;
 
   /// \brief Request a new TNL association to the AMF.
   virtual bool handle_xn_peer_tnl_connection_request() = 0;

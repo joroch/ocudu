@@ -183,7 +183,7 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
                                                   const sctp_association_info&           assoc_info)
 {
   // Note: This function may be called from a different execution context than the CU-CP.
-
+  fmt::println("Handling new XN-C");
   if (stopped.load(std::memory_order_acquire)) {
     // CU-CP is in the process of being stopped.
     return nullptr;
