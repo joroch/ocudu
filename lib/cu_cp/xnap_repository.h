@@ -31,9 +31,13 @@ class xnap_repository
 public:
   explicit xnap_repository(xnap_repository_config cfg_);
 
-  /// \brief Adds a XNAP object to the CU-CP.
+  /// \brief Adds an XNAP object to the CU-CP.
   /// \return A pointer to the interface of the added NGAP object if it was successfully created, a nullptr otherwise.
   xnap_interface* add_xnap(xnc_peer_index_t xnc_index, const cu_cp_configuration::xnap_config& config);
+
+  /// \brief Find an XNAP object in the repository.
+  /// \return A pointer to the interface of the added NGAP object if it was successfully found, a nullptr otherwise.
+  xnap_interface* find_xnap(xnc_peer_index_t xnc_index);
 
   /// \brief Get the all NGAP interfaces.
   std::map<xnc_peer_index_t, xnap_interface*> get_xnaps();

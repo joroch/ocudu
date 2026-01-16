@@ -35,6 +35,9 @@ public:
   void stop();
 
 private:
+  class shared_xnc_connection_context;
+  class xnc_gw_to_cu_cp_pdu_adapter;
+
   void        connect_to_neighbours();
   void        handle_connection_setup_result(amf_index_t amf_index, bool success);
   amf_index_t plmn_to_amf_index(plmn_identity plmn) const;

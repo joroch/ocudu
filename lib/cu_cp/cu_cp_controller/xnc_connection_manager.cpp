@@ -14,6 +14,95 @@
 using namespace ocudu;
 using namespace ocucp;
 
+/// Context of a DU connection which is shared between the du_connection_manager and the f1ap_message_notifier.
+class xnc_connection_manager::shared_xnc_connection_context
+{
+public:
+  shared_xnc_connection_context(xnc_connection_manager& parent_) : parent(parent_) {}
+  shared_xnc_connection_context(const shared_xnc_connection_context&)            = delete;
+  shared_xnc_connection_context(shared_xnc_connection_context&&)                 = delete;
+  shared_xnc_connection_context& operator=(const shared_xnc_connection_context&) = delete;
+  shared_xnc_connection_context& operator=(shared_xnc_connection_context&&)      = delete;
+  ~shared_xnc_connection_context() { disconnect(); }
+
+  /// Assign a XNC repository index to the context. This is called when the SCTP assocation is created and
+  /// attached to an XNAP handler.
+  void connect_xnc(xnc_peer_index_t xnc_idx_)
+  {
+    xnc_idx     = xnc_idx_;
+    msg_handler = parent.xnaps.find_xnap(xnc_idx);
+  }
+
+  /// Determines whether an XNAP message handlerrepository has been attached to this association.
+  bool connected() const { return msg_handler != nullptr; }
+
+  /// Deletes the associated DU repository, if it exists.
+  void disconnect()
+  {
+    if (not connected()) {
+      // DU was never allocated or was already removed.
+      return;
+    }
+
+    // Notify DU that the connection is closed.
+    // parent.handle_xnc_gw_connection_closed(du_idx);
+
+    xnc_idx     = xnc_peer_index_t::invalid;
+    msg_handler = nullptr;
+  }
+
+  /// Handle XNAP message coming from the SCTP GW.
+  void handle_message(const xnap_message& msg)
+  {
+    if (not connected()) {
+      parent.logger.warning("Discarding DU F1AP message. Cause: DU connection has been closed.");
+    }
+
+    // Forward message.
+    msg_handler->handle_message(msg);
+  }
+
+private:
+  xnc_connection_manager& parent;
+  xnc_peer_index_t        xnc_idx     = xnc_peer_index_t::invalid;
+  xnap_message_handler*   msg_handler = nullptr;
+};
+
+/// Notifier used to forward Rx F1AP messages from the F1-C GW to CU-CP in a thread safe manner.
+class xnc_connection_manager::xnc_gw_to_cu_cp_pdu_adapter final : public xnap_message_notifier
+{
+public:
+  xnc_gw_to_cu_cp_pdu_adapter(xnc_connection_manager& parent_, std::shared_ptr<shared_xnc_connection_context> ctxt_) :
+    parent(parent_), ctxt(std::move(ctxt_))
+  {
+  }
+
+  ~xnc_gw_to_cu_cp_pdu_adapter() override
+  {
+    // Defer destruction of context to CU-CP execution context.
+    // Note: We make a copy of the shared_ptr of the context to extend its lifetime to when the defer callback actually
+    // gets executed.
+    // Note: We don't use move because the defer may fail.
+    while (not parent.cu_cp_exec.defer([ctxt_cpy = ctxt]() { ctxt_cpy->disconnect(); })) {
+      parent.logger.error("Failed to schedule DU removal task. Retrying...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+
+  void on_new_message(const xnap_message& msg) override
+  {
+    // Dispatch the F1AP Rx message handling to the CU-CP executor.
+    while (not parent.cu_cp_exec.execute([this, msg]() { ctxt->handle_message(msg); })) {
+      parent.logger.error("Failed to dispatch F1AP message to CU-CP. Retrying...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+
+private:
+  xnc_connection_manager&                        parent;
+  std::shared_ptr<shared_xnc_connection_context> ctxt;
+};
+
 xnc_connection_manager::xnc_connection_manager(xnap_repository&       xnaps_,
                                                timer_manager&         timers_,
                                                task_executor&         cu_cp_exec_,
@@ -99,34 +188,34 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
     return nullptr;
   }
 
-  // TODO
-  // Find XNAP neighbour.
-  std::unique_ptr<xnap_message_notifier> rx_pdu_notifier = nullptr;
+  // We create a "detached" notifier, that has no associated XNAP yet.
+  auto shared_ctxt     = std::make_shared<shared_xnc_connection_context>(*this);
+  auto rx_pdu_notifier = std::make_unique<xnc_gw_to_cu_cp_pdu_adapter>(*this, shared_ctxt);
 
-  // We dispatch the task to allocate a DU processor and "attach" it to the notifier
-  /*
+  // Find XNAP neighbour. This needs to be done over the CU-CP execution context, so
+  // we dispatch the task to find the correct XNAP and "attach" it to the notifier
   while (not cu_cp_exec.execute([this, shared_ctxt, sender_notifier = std::move(xnap_tx_pdu_notifier)]() mutable {
-    // Create a new DU processor.
-    du_index_t du_index = dus.add_du(std::move(sender_notifier));
-    if (du_index == du_index_t::invalid) {
+    // Find XNAP based on address of peer.
+    // TODO.
+    xnc_peer_index_t xnc_index = {}; //= xnaps.find_xnap();
+    if (xnc_index == xnc_peer_index_t::invalid) {
       logger.warning("Rejecting new DU connection. Cause: Failed to create a new DU");
       return;
     }
 
-    // Register the allocated DU processor index in the DU connection context.
-    shared_ctxt->connect_du(du_index);
+    // Register the XNAP peer in the shared XNAP connection context.
+    // shared_ctxt->connect_xnc(xnc_index);
 
-    if (not du_connections.insert(std::make_pair(du_index, std::move(shared_ctxt))).second) {
-      logger.error("Failed to store new DU connection {}", du_index);
-      return;
-    }
+    // if (not xnc_connections.insert(std::make_pair(xnc_index, std::move(shared_ctxt))).second) {
+    //   logger.error("Failed to store new DU connection {}", xnc_index);
+    //   return;
+    // }
 
-    logger.info("Added TNL connection to DU {}", du_index);
+    // logger.info("Added TNL association to XN-C {}", xnc_index);
   })) {
     logger.debug("Failed to dispatch CU-CP DU connection task. Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  */
 
   return rx_pdu_notifier;
 }

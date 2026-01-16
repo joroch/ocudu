@@ -25,6 +25,15 @@ xnap_repository::xnap_repository(xnap_repository_config cfg_) : cfg(cfg_), logge
   }
 }
 
+std::map<xnc_peer_index_t, xnap_interface*> xnap_repository::get_xnaps()
+{
+  std::map<xnc_peer_index_t, xnap_interface*> ngaps;
+  for (auto& peer : xnap_db) {
+    ngaps.emplace(peer.first, peer.second.xnap.get());
+  }
+  return ngaps;
+}
+
 xnap_interface* xnap_repository::add_xnap(xnc_peer_index_t xnc_index, const cu_cp_configuration::xnap_config& config)
 {
   // Create XNAP object
@@ -48,11 +57,11 @@ xnap_interface* xnap_repository::add_xnap(xnc_peer_index_t xnc_index, const cu_c
   return nullptr;
 }
 
-std::map<xnc_peer_index_t, xnap_interface*> xnap_repository::get_xnaps()
+xnap_interface* xnap_repository::find_xnap(xnc_peer_index_t xnc_index)
 {
-  std::map<xnc_peer_index_t, xnap_interface*> ngaps;
-  for (auto& peer : xnap_db) {
-    ngaps.emplace(peer.first, peer.second.xnap.get());
+  auto it = xnap_db.find(xnc_index);
+  if (it == xnap_db.end()) {
+    return nullptr;
   }
-  return ngaps;
+  return it->second.xnap.get();
 }
