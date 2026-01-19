@@ -50,15 +50,13 @@ public:
 
   /// Sets the PRACH PDU maintenance v3 basic parameters and returns a reference to the builder.
   /// \note These parameters are specified in SCF-222 v4.0 section 3.4.3.1 in table PRACH maintenance FAPIv3.
-  ul_prach_pdu_builder& set_maintenance_v3_basic_parameters(uint32_t                handle,
-                                                            prach_config_scope_type prach_config_scope,
+  ul_prach_pdu_builder& set_maintenance_v3_basic_parameters(prach_config_scope_type prach_config_scope,
                                                             uint16_t                prach_res_config_index,
                                                             uint8_t                 num_fd_ra,
                                                             std::optional<uint8_t>  start_preamble_index,
                                                             uint8_t                 num_preambles_indices)
   {
     auto& v3                  = pdu.maintenance_v3;
-    v3.handle                 = handle;
     v3.prach_config_scope     = prach_config_scope;
     v3.prach_res_config_index = prach_res_config_index;
     v3.num_fd_ra              = num_fd_ra;

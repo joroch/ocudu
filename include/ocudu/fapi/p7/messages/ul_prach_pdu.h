@@ -20,7 +20,7 @@ enum class prach_config_scope_type : uint8_t { common_context, phy_context };
 
 /// PRACH maintenance parameters added in FAPIv3.
 struct ul_prach_maintenance_v3 {
-  uint32_t                handle;
+  uint32_t                handle = 0;
   prach_config_scope_type prach_config_scope;
   uint16_t                prach_res_config_index;
   uint8_t                 num_fd_ra;

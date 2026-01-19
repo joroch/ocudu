@@ -41,7 +41,6 @@ TEST(ul_prach_pdu_builder, valid_basic_parameters_passes)
 TEST(ul_prach_pdu_builder, valid_maintenance_v3_basic_parameters_passes)
 {
   for (unsigned i = 0, e = 2; i != e; ++i) {
-    uint32_t                handle                 = 123456;
     prach_config_scope_type prach_config_scope     = prach_config_scope_type::phy_context;
     uint16_t                prach_res_config_index = 1023;
     uint8_t                 num_fd_ra              = 23;
@@ -55,10 +54,10 @@ TEST(ul_prach_pdu_builder, valid_maintenance_v3_basic_parameters_passes)
     ul_prach_pdu_builder builder(pdu);
 
     builder.set_maintenance_v3_basic_parameters(
-        handle, prach_config_scope, prach_res_config_index, num_fd_ra, start_preamble_index, num_preambles_indices);
+        prach_config_scope, prach_res_config_index, num_fd_ra, start_preamble_index, num_preambles_indices);
 
     const auto& v3 = pdu.maintenance_v3;
-    ASSERT_EQ(handle, v3.handle);
+    ASSERT_EQ(0, v3.handle);
     ASSERT_EQ(prach_config_scope, v3.prach_config_scope);
     ASSERT_EQ(prach_res_config_index, v3.prach_res_config_index);
     ASSERT_EQ(num_fd_ra, v3.num_fd_ra);
