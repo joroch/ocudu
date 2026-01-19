@@ -1060,8 +1060,7 @@ static ru_ofh_dependencies generate_ru_dependencies(ocudulog::basic_logger&     
   dependencies.rt_timing_executor = workers.ru_timing_exec;
   dependencies.error_notifier     = &error_notifier;
 
-  dependencies.sector_dependencies.emplace_back();
-  auto& sector_deps             = dependencies.sector_dependencies.back();
+  auto& sector_deps             = dependencies.sector_dependencies.emplace_back();
   sector_deps.logger            = &logger;
   sector_deps.downlink_executor = workers.ru_dl_exec;
   sector_deps.uplink_executor   = workers.ru_rx_exec;
@@ -1165,8 +1164,8 @@ int main(int argc, char** argv)
   std::unique_ptr<radio_unit> ru_object = create_ofh_ru(ru_cfg, std::move(ru_deps));
 
   // Get RU downlink plane handler.
-  auto& ru_dl_handler = ru_object->get_downlink_plane_handler();
-  auto& ru_ul_handler = ru_object->get_uplink_plane_handler();
+  auto& ru_dl_handler = ru_object->get_radio_unit_sector(0)->get_downlink_plane_handler();
+  auto& ru_ul_handler = ru_object->get_radio_unit_sector(0)->get_uplink_plane_handler();
 
   // Create RU emulator instance.
   ru_compression_params ul_compression_params{to_compression_type(test_params.data_compr_method),
@@ -1182,7 +1181,7 @@ int main(int argc, char** argv)
 
   // Start the RU.
   fmt::print("Starting RU...\n");
-  ru_object->get_controller().get_operation_controller().start();
+  ru_object->get_operation_controller().start();
 
   // Wait until TTI callback is called and slot point gets initialized.
   while (!slot_synchronized) {
@@ -1199,7 +1198,7 @@ int main(int argc, char** argv)
   fmt::print("DU emulator stopped\n");
 
   fmt::print("Stopping the RU...\n");
-  ru_object->get_controller().get_operation_controller().stop();
+  ru_object->get_operation_controller().stop();
   fmt::print("RU stopped successfully.\n");
 
   workers.stop();

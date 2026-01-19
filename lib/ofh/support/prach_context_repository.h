@@ -243,7 +243,7 @@ public:
           std::lock_guard<std::mutex> lock(mutex);
           entry(context.slot) = prach_context(context, std::move(prach_buff), start_symbol);
         })) {
-      logger.warning("Failed to enqueue task to add the uplink context to the repository");
+      logger.warning("Failed to enqueue task to add the PRACH context to the repository");
     }
   }
 

@@ -14,12 +14,14 @@ set(SOURCES
         lower_phy/lower_phy_sector.cpp
         ru_controller_sdr_impl.cpp
         ru_factory_sdr_impl.cpp
-        ru_lower_phy_downlink_handler_impl.cpp
-        ru_lower_phy_uplink_request_handler_impl.cpp
         ru_metrics_collector_sdr_impl.cpp
         ru_radio_metrics_collector.cpp
         ru_sdr_executor_mapper.cpp
-        ru_sdr_impl.cpp)
+        ru_sdr_impl.cpp
+        ru_sector_controller_sdr_impl.cpp
+        ru_sector_lower_phy_downlink_handler_impl.cpp
+        ru_sector_lower_phy_uplink_request_handler_impl.cpp
+        ru_sector_sdr_impl.cpp)
 
 add_library(ocudu_ru_sdr STATIC ${SOURCES})
 target_link_libraries(ocudu_ru_sdr ocudu_lower_phy ocudu_radio ocudulog)

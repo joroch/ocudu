@@ -1,0 +1,48 @@
+/*
+ *
+ * Copyright 2021-2026 Software Radio Systems Limited
+ *
+ * By using this file, you agree to the terms and conditions set
+ * forth in the LICENSE file which can be found at the top level of
+ * the distribution.
+ *
+ */
+
+#pragma once
+
+#include "ocudu/ofh/timing/ofh_ota_symbol_boundary_notifier.h"
+#include "ocudu/ru/ru_timing_notifier.h"
+#include <chrono>
+#include <vector>
+
+namespace ocudu {
+
+class ru_timing_notifier;
+
+/// OFH Radio Unit sector timing notifier implementation.
+class ru_sector_ofh_timing_notifier_impl : public ofh::ota_symbol_boundary_notifier
+{
+public:
+  ru_sector_ofh_timing_notifier_impl(unsigned            nof_slot_offset_du_ru_,
+                                     unsigned            nof_symbols_per_slot,
+                                     subcarrier_spacing  scs,
+                                     ru_timing_notifier& timing_notifier_);
+
+  // See interface for documentation.
+  void on_new_symbol(const ofh::slot_symbol_point_context& symbol_point_context) override;
+
+  void set_notifiers(std::vector<ofh::ota_symbol_boundary_notifier*> ota_notifiers)
+  {
+    notifiers = std::move(ota_notifiers);
+  }
+
+private:
+  const unsigned                                  nof_slot_offset_du_ru;
+  const std::chrono::nanoseconds                  nof_slots_offset_du_ru_ns;
+  const unsigned                                  half_slot_symbol;
+  const unsigned                                  full_slot_symbol;
+  ru_timing_notifier&                             timing_notifier;
+  std::vector<ofh::ota_symbol_boundary_notifier*> notifiers;
+};
+
+} // namespace ocudu

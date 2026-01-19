@@ -37,7 +37,9 @@ public:
     notifier(notifier_),
     ru_ul_adapt(NOF_CELLS_SUPPORTED),
     ru_timing_adapt(NOF_CELLS_SUPPORTED),
-    ru_error_adapt(NOF_CELLS_SUPPORTED)
+    ru_error_adapt(NOF_CELLS_SUPPORTED),
+    ru_dl_rg_adapt(NOF_CELLS_SUPPORTED),
+    ru_ul_request_adapt(NOF_CELLS_SUPPORTED)
   {
   }
 

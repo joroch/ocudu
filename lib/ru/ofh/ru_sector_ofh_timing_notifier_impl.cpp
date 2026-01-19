@@ -8,16 +8,16 @@
  *
  */
 
-#include "ru_ofh_timing_notifier_impl.h"
+#include "ru_sector_ofh_timing_notifier_impl.h"
 #include "ocudu/ru/ru_timing_notifier.h"
 #include <chrono>
 
 using namespace ocudu;
 
-ru_ofh_timing_notifier_impl::ru_ofh_timing_notifier_impl(unsigned            nof_slot_offset_du_ru_,
-                                                         unsigned            nof_symbols_per_slot,
-                                                         subcarrier_spacing  scs,
-                                                         ru_timing_notifier& timing_notifier_) :
+ru_sector_ofh_timing_notifier_impl::ru_sector_ofh_timing_notifier_impl(unsigned            nof_slot_offset_du_ru_,
+                                                                       unsigned            nof_symbols_per_slot,
+                                                                       subcarrier_spacing  scs,
+                                                                       ru_timing_notifier& timing_notifier_) :
   nof_slot_offset_du_ru(nof_slot_offset_du_ru_),
   nof_slots_offset_du_ru_ns(nof_slot_offset_du_ru * 1000000 / slot_point(scs, 0).nof_slots_per_subframe()),
   half_slot_symbol(nof_symbols_per_slot / 2U - 1U),
@@ -26,7 +26,7 @@ ru_ofh_timing_notifier_impl::ru_ofh_timing_notifier_impl(unsigned            nof
 {
 }
 
-void ru_ofh_timing_notifier_impl::on_new_symbol(const ofh::slot_symbol_point_context& symbol_point_context)
+void ru_sector_ofh_timing_notifier_impl::on_new_symbol(const ofh::slot_symbol_point_context& symbol_point_context)
 {
   if (symbol_point_context.symbol_point.get_symbol_index() == half_slot_symbol) {
     timing_notifier.on_ul_half_slot_boundary(symbol_point_context.symbol_point.get_slot());

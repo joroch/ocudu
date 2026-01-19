@@ -10,17 +10,16 @@
 
 #pragma once
 
-#include "ru_radio_event_handler.h"
 #include "ocudu/phy/lower/lower_phy_timing_notifier.h"
 #include "ocudu/ru/ru_timing_notifier.h"
 
 namespace ocudu {
 
-/// Implements a lower physical layer to Radio Unit timing adapter.
-class ru_lower_phy_timing_adapter : public lower_phy_timing_notifier
+/// Implements a lower physical layer to Radio Unit sector timing adapter.
+class ru_sector_lower_phy_timing_adapter : public lower_phy_timing_notifier
 {
 public:
-  explicit ru_lower_phy_timing_adapter(ru_timing_notifier& timing_handler_) : timing_handler(timing_handler_) {}
+  explicit ru_sector_lower_phy_timing_adapter(ru_timing_notifier& timing_handler_) : timing_handler(timing_handler_) {}
 
   // See interface for documentation.
   void on_tti_boundary(const lower_phy_timing_context& context) override

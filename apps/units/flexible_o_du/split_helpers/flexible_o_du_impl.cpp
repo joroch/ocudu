@@ -23,19 +23,21 @@ flexible_o_du_impl::flexible_o_du_impl(unsigned nof_cells_, flexible_o_du_metric
   ru_ul_adapt(nof_cells_),
   ru_timing_adapt(nof_cells_),
   ru_error_adapt(nof_cells_),
-  odu_metrics_handler(notifier)
+  odu_metrics_handler(notifier),
+  ru_dl_rg_adapt(nof_cells),
+  ru_ul_request_adapt(nof_cells)
 {
 }
 
 void flexible_o_du_impl::start()
 {
   du->get_operation_controller().start();
-  ru->get_controller().get_operation_controller().start();
+  ru->get_operation_controller().start();
 }
 
 void flexible_o_du_impl::stop()
 {
-  ru->get_controller().get_operation_controller().stop();
+  ru->get_operation_controller().stop();
   du->get_operation_controller().stop();
 }
 
@@ -45,8 +47,11 @@ void flexible_o_du_impl::add_ru(std::unique_ptr<radio_unit> active_ru)
   ocudu_assert(ru, "Invalid Radio Unit");
 
   // Connect the RU adaptor to the RU.
-  ru_dl_rg_adapt.connect(ru->get_downlink_plane_handler());
-  ru_ul_request_adapt.connect(ru->get_uplink_plane_handler());
+  // :TODO: Add 1 adaptor per sector.
+  for (unsigned i = 0; i != nof_cells; ++i) {
+    ru_dl_rg_adapt.map_handler(i, ru->get_radio_unit_sector(i)->get_downlink_plane_handler());
+    ru_ul_request_adapt.map_handler(i, ru->get_radio_unit_sector(i)->get_uplink_plane_handler());
+  }
 
   // Update the RU metrics collector.
   if (auto* collector = ru->get_metrics_collector()) {

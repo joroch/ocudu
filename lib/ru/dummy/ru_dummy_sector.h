@@ -11,25 +11,29 @@
 #pragma once
 
 #include "ocudu/ocudulog/logger.h"
-#include "ocudu/phy/constants.h"
 #include "ocudu/phy/support/prach_buffer_context.h"
 #include "ocudu/phy/support/resource_grid_context.h"
 #include "ocudu/phy/support/shared_resource_grid.h"
 #include "ocudu/ran/cyclic_prefix.h"
 #include "ocudu/ran/slot_point.h"
 #include "ocudu/ru/dummy/ru_dummy_metrics.h"
+#include "ocudu/ru/ru.h"
+#include "ocudu/ru/ru_controller.h"
 #include "ocudu/ru/ru_downlink_plane.h"
 #include "ocudu/ru/ru_error_notifier.h"
 #include "ocudu/ru/ru_uplink_plane.h"
 #include "ocudu/support/synchronization/stop_event.h"
-#include <thread>
 #include <utility>
 #include <vector>
 
 namespace ocudu {
 
 /// Implements a RU dummy sector.
-class ru_dummy_sector : public ru_uplink_plane_handler, public ru_downlink_plane_handler
+class ru_dummy_sector : public radio_unit_sector,
+                        public ru_controller,
+                        public ru_operation_controller,
+                        public ru_uplink_plane_handler,
+                        public ru_downlink_plane_handler
 {
   /// Calculates the request buffer size from a downlink data margin.
   static constexpr unsigned get_request_buffer_size(unsigned margin)
@@ -207,11 +211,35 @@ public:
     }
   }
 
-  /// Instruct the sector radio unit to start processing any incoming requests.
-  void start() { stop_control.reset(); }
+  // See interface for documentation.
+  ru_operation_controller& get_operation_controller() override { return *this; }
 
-  /// Instruct the sector radio unit to stop and wait for the RU to clear all pending request.
-  void stop() { stop_control.stop(); }
+  // See interface for documentation.
+  ru_gain_controller* get_gain_controller() override { return nullptr; }
+
+  // See interface for documentation.
+  ru_cfo_controller* get_cfo_controller() override { return nullptr; }
+
+  // See interface for documentation.
+  ru_tx_time_offset_controller* get_tx_time_offset_controller() override { return nullptr; }
+
+  // See interface for documentation.
+  void start() override { stop_control.reset(); }
+
+  // See interface for documentation.
+  void stop() override { stop_control.stop(); }
+
+  // See the radio_unit interface for documentation.
+  ru_controller& get_controller() override { return *this; }
+
+  // See the radio_unit interface for documentation.
+  ru_downlink_plane_handler& get_downlink_plane_handler() override { return *this; }
+
+  // See the radio_unit interface for documentation.
+  ru_uplink_plane_handler& get_uplink_plane_handler() override { return *this; }
+
+  // See the radio_unit interface for documentation.
+  ru_center_frequency_controller* get_center_frequency_controller() override { return nullptr; }
 
   /// Collects the RU dummy sector metrics. It does not reset the metrics.
   void collect_metrics(ru_dummy_sector_metrics& metrics) const

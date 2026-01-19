@@ -11,19 +11,24 @@
 #pragma once
 
 #include "ocudu/ru/ru_uplink_plane.h"
-#include <vector>
 
 namespace ocudu {
 
-class lower_phy_uplink_request_handler;
+class task_executor;
 class shared_resource_grid;
 
-/// Radio Unit to lower physical layer uplink request handler implementation.
-class ru_lower_phy_uplink_request_handler_impl : public ru_uplink_plane_handler
+namespace ofh {
+class uplink_request_handler;
+} // namespace ofh
+
+/// This proxy implementation dispatches the requests to the corresponding OFH sector.
+class ru_sector_uplink_plane_handler_proxy : public ru_uplink_plane_handler
 {
 public:
-  explicit ru_lower_phy_uplink_request_handler_impl(std::vector<lower_phy_uplink_request_handler*> handlers_) :
-    handlers(std::move(handlers_))
+  ru_sector_uplink_plane_handler_proxy();
+
+  explicit ru_sector_uplink_plane_handler_proxy(ofh::uplink_request_handler& ofh_ul_handler_) :
+    ofh_ul_handler(&ofh_ul_handler_)
   {
   }
 
@@ -34,7 +39,7 @@ public:
   void handle_new_uplink_slot(const resource_grid_context& context, const shared_resource_grid& grid) override;
 
 private:
-  std::vector<lower_phy_uplink_request_handler*> handlers;
+  ofh::uplink_request_handler* ofh_ul_handler;
 };
 
 } // namespace ocudu

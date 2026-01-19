@@ -10,19 +10,25 @@
 
 #pragma once
 
-#include "ocudu/phy/support/shared_resource_grid.h"
 #include "ocudu/ru/ru_downlink_plane.h"
 
 namespace ocudu {
 
-class lower_phy_downlink_handler;
+class task_executor;
+class shared_resource_grid;
 
-/// Radio Unit to lower physical layer downlink handler implementation.
-class ru_lower_phy_downlink_handler_impl : public ru_downlink_plane_handler
+namespace ofh {
+class downlink_handler;
+} // namespace ofh
+
+/// This proxy implementation dispatches the requests to the corresponding OFH sector.
+class ru_sector_downlink_plane_handler_proxy : public ru_downlink_plane_handler
 {
 public:
-  explicit ru_lower_phy_downlink_handler_impl(std::vector<lower_phy_downlink_handler*> handlers_) :
-    handlers(std::move(handlers_))
+  ru_sector_downlink_plane_handler_proxy();
+
+  explicit ru_sector_downlink_plane_handler_proxy(ofh::downlink_handler& ofh_dl_handler_) :
+    ofh_dl_handler(&ofh_dl_handler_)
   {
   }
 
@@ -30,7 +36,7 @@ public:
   void handle_dl_data(const resource_grid_context& context, const shared_resource_grid& grid) override;
 
 private:
-  std::vector<lower_phy_downlink_handler*> handlers;
+  ofh::downlink_handler* ofh_dl_handler;
 };
 
 } // namespace ocudu
