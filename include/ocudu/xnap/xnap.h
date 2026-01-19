@@ -18,6 +18,7 @@
 namespace ocudu::ocucp {
 
 struct xnap_message;
+class xnap_message_notifier;
 
 // TODO.
 struct xnap_configuration {
@@ -42,6 +43,9 @@ public:
 
   /// \breif Get IP address of peer.
   virtual transport_layer_address get_peer_address() = 0;
+
+  /// \breif Set the TX notifier for the SCTP association to the peer.
+  virtual void set_tx_association(xnap_message_notifier* tx_notifier) = 0;
 
   /// \brief Request a new TNL association to the AMF.
   virtual bool handle_xn_peer_tnl_connection_request() = 0;

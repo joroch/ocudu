@@ -49,8 +49,7 @@ public:
   /// Number of NGAPs managed by the CU-CP.
   size_t get_nof_xnaps() const { return xnap_db.size(); }
 
-  /// Number of UEs managed by the CU-CP.
-  size_t get_nof_ngap_ues();
+  void connect_association(xnc_peer_index_t idx, std::unique_ptr<xnap_message_notifier> sender_notifier);
 
 private:
   struct xnap_context {

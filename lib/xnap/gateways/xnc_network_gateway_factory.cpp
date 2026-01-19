@@ -37,6 +37,7 @@ public:
   /// Handle unpacked Tx F1AP PDU by packing and forwarding it into the SCTP GW.
   void on_new_message(const xnap_message& msg) override
   {
+    fmt::println("Packing XNAP message!");
     // pack F1AP PDU into SCTP SDU.
     byte_buffer   tx_sdu{byte_buffer::fallback_allocation_tag{}};
     asn1::bit_ref bref(tx_sdu);
@@ -49,6 +50,7 @@ public:
     if (pcap_writer.is_write_enabled()) {
       pcap_writer.push_pdu(tx_sdu.copy());
     }
+    fmt::println("sending XNAP message!");
 
     // Forward packed F1AP Tx PDU to SCTP gateway.
     sctp_sender->on_new_sdu(std::move(tx_sdu));

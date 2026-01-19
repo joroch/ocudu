@@ -198,12 +198,13 @@ xnc_connection_manager::handle_new_xnc_connection(std::unique_ptr<xnap_message_n
   while (not cu_cp_exec.execute(
       [this, shared_ctxt, sender_notifier = std::move(xnap_tx_pdu_notifier), addr = assoc_info.peer_addr]() mutable {
         // Find XNAP based on address of peer.
-        // TODO.
         xnc_peer_index_t xnc_index = xnaps.find_xnap(addr);
         if (xnc_index == xnc_peer_index_t::invalid) {
           logger.warning("Rejecting new DU connection. Cause: Failed to create a new DU");
           return;
         }
+
+        xnaps.connect_association(xnc_index, std::move(sender_notifier));
 
         // Register the XNAP peer in the shared XNAP connection context.
         shared_ctxt->connect_xnc(xnc_index);

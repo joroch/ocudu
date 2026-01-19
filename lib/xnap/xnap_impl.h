@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "procedures/xnap_transaction_manager.h"
 #include "ocudu/support/executors/task_executor.h"
 #include "ocudu/xnap/gateways/xnc_connection_gateway.h"
 #include "ocudu/xnap/xnap.h"
@@ -31,6 +32,7 @@ public:
   bool                    handle_xn_peer_tnl_connection_request() override;
   async_task<void>        handle_xn_setup_request_required(unsigned max_setup_retries) override;
   transport_layer_address get_peer_address() override { return peer_addr; }
+  void set_tx_association(xnap_message_notifier* tx_notifier_) override { tx_notifier = tx_notifier_; }
 
   // XNAP message handling.
   void handle_message(const xnap_message& msg) override;
@@ -66,6 +68,13 @@ private:
     std::unique_ptr<xnap_message_notifier> decorated;
   };
 
+  /// Message handling.
+  void handle_initiating_message(const asn1::xnap::init_msg_s& msg);
+  void handle_successful_outcome(const asn1::xnap::successful_outcome_s& msg);
+  void handle_unsuccessful_outcome(const asn1::xnap::unsuccessful_outcome_s& msg);
+
+  void handle_xn_setup_request(const asn1::xnap::xn_setup_request_s& msg);
+
   /// \brief Log NGAP RX PDU.
   void log_rx_pdu(const xnap_message& msg);
 
@@ -78,7 +87,10 @@ private:
   timer_manager&          timers;
   task_executor&          ctrl_exec;
 
+  xnap_transaction_manager transaction_mng;
+
   tx_pdu_notifier_with_logging tx_pdu_notifier;
+  xnap_message_notifier*       tx_notifier = nullptr;
 };
 
 } // namespace ocudu::ocucp
