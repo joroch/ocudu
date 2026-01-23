@@ -111,6 +111,16 @@ static bool validate_mobility_appconfig(gnb_id_t gnb_id, const cu_cp_unit_mobili
                    "ssb_offset and "
                    "ssb_duration must be configured in the mobility config\n",
                    cell.nr_cell_id);
+
+        fmt::print("\nIf the cell(s) should be internal their nr_cell_id(s) need to be adjusted according to the gnb_id={}\n", gnb_id.id);
+
+        unsigned sector_id = 0;
+        std::for_each(config.cells.begin(), config.cells.end(), [&](const auto&) {
+          fmt::print(" - Sector {} -> nr_cell_id={:#x}\n",
+                     sector_id,
+                     nr_cell_identity::create(gnb_id, sector_id).value());
+          ++sector_id;
+        });                   
         return false;
       }
     } else {

@@ -64,7 +64,7 @@ bool udp_network_gateway_impl::subscribe_to(io_broker& broker)
 void udp_network_gateway_impl::handle_pdu(byte_buffer pdu, const sockaddr_storage& dest_addr)
 {
   if (not batched_queue.try_push(udp_tx_pdu_t{std::move(pdu), dest_addr})) {
-    logger.info("Dropped PDU, queue is full.");
+    logger.warning("Dropped PDU, queue is full.");
   }
 }
 
