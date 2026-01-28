@@ -61,7 +61,7 @@ public:
       logger.warning(
           "Sector #{}: Failed to dispatch new symbol task in the message transmitter for slot '{}' and symbol '{}'",
           sector_id,
-          symbol_point_context.symbol_point.get_slot(),
+          symbol_point_context.symbol_point.get_slot_symbol_point().get_slot(),
           symbol_point_context.symbol_point.get_symbol_index());
     }
   }

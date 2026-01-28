@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "ocudu/ofh/timing/slot_symbol_point.h"
+#include "ocudu/ofh/timing/slot_symbol_point_extended.h"
 #include <chrono>
 
 namespace ocudu {
@@ -18,7 +18,7 @@ namespace ofh {
 
 /// Slot symbol time point context.
 struct slot_symbol_point_context {
-  slot_symbol_point                                  symbol_point;
+  slot_symbol_point_extended                         symbol_point;
   std::chrono::time_point<std::chrono::system_clock> time_point;
 };
 

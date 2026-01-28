@@ -38,21 +38,22 @@ void closed_rx_window_handler::on_new_symbol(const slot_symbol_point_context& sy
     return;
   }
 
-  if (!executor.defer([internal_slot = symbol_point_context.symbol_point - notification_delay_in_symbols,
-                       this,
-                       tk = std::move(token)]() {
-        // Add pending contexts to the repository.
-        uplink_repo->process_pending_contexts();
-        prach_repo->process_pending_contexts();
+  if (!executor.defer(
+          [internal_slot = symbol_point_context.symbol_point.get_slot_symbol_point() - notification_delay_in_symbols,
+           this,
+           tk = std::move(token)]() {
+            // Add pending contexts to the repository.
+            uplink_repo->process_pending_contexts();
+            prach_repo->process_pending_contexts();
 
-        // Check the repositories for unhandled contexts.
-        handle_uplink_context(internal_slot);
-        handle_prach_context(internal_slot);
-      })) {
+            // Check the repositories for unhandled contexts.
+            handle_uplink_context(internal_slot);
+            handle_prach_context(internal_slot);
+          })) {
     logger.warning(
         "Sector#{}: failed to dispatch task for checking for lost messages in reception for slot '{}' and symbol '{}'",
         sector_id,
-        symbol_point_context.symbol_point.get_slot(),
+        symbol_point_context.symbol_point.get_slot_symbol_point().get_slot(),
         symbol_point_context.symbol_point.get_symbol_index());
   }
 }

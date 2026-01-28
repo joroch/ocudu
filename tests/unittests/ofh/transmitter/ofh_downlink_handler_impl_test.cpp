@@ -146,7 +146,7 @@ TEST(ofh_downlink_handler_impl, handling_downlink_data_use_control_and_user_plan
   rg_context.sector = 1;
 
   // Set the OTA to the same slot as the grid.
-  slot_symbol_point ota_time(rg_context.slot, 0, nof_symbols);
+  slot_symbol_point_extended ota_time(rg_context.slot, 0, nof_symbols);
 
   // Delay the OTA 3 slots.
   ota_time -=
@@ -212,7 +212,7 @@ TEST(ofh_downlink_handler_impl, late_rg_is_not_handled)
   rg_context.sector = 1;
 
   // Set the OTA to the same slot as the grid.
-  slot_symbol_point ota_time(rg_context.slot, 0, nof_symbols);
+  slot_symbol_point_extended ota_time(rg_context.slot, 0, nof_symbols);
 
   // Delay the OTA, as the grid should always be advanced in slot.
   ota_time -=
@@ -269,7 +269,7 @@ TEST(ofh_downlink_handler_impl, same_slot_fails)
   rg_context.sector = 1;
 
   // Set the OTA to the same slot as the grid.
-  slot_symbol_point ota_time(rg_context.slot, 0, nof_symbols);
+  slot_symbol_point_extended ota_time(rg_context.slot, 0, nof_symbols);
   // Same slot and symbol than the resource grid.
   handler.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
 
@@ -322,7 +322,7 @@ TEST(ofh_downlink_handler_impl, rg_in_the_frontier_is_handled)
   rg_context.sector = 1;
 
   // Set the OTA to the same slot as the grid.
-  slot_symbol_point ota_time(rg_context.slot, 0, nof_symbols);
+  slot_symbol_point_extended ota_time(rg_context.slot, 0, nof_symbols);
 
   // Delay the OTA, as the grid should always be advanced in slot.
   ota_time -=

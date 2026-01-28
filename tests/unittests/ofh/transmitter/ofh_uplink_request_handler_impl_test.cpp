@@ -197,7 +197,8 @@ TEST_F(ofh_uplink_request_handler_impl_fixture,
 
   // Delay the OTA 3 times the minimum delay requirements.
   ota_time -= (3 * calculate_nof_symbols_before_ota(cp, scs, ul_processing_time, tx_timing_params));
-  handler.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
+  handler.get_ota_symbol_boundary_notifier().on_new_symbol(
+      {{ota_time.get_slot(), ota_time.get_symbol_index(), ota_time.get_nof_symbols()}, {}});
 
   handler.handle_prach_occasion(context, prach_pool->get());
   ul_prach_repo->process_pending_contexts();
@@ -225,7 +226,8 @@ TEST_F(ofh_uplink_request_handler_impl_fixture, handle_prach_request_generates_c
 
   // Delay the OTA 1 slot + the minimum delay requirements.
   ota_time -= (calculate_nof_symbols_before_ota(cp, scs, ul_processing_time, tx_timing_params) + 1);
-  handler_prach_cp_en.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
+  handler_prach_cp_en.get_ota_symbol_boundary_notifier().on_new_symbol(
+      {{ota_time.get_slot(), ota_time.get_symbol_index(), ota_time.get_nof_symbols()}, {}});
 
   handler_prach_cp_en.handle_prach_occasion(context, prach_pool->get());
   ul_prach_repo->process_pending_contexts();
@@ -259,7 +261,8 @@ TEST_F(ofh_uplink_request_handler_impl_fixture, handle_late_prach_request_does_n
 
   // Delay the OTA exactly by the minimum delay requirements.
   ota_time -= calculate_nof_symbols_before_ota(cp, scs, ul_processing_time, tx_timing_params);
-  handler_prach_cp_en.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
+  handler_prach_cp_en.get_ota_symbol_boundary_notifier().on_new_symbol(
+      {{ota_time.get_slot(), ota_time.get_symbol_index(), ota_time.get_nof_symbols()}, {}});
 
   handler_prach_cp_en.handle_prach_occasion(context, prach_pool->get());
   ul_prach_repo->process_pending_contexts();
@@ -285,7 +288,8 @@ TEST_F(ofh_uplink_request_handler_impl_fixture, handle_uplink_slot_generates_cpl
 
   // Delay the OTA three times the minimum delay requirements.
   ota_time -= (3 * calculate_nof_symbols_before_ota(cp, scs, ul_processing_time, tx_timing_params));
-  handler.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
+  handler.get_ota_symbol_boundary_notifier().on_new_symbol(
+      {{ota_time.get_slot(), ota_time.get_symbol_index(), ota_time.get_nof_symbols()}, {}});
 
   handler.handle_new_uplink_slot(rg_context, shared_grid.get_grid());
   ul_slot_repo->process_pending_contexts();
@@ -318,7 +322,8 @@ TEST_F(ofh_uplink_request_handler_impl_fixture, handle_late_uplink_request_does_
 
   // Set the OTA to the same slot as the resource grid context.
   slot_symbol_point ota_time(rg_context.slot, 0, nof_symbols);
-  handler.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
+  handler.get_ota_symbol_boundary_notifier().on_new_symbol(
+      {{ota_time.get_slot(), ota_time.get_symbol_index(), ota_time.get_nof_symbols()}, {}});
 
   handler.handle_new_uplink_slot(rg_context, shared_grid.get_grid());
   ul_slot_repo->process_pending_contexts();
@@ -343,7 +348,8 @@ TEST_F(ofh_uplink_request_handler_impl_fixture,
 
   // Delay the OTA 3 slots.
   ota_time -= (3 * calculate_nof_symbols_before_ota(cp, scs, ul_processing_time, tx_timing_params));
-  handler.get_ota_symbol_boundary_notifier().on_new_symbol({ota_time, {}});
+  handler.get_ota_symbol_boundary_notifier().on_new_symbol(
+      {{ota_time.get_slot(), ota_time.get_symbol_index(), ota_time.get_nof_symbols()}, {}});
 
   handler.handle_new_uplink_slot(rg_context, shared_grid.get_grid());
   ul_slot_repo->process_pending_contexts();

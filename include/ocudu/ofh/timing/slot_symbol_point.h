@@ -19,6 +19,9 @@ namespace ofh {
 class slot_symbol_point
 {
 public:
+  /// Default constructor. Sets slot_point in invalid state.
+  constexpr slot_symbol_point() : nof_symbols(0), numerology(NOF_NUMEROLOGIES), count_val(0) {}
+
   slot_symbol_point(slot_point slot_, unsigned symbol_index_, unsigned nof_symbols_) :
     nof_symbols(nof_symbols_), numerology(slot_.numerology()), count_val(slot_.count_val * nof_symbols_ + symbol_index_)
   {
@@ -41,6 +44,15 @@ public:
   /// Returns true if the slot symbol point is valid, false otherwise.
   bool is_valid() const { return nof_symbols != 0 && numerology < NOF_NUMEROLOGIES; }
 
+  /// Returns the number of symbols per System Frame Number.
+  uint32_t get_nof_symbols_per_sfn() const
+  {
+    return NOF_SUBFRAMES_PER_FRAME * get_nof_slots_per_subframe(to_subcarrier_spacing(numerology)) * nof_symbols;
+  }
+
+  /// Returns the number of symbols per hyper sfn.
+  uint32_t get_nof_symbols_per_hyper_sfn() const { return NOF_SFNS * get_nof_symbols_per_sfn(); }
+
   /// Symbol index in a slot. Value: (0..nof_symbols-1).
   unsigned get_symbol_index() const { return count_val % nof_symbols; }
 
@@ -56,8 +68,7 @@ public:
   /// Implementation of the sum operator, where \c jump is represented in number of symbols.
   slot_symbol_point& operator+=(int jump)
   {
-    const int nof_symbols_per_slot_wrap = NOF_SFNS * NOF_SUBFRAMES_PER_FRAME *
-                                          get_nof_slots_per_subframe(to_subcarrier_spacing(numerology)) * nof_symbols;
+    const int nof_symbols_per_slot_wrap = get_nof_symbols_per_hyper_sfn();
 
     int tmp   = (static_cast<int>(count_val) + jump) % nof_symbols_per_slot_wrap;
     count_val = tmp + (tmp < 0 ? nof_symbols_per_slot_wrap : 0);
@@ -86,8 +97,7 @@ public:
     ocudu_assert(get_nof_symbols() == other.get_nof_symbols(),
                  "Comparing slots symbol point with different number of symbols");
 
-    const int nof_symbols_per_slot_wrap = NOF_SFNS * NOF_SUBFRAMES_PER_FRAME *
-                                          get_nof_slots_per_subframe(to_subcarrier_spacing(numerology)) * nof_symbols;
+    const int nof_symbols_per_slot_wrap = get_nof_symbols_per_hyper_sfn();
 
     int v = static_cast<int>(other.count_val) - static_cast<int>(count_val);
     if (v > 0) {
@@ -101,10 +111,10 @@ public:
   bool operator>=(const slot_symbol_point& other) const { return !(*this < other); }
   bool operator>(const slot_symbol_point& other) const { return (*this != other) && *this >= other; }
 
-private:
+protected:
   uint32_t nof_symbols : 4;
   uint32_t numerology : 3;
-  uint32_t count_val : 25;
+  uint32_t count_val : 32;
 };
 
 inline slot_symbol_point operator+(slot_symbol_point symbol_point, int jump)
@@ -140,9 +150,7 @@ inline int operator-(slot_symbol_point lhs, slot_symbol_point rhs)
   ocudu_assert(rhs.get_nof_symbols() == lhs.get_nof_symbols(),
                "Cannot calculate the distance of two slot symbol points that have a different number of symbols");
 
-  const int nof_symbols_per_slot_wrap = NOF_SFNS * NOF_SUBFRAMES_PER_FRAME *
-                                        get_nof_slots_per_subframe(to_subcarrier_spacing(lhs.get_numerology())) *
-                                        lhs.get_nof_symbols();
+  const int nof_symbols_per_slot_wrap = lhs.get_nof_symbols_per_hyper_sfn();
 
   int tmp = static_cast<int>(lhs.to_uint()) - static_cast<int>(rhs.to_uint());
   if (tmp > (nof_symbols_per_slot_wrap / 2)) {

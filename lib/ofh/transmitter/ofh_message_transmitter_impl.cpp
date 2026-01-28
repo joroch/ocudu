@@ -87,21 +87,23 @@ void message_transmitter_impl::on_new_symbol(const slot_symbol_point_context& sy
   trace_point                                                         tp = ofh_tracer.now();
   static_vector<ether::scoped_frame_buffer, ether::MAX_TX_BURST_SIZE> read_frames;
 
+  slot_symbol_point symbol_point = symbol_point_context.symbol_point.get_slot_symbol_point();
+
   // Enqueue pending DL Control-Plane messages.
-  ether::frame_pool_interval interval_cp_dl{symbol_point_context.symbol_point + timing_params.sym_cp_dl_end,
-                                            symbol_point_context.symbol_point + timing_params.sym_cp_dl_start};
+  ether::frame_pool_interval interval_cp_dl{symbol_point + timing_params.sym_cp_dl_end,
+                                            symbol_point + timing_params.sym_cp_dl_start};
   enqueue_messages_into_burst(
       interval_cp_dl, message_type::control_plane, data_direction::downlink, read_frames, pool_dl_cp);
 
   // Enqueue pending UL Control-Plane messages.
-  ether::frame_pool_interval interval_cp_ul{symbol_point_context.symbol_point + timing_params.sym_cp_ul_end,
-                                            symbol_point_context.symbol_point + timing_params.sym_cp_ul_start};
+  ether::frame_pool_interval interval_cp_ul{symbol_point + timing_params.sym_cp_ul_end,
+                                            symbol_point + timing_params.sym_cp_ul_start};
   enqueue_messages_into_burst(
       interval_cp_ul, message_type::control_plane, data_direction::uplink, read_frames, pool_ul_cp);
 
   // Enqueue pending User-Plane messages.
-  ether::frame_pool_interval interval_up{symbol_point_context.symbol_point + timing_params.sym_up_dl_end,
-                                         symbol_point_context.symbol_point + timing_params.sym_up_dl_start};
+  ether::frame_pool_interval interval_up{symbol_point + timing_params.sym_up_dl_end,
+                                         symbol_point + timing_params.sym_up_dl_start};
   enqueue_messages_into_burst(interval_up, message_type::user_plane, data_direction::downlink, read_frames, pool_dl_up);
 
   // Construct burst of byte buffers ready to be transmitted.

@@ -33,7 +33,8 @@ public:
   void on_new_symbol(const slot_symbol_point_context& symbol_point_context) override
   {
     // This atomic is only written from a single thread.
-    count_val.store(symbol_point_context.symbol_point.to_uint(), std::memory_order::memory_order_relaxed);
+    count_val.store(symbol_point_context.symbol_point.get_slot_symbol_point().to_uint(),
+                    std::memory_order::memory_order_relaxed);
   }
 
   /// Returns true if the given slot is already late compared to the current OTA time, otherwise false.
