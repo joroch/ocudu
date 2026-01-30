@@ -665,8 +665,11 @@ rrc_ue_release_context rrc_ue_impl::get_rrc_ue_release_context(bool             
             ran_notification_area_info_to_asn1(inactivity_context->ran_notification_area_info);
 
         // Set t380 timer value.
-        release.suspend_cfg.t380_present = true;
-        asn1::number_to_enum(release.suspend_cfg.t380, inactivity_context->t380.count());
+        if (inactivity_context->periodic_registration_update_timer.has_value()) {
+          release.suspend_cfg.t380_present = true;
+          release.suspend_cfg.t380         = periodic_registration_update_timer_to_t380_asn1(
+              inactivity_context->periodic_registration_update_timer.value());
+        }
       }
 
       // Pack DL CCCH msg.

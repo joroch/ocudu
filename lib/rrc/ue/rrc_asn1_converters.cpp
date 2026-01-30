@@ -534,3 +534,30 @@ void ocudu::ocucp::radio_bearer_config_to_asn1(const rrc_radio_bearer_config&   
   // Fill SRB3 to release present.
   asn1_radio_bearer_cfg.srb3_to_release_present = radio_bearer_cfg.srb3_to_release_present;
 }
+
+asn1::rrc_nr::periodic_rnau_timer_value_e
+ocudu::ocucp::periodic_registration_update_timer_to_t380_asn1(std::chrono::seconds periodic_registration_update_timer)
+{
+  if (periodic_registration_update_timer <= std::chrono::minutes{5}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min5;
+  }
+  if (periodic_registration_update_timer <= std::chrono::minutes{10}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min10;
+  }
+  if (periodic_registration_update_timer <= std::chrono::minutes{20}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min20;
+  }
+  if (periodic_registration_update_timer <= std::chrono::minutes{30}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min30;
+  }
+  if (periodic_registration_update_timer <= std::chrono::minutes{60}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min60;
+  }
+  if (periodic_registration_update_timer <= std::chrono::minutes{120}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min120;
+  }
+  if (periodic_registration_update_timer <= std::chrono::minutes{360}) {
+    return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min360;
+  }
+  return asn1::rrc_nr::periodic_rnau_timer_value_opts::options::min720;
+}

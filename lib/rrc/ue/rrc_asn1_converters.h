@@ -135,4 +135,11 @@ ran_notification_area_info_to_asn1(const rrc_ran_notification_area_info_t& ran_n
 void radio_bearer_config_to_asn1(const rrc_radio_bearer_config&    radio_bearer_cfg,
                                  asn1::rrc_nr::radio_bearer_cfg_s& asn1_radio_bearer_cfg);
 
+/// \brief Converts type \c periodic_registration_update_timer to an RRC NR ASN.1 type. The timer value is rounded up to
+/// the next possible value of t380.
+/// \param[in] periodic_registration_update_timer periodic registration update timer object.
+/// \return The RRC NR ASN.1 T380 type where the result of the conversion is stored
+asn1::rrc_nr::periodic_rnau_timer_value_e
+periodic_registration_update_timer_to_t380_asn1(std::chrono::seconds periodic_registration_update_timer);
+
 } // namespace ocudu::ocucp

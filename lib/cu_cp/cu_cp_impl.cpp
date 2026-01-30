@@ -252,12 +252,12 @@ void cu_cp_impl::handle_bearer_context_inactivity_notification(const cu_cp_inact
 
         // Add all local cells to RAN area cells.
         // Note: Support for configurable ran area cells is left as future work.
-        rrc_inactivity_context inactivity_ctx{.i_rntis                 = i_rntis.value(),
-                                              .next_hop_chaining_count = ue->get_security_manager().get_ncc(),
-                                              .ran_paging_cycle        = cfg.ue.ran_paging_cycle,
-                                              .ran_notification_area_info =
-                                                  du_proc.get_rrc_du_handler().get_ran_area_cells(),
-                                              .t380 = cfg.ue.t380};
+        rrc_inactivity_context inactivity_ctx{
+            .i_rntis                            = i_rntis.value(),
+            .next_hop_chaining_count            = ue->get_security_manager().get_ncc(),
+            .ran_paging_cycle                   = cfg.ue.ran_paging_cycle,
+            .ran_notification_area_info         = du_proc.get_rrc_du_handler().get_ran_area_cells(),
+            .periodic_registration_update_timer = cn_assist_info_for_inactive->periodic_registration_update_timer};
 
         rrc_ue_release_context release_context =
             ue->get_rrc_ue()->get_rrc_ue_release_context(true, std::nullopt, inactivity_ctx);
