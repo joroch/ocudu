@@ -12,6 +12,7 @@
 #include "../../du_processor/du_processor_repository.h"
 #include "../../ue_manager/ue_manager_impl.h"
 #include "cho_preparation_routine.h"
+#include "cho_reconfiguration_routine.h"
 
 using namespace ocudu;
 using namespace ocudu::ocucp;
@@ -127,15 +128,25 @@ void cho_coordinator_routine::operator()(coro_context<async_task<cu_cp_intra_cu_
     CORO_EARLY_RETURN(response);
   }
 
-  // Release all.
-  logger.warning("ue={}: CHO not fully implemented. Releasing {} prepared inter-DU target(s)",
-                 request.source_ue_index,
-                 prepared_cho_targets.size());
-  CORO_AWAIT(release_prepared_targets());
-
   // Phase 2: CHO Execution.
-  // Phase 3: CHO Completion.
+  source_ue->get_cho_context()->state  = cu_cp_ue_cho_context::state_t::rrc_reconfiguration;
+  cho_reconfig_request.source_ue_index = request.source_ue_index;
+  cho_reconfig_request.timeout         = request.timeout;
+  CORO_AWAIT_VALUE(
+      cho_reconfig_result,
+      launch_async<cho_reconfiguration_routine>(cho_reconfig_request,
+                                                *source_ue,
+                                                du_db.get_du_processor(request.source_du_index).get_f1ap_handler(),
+                                                cu_cp_handler,
+                                                cu_cp_handler,
+                                                ue_mng,
+                                                logger));
+  if (!cho_reconfig_result) {
+    logger.warning("ue={}: CHO coordinator failed. Reconfiguration phase failed", request.source_ue_index);
+    CORO_EARLY_RETURN(response);
+  }
+  // Phase 3: CHO completion is handled asynchronously by cho_source_routine after Access Success.
 
-  response.success = false;
+  response.success = true;
   CORO_RETURN(response);
 }

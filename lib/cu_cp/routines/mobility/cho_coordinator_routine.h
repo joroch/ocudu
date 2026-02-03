@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "cho_reconfiguration_routine.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
 #include "ocudu/ocudulog/logger.h"
 #include "ocudu/support/async/async_task.h"
@@ -60,6 +61,8 @@ private:
   uint8_t                          cond_recfg_id   = 1;
   cu_cp_intra_cu_handover_request  prep_request;
   cu_cp_intra_cu_handover_response prep_response;
+  cu_cp_cho_reconfiguration_request cho_reconfig_request;
+  bool                              cho_reconfig_result = false;
 
   /// \brief Releases all tracked inter-DU target UE contexts.
   /// Called when the source UE disappears before CHO completes.
