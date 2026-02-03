@@ -11909,12 +11909,12 @@ OCUDUASN_CODE core_network_assist_info_for_inactive_ext_ies_container::unpack(cb
         HANDLE_CODE(pe_ip_sassist_info.unpack(bref));
         break;
       }
-      case 365: {
-        hashed_ue_id_idx_value_present = true;
-        varlength_field_unpack_guard varlen_scope(bref, true);
-        HANDLE_CODE(hashed_ue_id_idx_value.unpack(bref));
-        break;
-      }
+      // case 365: {
+      //   hashed_ue_id_idx_value_present = true;
+      //   varlength_field_unpack_guard varlen_scope(bref, true);
+      //   HANDLE_CODE(hashed_ue_id_idx_value.unpack(bref));
+      //   break;
+      // }
       case 405: {
         cn_mt_communication_handling_present = true;
         varlength_field_unpack_guard varlen_scope(bref, true);
