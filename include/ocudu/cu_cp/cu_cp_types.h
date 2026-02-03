@@ -127,6 +127,9 @@ constexpr std::underlying_type_t<amf_index_t> amf_index_to_uint(amf_index_t amf_
   return static_cast<std::underlying_type_t<amf_index_t>>(amf_index);
 }
 
+/// Conditional Reconfiguration ID used by CHO procedures. Range is 1..8.
+using cond_recfg_id_t = ocudu::bounded_integer<uint8_t, 1, 8>;
+
 /// Notification from the E1AP/F1AP that transaction reference information for some UEs has been lost.
 struct ue_transaction_info_loss_event {
   std::vector<ue_index_t> ues_lost;
