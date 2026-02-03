@@ -11921,9 +11921,17 @@ OCUDUASN_CODE core_network_assist_info_for_inactive_ext_ies_container::unpack(cb
         HANDLE_CODE(cn_mt_communication_handling.unpack(bref));
         break;
       }
-      default:
-        asn1::log_error("Unpacked object ID={} is not recognized\n", id);
+      default: {
+        // Unknown extension ID - skip if criticality is "ignore" per 3GPP TS 38.413
+        // Section 10.3.4.2 "IEs other than the Procedure Code and Type of Message"
+        if (crit == crit_e::ignore) {
+          varlength_field_unpack_guard varlen_scope(bref, true);
+          asn1::log_warning("Skipping unknown extension with id={}", id);
+          break;
+        }
+        asn1::log_error("Unpacked object ID={} is not recognized", id);
         return OCUDUASN_ERROR_DECODE_FAIL;
+      }
     }
   }
 
