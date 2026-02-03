@@ -223,3 +223,48 @@ TEST_F(ngap_asn1_packer_test, when_unpack_unsuccessful_then_error_indication_is_
   ASSERT_EQ(amf_notifier.last_msg.pdu.init_msg().value.type(),
             asn1::ngap::ngap_elem_procs_o::init_msg_c::types_opts::error_ind);
 }
+
+// Test that unknown extensions with criticality "ignore" are skipped gracefully.
+// This message contains an unknown extension ID (e.g. a future 3GPP release IE) which is not implemented,
+// but has criticality=ignore so decoding should succeed per 3GPP TS 38.413 Section 10.3.4.2 "IEs other than the
+// Procedure Code and Type of Message"
+TEST_F(ngap_asn1_packer_test, when_unknown_extension_with_ignore_criticality_then_unpack_successful)
+{
+  // InitialContextSetupRequest with CoreNetworkAssistanceInformationForInactive containing:
+  // - id-ExtendedUEIdentityIndexValue (280) - known extension
+  // - id-HashedUEIdentityIndexValue (365) - this was unknown before codec update, used as example
+  // This test verifies the fix for handling unknown future extensions gracefully.
+  std::string ngap_init_ctx_req_with_unknown_ext =
+      "000e0080cc00000c000a0002006400550002000000124018099cbe0000f110000007000101184002559c016d40025458001c00070000f110"
+      "8001010000000200010077000918000c000000000000005e0020aefc5100fec423f41818b9a03bc9791210549ae38fc83c3f130cbcb93303"
+      "bce0002440040000f110002240080123456700ffff010026403d3c7e02fd3b4218017e0042010977000bf200f1108001012c39559c540700"
+      "00f1100000071502010131020101210203005e01be3408031f19f1031f11f2005b4001000092400100";
+
+  byte_buffer buf = make_byte_buffer(ngap_init_ctx_req_with_unknown_ext).value();
+
+  asn1::cbit_ref      bref(buf);
+  ocucp::ngap_message msg = {};
+
+  // Decoding should succeed - unknown extensions with criticality=ignore should be skipped.
+  ASSERT_EQ(msg.pdu.unpack(bref), asn1::OCUDUASN_SUCCESS);
+
+  // Verify the message was decoded correctly.
+  ASSERT_EQ(msg.pdu.type(), asn1::ngap::ngap_pdu_c::types::init_msg);
+
+  const asn1::ngap::init_context_setup_request_s& request = msg.pdu.init_msg().value.init_context_setup_request();
+
+  // Verify basic fields.
+  ASSERT_EQ(request->amf_ue_ngap_id, 100);
+  ASSERT_EQ(request->ran_ue_ngap_id, 0);
+
+  // Verify CoreNetworkAssistanceInformationForInactive was decoded.
+  ASSERT_TRUE(request->core_network_assist_info_for_inactive_present);
+  const auto& core_info = request->core_network_assist_info_for_inactive;
+
+  // Verify the known extension (id-ExtendedUEIdentityIndexValue = 280) was decoded.
+  ASSERT_TRUE(core_info.ie_exts.extended_ue_id_idx_value_present);
+
+  // Verify other fields to ensure the message wasn't corrupted by skipping any unknown extensions.
+  ASSERT_TRUE(request->nas_pdu_present);
+  ASSERT_TRUE(request->redirection_voice_fallback_present);
+}
