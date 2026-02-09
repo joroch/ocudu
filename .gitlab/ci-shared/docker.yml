@@ -116,7 +116,7 @@ variables:
         fi
       fi
 
-.docker login smoke test:
+docker login smoke test:
   stage: ci
   image: ${OCUDU_REGISTRY_URI}/buildkit-cli:$BUILDKIT_CLI_VERSION
   script:
