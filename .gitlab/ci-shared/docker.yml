@@ -133,7 +133,7 @@ docker login smoke test:
     - echo "$DOCKER_AUTH_CONFIG_TEST" > /kaniko/.docker/config.json
     - /kaniko/executor
        --context "$CI_PROJECT_DIR"
-       --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+       --dockerfile "docker/Dockerfile"
        --destination "$CI_REGISTRY_IMAGE:kaniko-$CI_PIPELINE_ID"
 #    - docker pull alpine:3.19
 #    - docker tag alpine:3.19 ${CI_REGISTRY_IMAGE}/ocudu-login-test:${CI_PIPELINE_ID}
