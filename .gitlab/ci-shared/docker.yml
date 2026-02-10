@@ -65,6 +65,7 @@ variables:
     - &docker_login |
       echo "$DOCKER_AUTH_CONFIG_TEST" > /${HOME}/.docker/config.json
       export DOCKER_AUTH_CONFIG="$DOCKER_AUTH_CONFIG_TEST"
+      export DOCKER_AUTH_CONFIG='{"auths":{"registry.gitlab.com":{"auth":"'"$GITLAB_CR_AUTH"'"},"https://registry-1.docker.io":{"auth":"'"$DOCKER_HUB_AUTH"'"}}}'
       export DOCKER_CONFIG="/${HOME}/.docker"
       echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
 
