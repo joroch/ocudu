@@ -127,7 +127,6 @@ docker login smoke test:
   variables:
     DOCKER_CONFIG: /kaniko/.docker
   script:
-    - *docker_login
     - mkdir -p /kaniko/.docker
     - echo "$DOCKER_AUTH_CONFIG_TEST" > /kaniko/.docker/config.json
     - /kaniko/executor
