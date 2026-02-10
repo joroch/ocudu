@@ -63,7 +63,7 @@ variables:
 
     # Add docker config
     - &docker_login |
-      echo "$DOCKER_AUTH_CONFIG" > /${HOME}/.docker/config.json
+      echo "$DOCKER_AUTH_CONFIG_TEST" > /${HOME}/.docker/config.json
       export DOCKER_CONFIG="/${HOME}/.docker"
       echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
 
