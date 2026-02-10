@@ -119,13 +119,22 @@ variables:
 
 docker login smoke test:
   stage: ci
-  image: ${OCUDU_REGISTRY_URI}/buildkit-cli:$BUILDKIT_CLI_VERSION
+  #image: ${OCUDU_REGISTRY_URI}/buildkit-cli:$BUILDKIT_CLI_VERSION
+  image: docker:24
+  services:
+    - name: docker:24-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
     - *docker_login
     - docker pull alpine:3.19
     - docker tag alpine:3.19 ${CI_REGISTRY_IMAGE}/ocudu-login-test:${CI_PIPELINE_ID}
     - docker push ${CI_REGISTRY_IMAGE}/ocudu-login-test:${CI_PIPELINE_ID}
     - docker pull ${CI_REGISTRY_IMAGE}/ocudu-login-test:${CI_PIPELINE_ID}
+
+script:
+  - docker pull alpine:3.19
 
 .docker manifest:
   stage: publish
