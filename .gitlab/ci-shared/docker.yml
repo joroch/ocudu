@@ -133,9 +133,6 @@ docker login smoke test:
     - docker push ${CI_REGISTRY_IMAGE}/ocudu-login-test:${CI_PIPELINE_ID}
     - docker pull ${CI_REGISTRY_IMAGE}/ocudu-login-test:${CI_PIPELINE_ID}
 
-script:
-  - docker pull alpine:3.19
-
 .docker manifest:
   stage: publish
   image: ${OCUDU_REGISTRY_URI}/buildkit-cli:$BUILDKIT_CLI_VERSION
