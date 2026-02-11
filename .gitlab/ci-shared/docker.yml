@@ -66,16 +66,10 @@ variables:
       echo "$DOCKER_AUTH_CONFIG_TEST" > /${HOME}/.docker/config.json
       export DOCKER_AUTH_CONFIG="$DOCKER_AUTH_CONFIG_TEST"
       echo "DOCKER_AUTH_CONFIG length: ${#DOCKER_AUTH_CONFIG}"
-      python - <<'PY'
-      import json, os, sys
-      cfg = os.environ.get("DOCKER_AUTH_CONFIG","")
-      try:
-          data = json.loads(cfg)
-          print("auths keys:", sorted(data.get("auths", {}).keys()))
-          print("has registry-1:", "https://registry-1.docker.io" in data.get("auths", {}))
-      except Exception as e:
-          print("json error:", e)
-      PY
+      echo "$DOCKER_AUTH_CONFIG" | jq -r '.auths | keys'
+      echo "$DOCKER_AUTH_CONFIG" | jq -e '.auths["https://registry-1.docker.io"].auth' >/dev/null \
+        && echo "registry-1 auth present" \
+        || echo "registry-1 auth MISSING"
       export DOCKER_CONFIG="/${HOME}/.docker"
       echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
 
