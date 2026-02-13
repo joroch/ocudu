@@ -18,6 +18,7 @@
 #include "ocudu/fapi/p7/messages/dl_pdu_type.h"
 #include "ocudu/fapi/p7/messages/dl_prs_pdu.h"
 #include "ocudu/fapi/p7/messages/dl_ssb_pdu.h"
+#include "ocudu/ran/slot_pdu_capacity_constants.h"
 
 namespace ocudu {
 namespace fapi {

@@ -188,7 +188,7 @@ static void log_pdsch_pdu(const dl_pdsch_pdu& pdu, fmt::memory_buffer& buffer)
                  pdu.start_symbol_index,
                  pdu.nr_of_symbols,
                  pdu.cws.front().tb_size,
-                 pdu.cws.front().qam_mod_order,
+                 to_string(pdu.cws.front().qam_mod_order),
                  pdu.cws.front().rv_index);
 }
 
