@@ -82,6 +82,7 @@ inline modulation_scheme modulation_scheme_from_string(const std::string& mod_sc
   return mod_scheme;
 }
 
+// TODO: When I finish the MR, is this used?
 /// \brief Bits per symbol for a given modulation scheme.
 /// \param[in] mod Modulation scheme.
 /// \returns The number of bits per modulated symbol (sometimes referred to as modulation order).

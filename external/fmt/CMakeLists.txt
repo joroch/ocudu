@@ -8,7 +8,8 @@
 
 set(SOURCES
         src/format.cc
-        src/os.cc)
+        src/os.cc
+        ../../include/ocudu/fapi/p7/messages/resource_allocation_types.h)
 
 add_library(fmt STATIC ${SOURCES})
 target_link_libraries(fmt ${CMAKE_THREAD_LIBS_INIT})

@@ -21,7 +21,7 @@ static void fill_reserved_re_pattern(pdsch_processor::pdu_t&     proc_pdu,
                                      const fapi::dl_pdsch_pdu&   fapi_pdu,
                                      span<const re_pattern_list> csi_re_pattern_list)
 {
-  for (auto csi_index : fapi_pdu.pdsch_maintenance_v3.csi_for_rm) {
+  for (auto csi_index : fapi_pdu.csi_for_rm) {
     ocudu_assert(csi_index < csi_re_pattern_list.size(),
                  "CSI-RS PDU index={} value out of bounds CSI RE patterns={}",
                  csi_index,
@@ -77,19 +77,6 @@ static void fill_power_values(pdsch_processor::pdu_t& proc_pdu, const fapi::dl_p
   }
 }
 
-static vrb_to_prb::mapping_type get_mapping_type(fapi::vrb_to_prb_mapping_type vrb_to_prb_mapping)
-{
-  switch (vrb_to_prb_mapping) {
-    case fapi::vrb_to_prb_mapping_type::interleaved_rb_size2:
-      return vrb_to_prb::mapping_type::interleaved_n2;
-    case fapi::vrb_to_prb_mapping_type::interleaved_rb_size4:
-      return vrb_to_prb::mapping_type::interleaved_n4;
-    case fapi::vrb_to_prb_mapping_type::non_interleaved:
-    default:
-      return vrb_to_prb::mapping_type::non_interleaved;
-  }
-}
-
 /// Constructs the VRB-to-PRB configuration in function of the transmission type parameter of the PDSCH PDU.
 static vrb_to_prb::configuration make_vrb_to_prb_config(const fapi::dl_pdsch_pdu& fapi_pdu)
 {
@@ -98,12 +85,13 @@ static vrb_to_prb::configuration make_vrb_to_prb_config(const fapi::dl_pdsch_pdu
   // BWP i size.
   unsigned N_bwp_i_size = fapi_pdu.bwp_size;
   // CORESET first VRB index.
-  unsigned N_start_coreset = fapi_pdu.pdsch_maintenance_v3.coreset_start_point - N_bwp_i_start;
+  unsigned N_start_coreset = N_bwp_i_start; // TODO: I dont know what to do here
   // Initial BWP size.
-  unsigned N_bwp_init_size = fapi_pdu.pdsch_maintenance_v3.initial_dl_bwp_size;
+  unsigned N_bwp_init_size = 0U; // TODO: I dont know what to do here
   // Bundle i size.
-  vrb_to_prb::mapping_type L_i = get_mapping_type(fapi_pdu.vrb_to_prb_mapping);
+  vrb_to_prb::mapping_type L_i = fapi_pdu.vrb_to_prb_mapping;
 
+  // TODO: Think about this, how to simplify it!
   switch (fapi_pdu.pdsch_maintenance_v3.trans_type) {
     case fapi::pdsch_trans_type::non_interleaved_common_ss:
       return vrb_to_prb::create_non_interleaved_common_ss(N_start_coreset);
@@ -127,8 +115,13 @@ static void fill_rb_allocation(pdsch_processor::pdu_t& proc_pdu, const fapi::dl_
 {
   vrb_to_prb::configuration vrb_to_prb_config = make_vrb_to_prb_config(fapi_pdu);
 
-  if (fapi_pdu.resource_alloc == fapi::resource_allocation_type::type_1) {
-    proc_pdu.freq_alloc = rb_allocation::make_type1(fapi_pdu.rb_start, fapi_pdu.rb_size, vrb_to_prb_config);
+  if (const auto* ra_type_1 = std::get_if<fapi::resource_allocation_type_1>(&fapi_pdu.resource_alloc)) {
+    proc_pdu.freq_alloc = rb_allocation::make_type1(ra_type_1->rb_start, ra_type_1->rb_size, vrb_to_prb_config);
+    return;
+  }
+  const auto* ra_type_0 = std::get_if<fapi::resource_allocation_type_0>(&fapi_pdu.resource_alloc);
+
+  if (!ra_type_0) {
     return;
   }
 
@@ -137,7 +130,7 @@ static void fill_rb_allocation(pdsch_processor::pdu_t& proc_pdu, const fapi::dl_
   for (unsigned vrb_index = 0, vrb_index_end = fapi_pdu.bwp_size; vrb_index != vrb_index_end; ++vrb_index) {
     unsigned byte = vrb_index / 8;
     unsigned bit  = vrb_index % 8;
-    if ((fapi_pdu.rb_bitmap[byte] >> bit) & 1U) {
+    if ((ra_type_0->rb_bitmap[byte] >> bit) & 1U) {
       vrb_bitmap.set(vrb_index);
     }
   }
@@ -167,14 +160,13 @@ void ocudu::fapi_adaptor::convert_pdsch_fapi_to_phy(pdsch_processor::pdu_t&     
   proc_pdu.dmrs_symbol_mask.resize(DL_DMRS_SYMBOL_POS_SIZE);
   proc_pdu.dmrs_symbol_mask.reset();
   for (unsigned i = 0; i != DL_DMRS_SYMBOL_POS_SIZE; ++i) {
-    proc_pdu.dmrs_symbol_mask.set(i, (static_cast<unsigned>(fapi_pdu.dl_dmrs_symb_pos >> i) & 1U) == 1U);
+    proc_pdu.dmrs_symbol_mask = fapi_pdu.dl_dmrs_symb_pos;
   }
 
   proc_pdu.ref_point = (fapi_pdu.ref_point == fapi::pdsch_ref_point_type::point_a) ? pdsch_processor::pdu_t::CRB0
                                                                                    : pdsch_processor::pdu_t::PRB0;
 
-  proc_pdu.dmrs =
-      fapi_pdu.dmrs_type == fapi::dmrs_cfg_type::type_1 ? dmrs_type::options::TYPE1 : dmrs_type::options::TYPE2;
+  proc_pdu.dmrs = fapi_pdu.dmrs_type == dmrs_config_type::type1 ? dmrs_type::options::TYPE1 : dmrs_type::options::TYPE2;
   proc_pdu.scrambling_id               = fapi_pdu.pdsch_dmrs_scrambling_id;
   proc_pdu.n_scid                      = fapi_pdu.nscid == 1U;
   proc_pdu.nof_cdm_groups_without_data = fapi_pdu.num_dmrs_cdm_grps_no_data;
@@ -185,8 +177,8 @@ void ocudu::fapi_adaptor::convert_pdsch_fapi_to_phy(pdsch_processor::pdu_t&     
 
   fill_power_values(proc_pdu, fapi_pdu);
 
-  proc_pdu.ldpc_base_graph = fapi_pdu.pdsch_maintenance_v3.ldpc_base_graph;
-  proc_pdu.tbs_lbrm        = fapi_pdu.pdsch_maintenance_v3.tb_size_lbrm_bytes;
+  proc_pdu.ldpc_base_graph = fapi_pdu.ldpc_base_graph;
+  proc_pdu.tbs_lbrm        = units::bytes(0U); // TODO: I dont know what to do here
 
   fill_reserved_re_pattern(proc_pdu, fapi_pdu, csi_re_pattern_list);
 

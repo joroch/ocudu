@@ -12,7 +12,6 @@
 
 #include "ocudu/support/ocudu_assert.h"
 #include "fmt/format.h"
-#include <cstdint>
 
 namespace ocudu {
 namespace fapi {

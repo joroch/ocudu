@@ -47,25 +47,19 @@ static void fill_codewords(fapi::dl_pdsch_pdu_builder& builder, span<const pdsch
   ocudu_assert(codewords.size() == 1, "Current FAPI implementation only supports 1 transport block per PDU");
   for (const auto& cw : codewords) {
     fapi::dl_pdsch_codeword_builder cw_builder = builder.add_codeword();
-    cw_builder.set_basic_parameters(cw.mcs_descr.target_code_rate,
-                                    get_bits_per_symbol(cw.mcs_descr.modulation),
-                                    cw.mcs_index.value(),
-                                    static_cast<unsigned>(cw.mcs_table),
-                                    cw.rv_index,
-                                    units::bytes{cw.tb_size_bytes});
+    cw_builder.set_codeword_parameters(cw.mcs_descr.target_code_rate,
+                                       cw.mcs_descr.modulation,
+                                       cw.mcs_index,
+                                       cw.mcs_table,
+                                       cw.rv_index,
+                                       units::bytes{cw.tb_size_bytes});
   }
 
-  const units::bytes    tb_size_lbrm_bytes           = tbs_lbrm_default;
-  const pdsch_codeword& cw                           = codewords.front();
-  static constexpr bool is_tb_crc_first_tb_required  = false;
-  static constexpr bool is_tb_crc_second_tb_required = false;
+  const pdsch_codeword& cw = codewords.front();
 
   // NOTE: MAC uses the value of the target code rate x[1024], as per TS 38.214, Section 5.1.3.1, table 5.1.3.1-1.
   float R = cw.mcs_descr.get_normalised_target_code_rate();
-  builder.set_maintenance_v3_codeword_parameters(get_ldpc_base_graph(R, units::bytes{cw.tb_size_bytes}.to_bits()),
-                                                 tb_size_lbrm_bytes,
-                                                 is_tb_crc_first_tb_required,
-                                                 is_tb_crc_second_tb_required);
+  builder.set_ldpc_base_graph(get_ldpc_base_graph(R, units::bytes{cw.tb_size_bytes}.to_bits()));
 }
 
 static void fill_codeword_information(fapi::dl_pdsch_pdu_builder& builder,
@@ -79,24 +73,21 @@ static void fill_codeword_information(fapi::dl_pdsch_pdu_builder& builder,
 
 static void fill_dmrs(fapi::dl_pdsch_pdu_builder& builder, const dmrs_information& dmrs)
 {
-  builder.set_dmrs_parameters(dmrs.dmrs_symb_pos.to_uint64(),
+  builder.set_dmrs_parameters(dmrs.dmrs_symb_pos,
                               dmrs.config_type,
                               dmrs.dmrs_scrambling_id,
                               dmrs.dmrs_scrambling_id_complement,
-                              dmrs.low_papr_dmrs ? fapi::low_papr_dmrs_type::dependent_cdm_group
-                                                 : fapi::low_papr_dmrs_type::independent_cdm_group,
                               dmrs.n_scid,
                               dmrs.num_dmrs_cdm_grps_no_data,
-                              dmrs.dmrs_ports.to_uint64());
+                              dmrs.dmrs_ports);
 }
 
-static void fill_frequency_allocation(fapi::dl_pdsch_pdu_builder&   builder,
-                                      const vrb_alloc&              rbs,
-                                      fapi::vrb_to_prb_mapping_type mapping)
+static void
+fill_frequency_allocation(fapi::dl_pdsch_pdu_builder& builder, const vrb_alloc& rbs, vrb_to_prb::mapping_type mapping)
 {
   if (rbs.is_type0()) {
-    static_vector<uint8_t, fapi::dl_pdsch_pdu::MAX_SIZE_RB_BITMAP> rb_map;
-    rb_map.resize(fapi::dl_pdsch_pdu::MAX_SIZE_RB_BITMAP, 0U);
+    static_vector<uint8_t, fapi::RB_BITMAP_SIZE_IN_BYTES> rb_map;
+    rb_map.resize(fapi::RB_BITMAP_SIZE_IN_BYTES, 0U);
     const rbg_bitmap& mac_rbg_map = rbs.type0();
     for (unsigned i = 0, e = mac_rbg_map.size(); i != e; ++i) {
       rb_map[i / 8] |= uint8_t(mac_rbg_map.test(i) ? 1U : 0U) << i % 8;
@@ -155,7 +146,7 @@ static void fill_omnidirectional_precoding(fapi::dl_pdsch_pdu_builder&    builde
 static void fill_pdsch_information(fapi::dl_pdsch_pdu_builder& builder, const pdsch_information& pdsch_cfg)
 {
   // Basic parameters.
-  builder.set_basic_parameters(pdsch_cfg.rnti);
+  builder.set_ue_specific_parameters(pdsch_cfg.rnti);
 
   // Codewords.
   fill_codewords(builder, pdsch_cfg.codewords);
@@ -170,36 +161,10 @@ static void fill_pdsch_information(fapi::dl_pdsch_pdu_builder& builder, const pd
   fill_power_parameters(builder, pdsch_cfg.tx_pwr_info);
 }
 
-static void fill_coreset(fapi::dl_pdsch_pdu_builder&  builder,
-                         const coreset_configuration& coreset_cfg,
-                         const bwp_configuration&     bwp_cfg,
-                         fapi::pdsch_trans_type       trans_type,
-                         bool                         is_coreset0_config_for_cell)
+static void fill_coreset(fapi::dl_pdsch_pdu_builder& builder, fapi::pdsch_trans_type trans_type)
 {
-  unsigned coreset_start_point = 0;
-  unsigned initial_dl_bwp_size = 0;
-
-  switch (trans_type) {
-    case ocudu::fapi::pdsch_trans_type::non_interleaved_common_ss:
-    case ocudu::fapi::pdsch_trans_type::interleaved_common_any_coreset0_present:
-    case ocudu::fapi::pdsch_trans_type::interleaved_common_any_coreset0_not_present:
-      coreset_start_point = coreset_cfg.get_coreset_start_crb();
-      break;
-    default:
-      break;
-  }
-
-  switch (trans_type) {
-    case ocudu::fapi::pdsch_trans_type::interleaved_common_any_coreset0_present:
-    case ocudu::fapi::pdsch_trans_type::interleaved_common_any_coreset0_not_present:
-      initial_dl_bwp_size =
-          (is_coreset0_config_for_cell) ? coreset_cfg.coreset0_crbs().length() : bwp_cfg.crbs.length();
-      break;
-    default:
-      break;
-  }
-
-  builder.set_maintenance_v3_bwp_parameters(trans_type, coreset_start_point, initial_dl_bwp_size);
+  // TODO: Is this needed for anything?
+  builder.set_maintenance_v3_bwp_parameters(trans_type);
 }
 
 static fapi::pdsch_trans_type get_pdsch_trans_type(coreset_id            id,
@@ -227,19 +192,6 @@ static fapi::pdsch_trans_type get_pdsch_trans_type(coreset_id            id,
   }
 
   return fapi::pdsch_trans_type::interleaved_other;
-}
-
-static fapi::vrb_to_prb_mapping_type get_vrb_to_prb_mapping_type(vrb_to_prb::mapping_type vrb_prb_mapping)
-{
-  switch (vrb_prb_mapping) {
-    case vrb_to_prb::mapping_type::interleaved_n2:
-      return fapi::vrb_to_prb_mapping_type::interleaved_rb_size2;
-    case vrb_to_prb::mapping_type::interleaved_n4:
-      return fapi::vrb_to_prb_mapping_type::interleaved_rb_size4;
-    case vrb_to_prb::mapping_type::non_interleaved:
-    default:
-      return fapi::vrb_to_prb_mapping_type::non_interleaved;
-  }
 }
 
 void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder&    builder,
@@ -273,8 +225,7 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
   bool is_interleaved = mac_pdu.pdsch_cfg.vrb_prb_mapping != vrb_to_prb::mapping_type::non_interleaved;
   // Frequency allocation.
   // Note: As defined in TS38.214 Section 5.1.2.3, DCI format 1_0 uses bundle size of 2.
-  fill_frequency_allocation(
-      builder, mac_pdu.pdsch_cfg.rbs, get_vrb_to_prb_mapping_type(mac_pdu.pdsch_cfg.vrb_prb_mapping));
+  fill_frequency_allocation(builder, mac_pdu.pdsch_cfg.rbs, mac_pdu.pdsch_cfg.vrb_prb_mapping);
 
   fapi::pdsch_trans_type trans_type = get_pdsch_trans_type(mac_pdu.pdsch_cfg.coreset_cfg->id,
                                                            mac_pdu.pdsch_cfg.ss_set_type,
@@ -282,13 +233,12 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
                                                            mac_pdu.pdsch_cfg.dci_fmt == dci_dl_format::f1_0,
                                                            is_coreset0_configured_for_cell);
 
-  fill_coreset(
-      builder, *mac_pdu.pdsch_cfg.coreset_cfg, *mac_pdu.pdsch_cfg.bwp_cfg, trans_type, is_coreset0_configured_for_cell);
+  fill_coreset(builder, trans_type);
 
   // As the CSI uses the whole bandwidth, all the CSI-RS PDUs will collide with the PDSCH.
   static_vector<uint16_t, MAX_CSI_RS_PDUS_PER_SLOT> csi_rm_indexes(nof_csi_pdus);
   std::iota(csi_rm_indexes.begin(), csi_rm_indexes.end(), 0U);
-  builder.set_maintenance_v3_csi_rm_references(csi_rm_indexes);
+  builder.set_csi_rm_references(csi_rm_indexes);
 }
 
 void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu&            fapi_pdu,
@@ -330,8 +280,7 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
   bool is_interleaved = mac_pdu.pdsch_cfg.vrb_prb_mapping != vrb_to_prb::mapping_type::non_interleaved;
   // Frequency allocation.
   // Note: As defined in TS38.214 Section 5.1.2.3, DCI format 1_0 uses bundle size of 2.
-  fill_frequency_allocation(
-      builder, mac_pdu.pdsch_cfg.rbs, get_vrb_to_prb_mapping_type(mac_pdu.pdsch_cfg.vrb_prb_mapping));
+  fill_frequency_allocation(builder, mac_pdu.pdsch_cfg.rbs, mac_pdu.pdsch_cfg.vrb_prb_mapping);
 
   fapi::pdsch_trans_type trans_type = get_pdsch_trans_type(mac_pdu.pdsch_cfg.coreset_cfg->id,
                                                            mac_pdu.pdsch_cfg.ss_set_type,
@@ -339,13 +288,12 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
                                                            mac_pdu.pdsch_cfg.dci_fmt == dci_dl_format::f1_0,
                                                            is_coreset0_configured_for_cell);
 
-  fill_coreset(
-      builder, *mac_pdu.pdsch_cfg.coreset_cfg, *mac_pdu.pdsch_cfg.bwp_cfg, trans_type, is_coreset0_configured_for_cell);
+  fill_coreset(builder, trans_type);
 
   // As the CSI uses the whole bandwidth, all the CSI-RS PDUs will collide with the PDSCH.
   static_vector<uint16_t, MAX_CSI_RS_PDUS_PER_SLOT> csi_rm_indexes(nof_csi_pdus);
   std::iota(csi_rm_indexes.begin(), csi_rm_indexes.end(), 0U);
-  builder.set_maintenance_v3_csi_rm_references(csi_rm_indexes);
+  builder.set_csi_rm_references(csi_rm_indexes);
 }
 
 void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu&            fapi_pdu,
@@ -388,8 +336,7 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
   bool is_interleaved = mac_pdu.pdsch_cfg.vrb_prb_mapping != vrb_to_prb::mapping_type::non_interleaved;
   // Frequency allocation.
   // Note: As defined in TS38.214 Section 5.1.2.3, DCI format 1_0 uses bundle size of 2.
-  fill_frequency_allocation(
-      builder, mac_pdu.pdsch_cfg.rbs, get_vrb_to_prb_mapping_type(mac_pdu.pdsch_cfg.vrb_prb_mapping));
+  fill_frequency_allocation(builder, mac_pdu.pdsch_cfg.rbs, mac_pdu.pdsch_cfg.vrb_prb_mapping);
 
   fapi::pdsch_trans_type trans_type = get_pdsch_trans_type(mac_pdu.pdsch_cfg.coreset_cfg->id,
                                                            mac_pdu.pdsch_cfg.ss_set_type,
@@ -397,8 +344,7 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
                                                            mac_pdu.pdsch_cfg.dci_fmt == dci_dl_format::f1_0,
                                                            is_coreset0_configured_for_cell);
 
-  fill_coreset(
-      builder, *mac_pdu.pdsch_cfg.coreset_cfg, *mac_pdu.pdsch_cfg.bwp_cfg, trans_type, is_coreset0_configured_for_cell);
+  fill_coreset(builder, trans_type);
 
   // Fill PDSCH context for logging.
   builder.set_context_vendor_specific(mac_pdu.pdsch_cfg.harq_id, mac_pdu.context.k1, mac_pdu.context.nof_retxs);
@@ -406,7 +352,7 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
   // As the CSI uses the whole bandwidth, all the CSI-RS PDUs will collide with the PDSCH.
   static_vector<uint16_t, MAX_CSI_RS_PDUS_PER_SLOT> csi_rm_indexes(nof_csi_pdus);
   std::iota(csi_rm_indexes.begin(), csi_rm_indexes.end(), 0U);
-  builder.set_maintenance_v3_csi_rm_references(csi_rm_indexes);
+  builder.set_csi_rm_references(csi_rm_indexes);
 }
 
 void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder&    builder,
@@ -437,8 +383,7 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
   bool is_interleaved = mac_pdu.pdsch_cfg.vrb_prb_mapping != vrb_to_prb::mapping_type::non_interleaved;
   // Frequency allocation.
   // Note: As defined in TS38.214 Section 5.1.2.3, DCI format 1_0 uses bundle size of 2.
-  fill_frequency_allocation(
-      builder, mac_pdu.pdsch_cfg.rbs, get_vrb_to_prb_mapping_type(mac_pdu.pdsch_cfg.vrb_prb_mapping));
+  fill_frequency_allocation(builder, mac_pdu.pdsch_cfg.rbs, mac_pdu.pdsch_cfg.vrb_prb_mapping);
 
   fapi::pdsch_trans_type trans_type = get_pdsch_trans_type(mac_pdu.pdsch_cfg.coreset_cfg->id,
                                                            mac_pdu.pdsch_cfg.ss_set_type,
@@ -446,13 +391,12 @@ void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu_builder& 
                                                            mac_pdu.pdsch_cfg.dci_fmt == dci_dl_format::f1_0,
                                                            is_coreset0_configured_for_cell);
 
-  fill_coreset(
-      builder, *mac_pdu.pdsch_cfg.coreset_cfg, *mac_pdu.pdsch_cfg.bwp_cfg, trans_type, is_coreset0_configured_for_cell);
+  fill_coreset(builder, trans_type);
 
   // As the CSI uses the whole bandwidth, all the CSI-RS PDUs will collide with the PDSCH.
   static_vector<uint16_t, MAX_CSI_RS_PDUS_PER_SLOT> csi_rm_indexes(nof_csi_pdus);
   std::iota(csi_rm_indexes.begin(), csi_rm_indexes.end(), 0U);
-  builder.set_maintenance_v3_csi_rm_references(csi_rm_indexes);
+  builder.set_csi_rm_references(csi_rm_indexes);
 }
 
 void ocudu::fapi_adaptor::convert_pdsch_mac_to_fapi(fapi::dl_pdsch_pdu&            fapi_pdu,
