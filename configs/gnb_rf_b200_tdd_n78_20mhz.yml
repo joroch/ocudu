@@ -1,51 +1,74 @@
-#
-# Copyright 2021-2026 Software Radio Systems Limited
-#
-# By using this file, you agree to the terms and conditions set
-# forth in the LICENSE file which can be found at the top level of
-# the distribution.
-#
+gnb_id: 3586
 
-# This example configuration outlines how to configure the OCUDU gNB to create a single TDD cell
-# transmitting in band 78, with 20 MHz bandwidth and 30 kHz sub-carrier-spacing. A USRP B200 is configured
-# as the RF frontend using split 8. Note in this example an external clock source is not used, so the sync
-# is not defined and the default is used.
+remote_control:
+  enabled: true
+  bind_addr: 0.0.0.0 #10.12.1.53
+  port: 8001
+
+cells:
+  -
+    pci: 1
+  -
+    pci: 2
+  -
+    pci: 3
+
+cell_cfg:
+  dl_arfcn: 625000
+  band: 78
+  channel_bandwidth_MHz: 100
+  common_scs: 30
+  plmn: "00101"
+  tac: 1
+  pci: 1
+  prach:
+    prach_config_index: 159
+    prach_root_sequence_index: 1
+    zero_correlation_zone: 0
+  pdsch:
+    mcs_table: qam256
+  pusch:
+    mcs_table: qam256
+  nof_antennas_dl: 4
+  nof_antennas_ul: 1
+
+  tdd_ul_dl_cfg:
+    dl_ul_tx_period: 10
+    nof_dl_slots: 7
+    nof_dl_symbols: 10
+    nof_ul_slots: 2
+    nof_ul_symbols: 0
+
+expert_phy:
+  pusch_dec_max_iterations: 2
+
+log:
+  all_level: warning
+  config_level: debug
+
+metrics:
+  autostart_stdout_metrics: false
+  enable_json: true
+  layers:
+    enable_ru: true
+    enable_sched: true
+    enable_rlc: true
+    enable_mac: true
+    enable_pdcp: true
+    enable_du_low: true
+    enable_app_usage: true
+
+ru_dummy:
 
 cu_cp:
   amf:
-    addrs: 127.0.1.100
-    port: 38412
-    bind_addrs: 127.0.0.1
-    supported_tracking_areas:
-      - tac: 7
-        plmn_list:
-          - plmn: "00101"
-            tai_slice_support_list:
-              - sst: 1
+    no_core: true
 
-ru_sdr:
-  device_driver: uhd
-  device_args: type=b200,num_recv_frames=64,num_send_frames=64
-  srate: 23.04
-  otw_format: sc12
-  tx_gain: 80
-  rx_gain: 40
-
-cell_cfg:
-  dl_arfcn: 632628
-  band: 78
-  channel_bandwidth_MHz: 20
-  common_scs: 30
-  plmn: "00101"
-  tac: 7
-  pci: 1
-
-log:
-  filename: /tmp/gnb.log
-  all_level: warning
-
-pcap:
-  mac_enable: false
-  mac_filename: /tmp/gnb_mac.pcap
-  ngap_enable: false
-  ngap_filename: /tmp/gnb_ngap.pcap
+test_mode:
+  test_ue:
+    rnti: 0x44
+    ri: 4
+    cqi: 15
+    nof_ues: 16
+    pusch_active: true
+    pdsch_active: true
