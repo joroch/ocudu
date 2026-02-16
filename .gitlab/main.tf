@@ -217,6 +217,14 @@ module "settings" {
       active      = true
       variables   = {}
     }
+    testing = {
+      description = "Testing"
+      cron        = "00 13 * * 0"
+      timezone    = "Europe/Madrid"
+      ref         = "refs/heads/branch_promotion"
+      active      = false
+      variables   = {}
+    }
   }
 
 }
