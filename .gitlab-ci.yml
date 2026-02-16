@@ -485,11 +485,12 @@ doxygen:
 promotion:
   stage: .post
   rules:
-    - if: $CI_PIPELINE_SCHEDULE_DESCRIPTION =~ /Nightly/
+    - if: $CI_PIPELINE_SCHEDULE_DESCRIPTION =~ /Testing/
   image: alpine:3
   script:
-    - git fetch origin main
-    - git checkout -t origin/main
-    - git rebase ${CI_COMMIT_SHA}
+    - apk add --no-cache git
+    - git fetch origin e9c0298010cbbc0db0bbd1b4d38f1261f97d15a1
+    - git checkout main
+    - git rebase e9c0298010cbbc0db0bbd1b4d38f1261f97d15a1
     - git push
-  dependencies: []
+  needs: []
