@@ -521,9 +521,9 @@ void ue_cell_event_manager::handle_uci_indication(const uci_indication& ind)
         return event_result::invalid_ue_cc;
       }
 
-      bool is_sr_opportunity_and_f1 = false;
+      bool is_sr_opportunity_and_f1_harq_ack = false;
       if (const auto* pucch_f0f1 = std::get_if<uci_indication::uci_pdu::uci_pucch_f0_or_f1_pdu>(&uci_pdu->pdu)) {
-        // Check if this UCI is from slot with a SR opportunity.
+        // Check if this UCI is from a slot with a SR opportunity and PUCCH F1 HARQ-ACK.
         if (ue_cc->cfg().init_bwp().ul_ded.has_value() and ue_cc->cfg().init_bwp().ul_ded->pucch_cfg.has_value()) {
           const auto& pucch_cfg = ue_cc->cfg().init_bwp().ul_ded->pucch_cfg.value();
 
@@ -539,7 +539,8 @@ void ue_cell_event_manager::handle_uci_indication(const uci_indication& ind)
           }
 
           // This check is only needed for PUCCH Format 1.
-          is_sr_opportunity_and_f1 = is_format_1 and sr_helper::is_sr_opportunity_slot(pucch_cfg, uci_sl);
+          is_sr_opportunity_and_f1_harq_ack =
+              is_format_1 and sr_helper::is_sr_opportunity_slot(pucch_cfg, uci_sl) and not pucch_f0f1->harqs.empty();
         }
 
         // Process DL HARQ ACKs.
@@ -548,7 +549,8 @@ void ue_cell_event_manager::handle_uci_indication(const uci_indication& ind)
         }
 
         // Process SRs.
-        if (pucch_f0f1->sr_detected) {
+        if ((is_sr_opportunity_and_f1_harq_ack and u.sr_and_f1_harq_ack_is_positive_sr(uci_sl, *pucch_f0f1)) or
+            (not is_sr_opportunity_and_f1_harq_ack and pucch_f0f1->sr_detected)) {
           // Handle SR indication.
           u.handle_sr_indication();
 
@@ -625,7 +627,7 @@ void ue_cell_event_manager::handle_uci_indication(const uci_indication& ind)
       }
 
       // Report the UCI PDU to the metrics handler.
-      metrics.handle_uci_pdu_indication(*uci_pdu, is_sr_opportunity_and_f1);
+      metrics.handle_uci_pdu_indication(*uci_pdu, is_sr_opportunity_and_f1_harq_ack);
 
       return event_result::processed;
     };

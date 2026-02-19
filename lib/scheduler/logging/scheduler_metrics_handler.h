@@ -214,7 +214,7 @@ public:
   void handle_harq_timeout(du_ue_index_t ue_index, bool is_dl);
 
   /// \brief Handle UCI PDU indication.
-  void handle_uci_pdu_indication(const uci_indication::uci_pdu& pdu, bool is_sr_opportunity_and_f1);
+  void handle_uci_pdu_indication(const uci_indication::uci_pdu& pdu, bool is_sr_opportunity_and_f1_harq_ack);
 
   /// \brief Handle SR indication.
   void handle_sr_indication(du_ue_index_t ue_index, slot_point sr_slot);

@@ -15,7 +15,9 @@
 #include "ue_cell.h"
 #include "ue_drx_controller.h"
 #include "ocudu/ran/du_types.h"
+#include "ocudu/ran/slot_point.h"
 #include "ocudu/scheduler/mac_scheduler.h"
+#include "ocudu/scheduler/scheduler_feedback_handler.h"
 
 namespace ocudu {
 
@@ -71,6 +73,52 @@ public:
 
   void activate_cells(bounded_bitset<MAX_NOF_DU_CELLS> activ_bitmap) {}
 
+  /// \brief Decides whether the UE sent a positive SR in a slot where the UE was scheduled a HARQ-ACK PUCCH F1 in a SR
+  /// opportunity slot.
+  ///
+  /// The first time this function is called for a given slot, it saves the SR detection and SINR information of the
+  /// received UCI indication. The second time it is called for the same slot, it compares the saved information with
+  /// the new one to decide whether we got a positive SR or not.
+  bool sr_and_f1_harq_ack_is_positive_sr(slot_point                                             uci_sl,
+                                         const uci_indication::uci_pdu::uci_pucch_f0_or_f1_pdu& pucch_f0f1)
+  {
+    if (uci_sl == latest_sr_and_f1_harq_ack.sl_rx) {
+      // Second UCI indication received for this slot. Decide if we got a positive SR or not.
+      bool is_positive_sr = false;
+      if (not latest_sr_and_f1_harq_ack.ul_sinr_dB.has_value()) {
+        if (not pucch_f0f1.ul_sinr_dB.has_value()) {
+          // If the SINR was invalid for both indications, assume negative SR.
+          is_positive_sr = false;
+        } else {
+          // If only the first indication didn't have a valid SINR, assume the second one is correct.
+          is_positive_sr = pucch_f0f1.sr_detected;
+        }
+      } else {
+        if (pucch_f0f1.ul_sinr_dB.has_value()) {
+          // If both indications have a valid SINR, compare them and assume the one with higher SINR is correct.
+          if (*pucch_f0f1.ul_sinr_dB > *latest_sr_and_f1_harq_ack.ul_sinr_dB) {
+            is_positive_sr = pucch_f0f1.sr_detected;
+          } else {
+            is_positive_sr = latest_sr_and_f1_harq_ack.sr_detected;
+          }
+        } else {
+          // If this second indication doesn't have a valid SINR, assume the first one is correct.
+          is_positive_sr = latest_sr_and_f1_harq_ack.sr_detected;
+        }
+      }
+
+      // Reset slot of the last F1 UCI indication, to be ready for the next slot.
+      latest_sr_and_f1_harq_ack.sl_rx = slot_point();
+      return is_positive_sr;
+    }
+
+    // First F1 UCI indication for this slot received. Save its SINR and wait for the next one to decide.
+    latest_sr_and_f1_harq_ack.sl_rx       = uci_sl;
+    latest_sr_and_f1_harq_ack.sr_detected = pucch_f0f1.sr_detected;
+    latest_sr_and_f1_harq_ack.ul_sinr_dB  = pucch_f0f1.ul_sinr_dB;
+    return false;
+  }
+
   /// \brief Handle received SR indication.
   void handle_sr_indication() { lc_ch_mgr.handle_sr_indication(); }
 
@@ -124,6 +172,17 @@ private:
   const ue_cell_lookup& cells;
 
   slot_point last_sl_tx;
+
+  /// Information about the last F1 UCI indication received in a slot where the UE was scheduled a HARQ-ACK PUCCH F1 in
+  /// a SR opportunity slot.
+  /// Used to compare the SINR of the HARQ-ACK PUCCH F1 and the SINR of the SR PUCCH F1, in order to decide whether the
+  /// SR is valid or not.
+  struct sr_and_f1_harq_ack_latest_uci_ind {
+    slot_point           sl_rx;
+    bool                 sr_detected;
+    std::optional<float> ul_sinr_dB;
+  };
+  sr_and_f1_harq_ack_latest_uci_ind latest_sr_and_f1_harq_ack;
 };
 
 } // namespace ocudu

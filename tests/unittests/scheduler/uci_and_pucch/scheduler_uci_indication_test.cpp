@@ -55,14 +55,14 @@ protected:
     ++next_slot;
   }
 
-  void notify_uci_ind_on_pucch(bool sr_ind, span<const bool> harq_bits)
+  void notify_uci_ind_on_pucch(bool sr_ind, span<const bool> harq_bits, std::optional<float> ul_sinr_dB = std::nullopt)
   {
     uci_indication uci_ind{};
     uci_ind.cell_index = to_du_cell_index(0);
     uci_ind.slot_rx    = next_slot.without_hyper_sfn() - 1;
     uci_ind.ucis.resize(1);
     uci_ind.ucis[0].ue_index = to_du_ue_index(0);
-    uci_indication::uci_pdu::uci_pucch_f0_or_f1_pdu pdu{.sr_detected = sr_ind};
+    uci_indication::uci_pdu::uci_pucch_f0_or_f1_pdu pdu{.sr_detected = sr_ind, .ul_sinr_dB = ul_sinr_dB};
     pdu.harqs.resize(harq_bits.size());
     for (unsigned i = 0; i != harq_bits.size(); ++i) {
       pdu.harqs[i] = harq_bits[i] ? mac_harq_ack_report_status::ack : mac_harq_ack_report_status::nack;
@@ -200,5 +200,23 @@ TEST_F(sched_uci_indication_test, uci_ind_on_pusch)
     run_slot();
     ASSERT_FALSE(ue_pdsch_scheduled());
     ASSERT_FALSE(ue_pucch_harq_ack_grant_scheduled());
+  }
+}
+
+TEST_F(sched_uci_indication_test, pusch_not_scheduled_after_sr_false_alarm)
+{
+  static constexpr unsigned MAX_COUNT = 16;
+  // We get UCI indications for both SR and HARQ-ACK resources, but the indication for the SR resource
+  // (the one with sr_detected=true) is a false alarm (very low SINR, just above the detection threshold).
+  //
+  // Since the indication for the HARQ-ACK resource (the one with sr_detected=false) has a higher SINR, the scheduler
+  // should ignore the SR indication and not schedule a PUSCH.
+  notify_uci_ind_on_pucch(true, std::array<bool, 1>{true}, -10.0f);
+  notify_uci_ind_on_pucch(false, std::array<bool, 1>{true}, 40.0f);
+
+  // No UL grants after the ACK.
+  for (unsigned i = 0; i != MAX_COUNT; ++i) {
+    run_slot();
+    ASSERT_FALSE(ue_pusch_scheduled());
   }
 }
