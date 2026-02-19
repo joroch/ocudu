@@ -36,6 +36,7 @@ struct ue_context_cfg {
   std::optional<std::chrono::seconds>          ue_inactivity_timeout;
   std::map<five_qi_t, ocuup::cu_up_qos_config> qos;
   uint64_t                                     ue_dl_aggregate_maximum_bit_rate;
+  bool                                         cho_initiation = false;
   cu_up_test_mode_config                       test_mode_config;
 };
 

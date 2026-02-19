@@ -91,6 +91,7 @@ cu_up_manager_impl::handle_bearer_context_setup_request(const e1ap_bearer_contex
   ue_cfg.ue_inactivity_timeout            = msg.ue_inactivity_timer;
   ue_cfg.qos                              = qos;
   ue_cfg.ue_dl_aggregate_maximum_bit_rate = msg.ue_dl_aggregate_maximum_bit_rate;
+  ue_cfg.cho_initiation                   = msg.cho_initiation;
   ue_context* ue_ctxt                     = ue_mng->add_ue(ue_cfg);
   if (ue_ctxt == nullptr) {
     logger.error("Could not create UE context");

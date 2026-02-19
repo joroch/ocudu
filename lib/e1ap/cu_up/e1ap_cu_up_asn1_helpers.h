@@ -293,6 +293,10 @@ inline bool fill_e1ap_bearer_context_setup_request(e1ap_bearer_context_setup_req
     request.ue_inactivity_timer = std::chrono::seconds(asn1_request->ue_inactivity_timer);
   }
 
+  if (asn1_request->cho_initiation_present) {
+    request.cho_initiation = (asn1_request->cho_initiation.value == asn1::e1ap::cho_initiation_opts::true_value);
+  }
+
   return true;
 }
 

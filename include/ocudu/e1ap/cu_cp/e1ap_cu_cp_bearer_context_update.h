@@ -28,6 +28,7 @@ struct e1ap_bearer_context_setup_request {
   std::optional<e1ap_bearer_context_status_change>                        bearer_context_status_change;
   std::optional<ran_ue_id_t>                                              ran_ue_id;
   std::optional<uint64_t>                                                 gnb_du_id;
+  bool                                                                    cho_initiation = false;
 };
 
 struct e1ap_bearer_context_setup_response {

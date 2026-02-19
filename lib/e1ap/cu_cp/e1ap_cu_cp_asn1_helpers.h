@@ -378,6 +378,12 @@ inline void fill_asn1_bearer_context_setup_request(asn1::e1ap::bearer_context_se
     asn1_request->ue_inactivity_timer         = request.ue_inactivity_timer.value().count();
   }
 
+  // Fill CHO initiation.
+  if (request.cho_initiation) {
+    asn1_request->cho_initiation_present = true;
+    asn1_request->cho_initiation         = asn1::e1ap::cho_initiation_opts::true_value;
+  }
+
   // Fill bearer context status change.
   if (request.bearer_context_status_change.has_value()) {
     asn1_request->bearer_context_status_change_present = true;
