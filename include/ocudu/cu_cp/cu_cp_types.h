@@ -32,6 +32,7 @@
 #include "ocudu/ran/tac.h"
 #include "ocudu/ran/tai.h"
 #include "ocudu/ran/up_transport_layer_info.h"
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -628,6 +629,26 @@ struct cu_cp_rrc_resume_request {
   nr_cell_global_id_t cgi;
   rnti_t              new_c_rnti;
   resume_cause_t      cause;
+};
+
+/// \brief Single target candidate for intra-CU CHO orchestration.
+struct cu_cp_cho_target_candidate {
+  pci_t               pci = INVALID_PCI;
+  nr_cell_global_id_t cgi;
+  du_index_t          du_index = du_index_t::invalid;
+};
+
+/// \brief Request for intra-CU CHO orchestration.
+struct cu_cp_intra_cu_cho_request {
+  ue_index_t                              source_ue_index = ue_index_t::invalid;
+  du_index_t                              source_du_index = du_index_t::invalid;
+  std::vector<cu_cp_cho_target_candidate> targets;
+  std::chrono::milliseconds               timeout = std::chrono::milliseconds{10000};
+};
+
+/// \brief Response from intra-CU CHO orchestration.
+struct cu_cp_intra_cu_cho_response {
+  bool success = false;
 };
 
 } // namespace ocudu::ocucp
