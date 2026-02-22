@@ -13,6 +13,7 @@
 #include "ocudu/adt/bounded_bitset.h"
 #include "ocudu/adt/byte_buffer.h"
 #include "ocudu/adt/slotted_vector.h"
+#include "ocudu/e1ap/common/e1ap_types.h"
 #include "ocudu/pdcp/pdcp_config.h"
 #include "ocudu/ran/cause/common.h"
 #include "ocudu/ran/cause/e1ap_cause.h"
@@ -613,16 +614,31 @@ struct cu_cp_inactivity_notification {
   std::vector<pdu_session_id_t> inactive_pdu_sessions;
 };
 
+struct cu_cp_cho_preparation_request {
+  uint8_t cond_recfg_id = 0; ///< CHO conditional reconfiguration ID (valid range 1..8).
+};
+
+struct cu_cp_cho_preparation_result {
+  ue_index_t  target_ue_index = ue_index_t::invalid; ///< Target UE allocated/prepared for this candidate.
+  byte_buffer packed_rrc_recfg;                      ///< Packed RRCReconfiguration for deferred CHO execution.
+  unsigned    transaction_id = 0;                    ///< RRC transaction ID of packed_rrc_recfg.
+  /// CU-UP bearer update payload collected during target preparation.
+  std::optional<e1ap_ng_ran_bearer_context_mod_request> ng_ran_bearer_context_mod_request;
+};
+
 struct cu_cp_intra_cu_handover_request {
   ue_index_t          source_ue_index = ue_index_t::invalid;
   du_index_t          target_du_index = du_index_t::invalid;
   nr_cell_global_id_t cgi;
   pci_t               target_pci = INVALID_PCI;
+  /// When set, the request is treated as CHO candidate preparation (not immediate HO execution).
+  std::optional<cu_cp_cho_preparation_request> cho_preparation;
 };
 
 struct cu_cp_intra_cu_handover_response {
-  // Place-holder for possible return values.
   bool success = false;
+  /// Present only for CHO preparation requests.
+  std::optional<cu_cp_cho_preparation_result> cho_preparation_result;
 };
 
 struct cu_cp_rrc_resume_request {

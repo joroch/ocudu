@@ -22,6 +22,13 @@ class ue_manager;
 class cu_cp_impl_interface;
 class du_processor_repository;
 
+/// \brief Tracks prepared CHO targets.
+/// Used to release orphaned targets if the source UE disappears before CHO completes.
+struct prepared_cho_target {
+  ue_index_t target_ue_index;
+  du_index_t target_du_index;
+};
+
 /// \brief Coordinates full intra-CU CHO flow: preparation and execution/cancellation decision.
 class cho_coordinator_routine
 {
@@ -38,12 +45,26 @@ public:
 
 private:
   const cu_cp_intra_cu_cho_request request;
+  du_processor_repository&         du_db;
+  cu_cp_impl_interface&            cu_cp_handler;
   ue_manager&                      ue_mng;
   ocudulog::basic_logger&          logger;
 
   cu_cp_intra_cu_cho_response response{};
 
-  cu_cp_ue* source_ue = nullptr;
+  cu_cp_ue*                        source_ue = nullptr;
+  byte_buffer                      target_cell_sib1;
+  du_index_t                       source_du_index = du_index_t::invalid;
+  du_index_t                       target_du_index = du_index_t::invalid;
+  size_t                           candidate_idx   = 0;
+  uint8_t                          cond_recfg_id   = 1;
+  cu_cp_intra_cu_handover_request  prep_request;
+  cu_cp_intra_cu_handover_response prep_response;
+
+  /// \brief Releases all tracked inter-DU target UE contexts.
+  /// Called when the source UE disappears before CHO completes.
+  async_task<void>                 release_prepared_targets();
+  std::vector<prepared_cho_target> prepared_cho_targets;
 };
 
 } // namespace ocucp
