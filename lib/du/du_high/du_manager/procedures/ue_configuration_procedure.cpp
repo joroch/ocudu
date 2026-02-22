@@ -45,6 +45,11 @@ void ue_configuration_procedure::operator()(coro_context<async_task<f1ap_ue_cont
     handle_rrc_reconfiguration_complete_ind();
   }
 
+  if (not handle_conditional_mobility_request()) {
+    proc_logger.log_proc_failure("Failed to process conditional mobility information");
+    CORO_EARLY_RETURN(make_ue_config_failure());
+  }
+
   if (not changed_detected()) {
     // Nothing to do (e.g. No SCells, DRBs or SRBs to setup or release)
     proc_logger.log_proc_completed();
@@ -479,7 +484,53 @@ bool ue_configuration_procedure::changed_detected() const
 {
   return !request.drbs_to_setup.empty() || !request.drbs_to_mod.empty() || !request.srbs_to_setup.empty() ||
          !request.drbs_to_rem.empty() || !request.scells_to_setup.empty() || !request.scells_to_rem.empty() ||
-         !request.ho_prep_info.empty() || request.full_config_required;
+         !request.ho_prep_info.empty() || request.full_config_required || request.cho_trigger.has_value() ||
+         request.cho_intra_du_trigger.has_value();
+}
+
+bool ue_configuration_procedure::handle_conditional_mobility_request()
+{
+  const bool inter_du_cho_present = request.cho_trigger.has_value();
+  const bool intra_du_cho_present = request.cho_intra_du_trigger.has_value();
+  if (!inter_du_cho_present && !intra_du_cho_present) {
+    return true;
+  }
+
+  if (intra_du_cho_present) {
+    switch (*request.cho_intra_du_trigger) {
+      case ocucp::f1ap_cho_trigger_intra_du::cho_initiation:
+      case ocucp::f1ap_cho_trigger_intra_du::cho_replace:
+        if (!request.spcell_id.has_value()) {
+          proc_logger.log_proc_warning("Missing SpCell ID for intra-DU CHO initiation/replace");
+          return false;
+        }
+        break;
+      case ocucp::f1ap_cho_trigger_intra_du::cho_cancel:
+        break;
+    }
+
+    if (*request.cho_intra_du_trigger == ocucp::f1ap_cho_trigger_intra_du::cho_initiation) {
+      ue->cond_mobility.add_prepared_cell(*request.spcell_id);
+    } else if (*request.cho_intra_du_trigger == ocucp::f1ap_cho_trigger_intra_du::cho_replace) {
+      ue->cond_mobility.replace_prepared_cell(*request.spcell_id);
+    } else {
+      ue->cond_mobility.cancel_prepared_cells(request.cho_intra_du_cells_to_cancel);
+    }
+    return true;
+  }
+
+  // Inter-DU conditional mobility is carried over UE Context Setup requests.
+  if (!request.spcell_id.has_value()) {
+    proc_logger.log_proc_warning("Missing SpCell ID for inter-DU CHO request");
+    return false;
+  }
+
+  if (*request.cho_trigger == ocucp::f1ap_cho_trigger::cho_initiation) {
+    ue->cond_mobility.add_prepared_cell(*request.spcell_id);
+  } else {
+    ue->cond_mobility.replace_prepared_cell(*request.spcell_id);
+  }
+  return true;
 }
 
 void ue_configuration_procedure::handle_rrc_reconfiguration_complete_ind()
