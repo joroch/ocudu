@@ -668,6 +668,18 @@ struct cu_cp_intra_cu_cho_response {
   bool success = false;
 };
 
+/// \brief Request for CHO cancellation.
+struct cu_cp_cho_cancellation_request {
+  ue_index_t                   source_ue_index = ue_index_t::invalid;
+  std::vector<cond_recfg_id_t> cond_recfg_ids_to_remove; ///< Specific IDs to remove (empty = remove all).
+  std::chrono::milliseconds    rrc_complete_timeout{5000};
+};
+
+/// \brief Response from CHO cancellation.
+struct cu_cp_cho_cancellation_response {
+  bool success = false;
+};
+
 } // namespace ocudu::ocucp
 
 namespace fmt {

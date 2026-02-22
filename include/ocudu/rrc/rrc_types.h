@@ -119,6 +119,7 @@ struct rrc_reconfiguration_procedure_request {
   /// CHO-execution fields
   std::optional<std::vector<cu_cp_ue_cho_candidate>> cho_candidates;
   std::optional<cho_meas_id_map_t>                   cho_nci_to_meas_ids; // Maps NCI to measIds for CHO candidates
+  std::optional<std::vector<cond_recfg_id_t>>        cond_recfg_ids_to_remove; // For condReconfigToRemoveList
 };
 
 struct rrc_ue_capability_transfer_request {

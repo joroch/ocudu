@@ -562,8 +562,11 @@ rrc_ue_impl::get_rrc_ue_cond_reconfiguration_context(const rrc_reconfiguration_p
   dl_dcch_msg_s dl_dcch_msg;
   auto&         rrc_recfg        = dl_dcch_msg.msg.set_c1().set_rrc_recfg();
   rrc_recfg.rrc_transaction_id   = cond_reconf_ctxt.transaction_id;
-  auto&                recfg_ies = rrc_recfg.crit_exts.set_rrc_recfg();
-  std::vector<uint8_t> cho_meas_ids;
+  auto& recfg_ies                = rrc_recfg.crit_exts.set_rrc_recfg();
+
+  const bool has_add_list = request.cho_candidates.has_value() && !request.cho_candidates->empty();
+  const bool has_remove_list =
+      request.cond_recfg_ids_to_remove.has_value() && !request.cond_recfg_ids_to_remove->empty();
 
   // CHO measurement config (already filtered and includes conditional triggers).
   // The measurement config from generate_meas_config() is already complete:
@@ -582,11 +585,11 @@ rrc_ue_impl::get_rrc_ue_cond_reconfiguration_context(const rrc_reconfiguration_p
                      recfg_ies.meas_cfg.report_cfg_to_add_mod_list.size(),
                      recfg_ies.meas_cfg.meas_id_to_add_mod_list.size());
 
-    if (recfg_ies.meas_cfg.meas_obj_to_add_mod_list.size() == 0) {
+    if (has_add_list && recfg_ies.meas_cfg.meas_obj_to_add_mod_list.size() == 0) {
       logger.log_warning("ue={}: CHO measConfig has no measurement objects; conditional execution will not trigger",
                          context.ue_index);
     }
-  } else {
+  } else if (has_add_list) {
     logger.log_warning("ue={}: CHO RRCReconfiguration has no measConfig - UE may not have measurement conditions",
                        context.ue_index);
   }
@@ -601,66 +604,75 @@ rrc_ue_impl::get_rrc_ue_cond_reconfiguration_context(const rrc_reconfiguration_p
   v1560.non_crit_ext_present     = true;
   auto& v1610                    = v1560.non_crit_ext;
 
-  // Add conditionalReconfiguration-r16 if CHO candidates are provided
-  if (request.cho_candidates.has_value() && !request.cho_candidates->empty()) {
+  // Populate conditionalReconfiguration-r16 when adding/removing conditional reconfigurations.
+  if (has_add_list || has_remove_list) {
     v1610.conditional_recfg_r16_present       = true;
     auto& cond_recfg                          = v1610.conditional_recfg_r16;
-    cond_recfg.attempt_cond_recfg_r16_present = true;
+    cond_recfg.attempt_cond_recfg_r16_present = has_add_list;
 
-    // Add each candidate with its specific measIds based on target NCI
-    for (const auto& candidate : request.cho_candidates.value()) {
-      cond_recfg_to_add_mod_r16_s entry;
-      entry.cond_recfg_id_r16 = candidate.cond_recfg_id.value();
+    // Add each candidate with its specific measIds based on target NCI.
+    if (has_add_list) {
+      for (const auto& candidate : request.cho_candidates.value()) {
+        cond_recfg_to_add_mod_r16_s entry;
+        entry.cond_recfg_id_r16 = candidate.cond_recfg_id.value();
 
-      // Set execution condition (measurement ID reference) based on target NCI
-      if (request.cho_nci_to_meas_ids.has_value()) {
-        auto it = request.cho_nci_to_meas_ids->find(candidate.target_cgi.nci);
-        if (it != request.cho_nci_to_meas_ids->end()) {
-          const auto& meas_ids = it->second;
+        // Set execution condition (measurement ID reference) based on target NCI.
+        if (request.cho_nci_to_meas_ids.has_value()) {
+          auto it = request.cho_nci_to_meas_ids->find(candidate.target_cgi.nci);
+          if (it != request.cho_nci_to_meas_ids->end()) {
+            const auto& meas_ids = it->second;
 
-          // Validate ASN.1 constraint: max 2 measIds per 3GPP TS 38.331
-          if (meas_ids.size() > 2) {
-            logger.log_error("ue={}: CHO candidate cond_recfg_id={} target_nci={:#x} has {} measIds (max 2 allowed). "
-                             "Using first 2 only.",
+            // Validate ASN.1 constraint: max 2 measIds per 3GPP TS 38.331.
+            if (meas_ids.size() > 2) {
+              logger.log_error("ue={}: CHO candidate cond_recfg_id={} target_nci={:#x} has {} measIds (max 2 "
+                               "allowed). Using first 2 only.",
+                               context.ue_index,
+                               candidate.cond_recfg_id,
+                               candidate.target_cgi.nci.value(),
+                               meas_ids.size());
+            }
+
+            // Add up to 2 measIds.
+            for (size_t i = 0; i < std::min(meas_ids.size(), size_t{2}); ++i) {
+              entry.cond_execution_cond_r16.push_back(meas_id_to_uint(meas_ids[i]));
+            }
+
+            logger.log_debug("ue={}: CHO candidate cond_recfg_id={} target_nci={:#x} assigned {} measId(s): {}",
                              context.ue_index,
                              candidate.cond_recfg_id,
                              candidate.target_cgi.nci.value(),
-                             meas_ids.size());
+                             entry.cond_execution_cond_r16.size(),
+                             fmt::format("{}", fmt::join(entry.cond_execution_cond_r16, ", ")));
+          } else {
+            logger.log_warning("ue={}: CHO candidate cond_recfg_id={} target_nci={:#x} not found in measId mapping. "
+                               "Using fallback measId=1.",
+                               context.ue_index,
+                               candidate.cond_recfg_id,
+                               candidate.target_cgi.nci.value());
+            entry.cond_execution_cond_r16.push_back(1);
           }
-
-          // Add up to 2 measIds
-          for (size_t i = 0; i < std::min(meas_ids.size(), size_t{2}); ++i) {
-            entry.cond_execution_cond_r16.push_back(meas_id_to_uint(meas_ids[i]));
-          }
-
-          logger.log_debug("ue={}: CHO candidate cond_recfg_id={} target_nci={:#x} assigned {} measId(s): {}",
-                           context.ue_index,
-                           candidate.cond_recfg_id,
-                           candidate.target_cgi.nci.value(),
-                           entry.cond_execution_cond_r16.size(),
-                           fmt::format("{}", fmt::join(entry.cond_execution_cond_r16, ", ")));
         } else {
-          logger.log_warning("ue={}: CHO candidate cond_recfg_id={} target_nci={:#x} not found in measId mapping. "
-                             "Using fallback measId=1.",
+          // Fallback if no mapping provided.
+          logger.log_warning("ue={}: No CHO measId mapping provided. Using fallback measId=1 for cond_recfg_id={}",
                              context.ue_index,
-                             candidate.cond_recfg_id,
-                             candidate.target_cgi.nci.value());
+                             candidate.cond_recfg_id);
           entry.cond_execution_cond_r16.push_back(1);
         }
-      } else {
-        // Fallback if no mapping provided
-        logger.log_warning("ue={}: No CHO measId mapping provided. Using fallback measId=1 for cond_recfg_id={}",
-                           context.ue_index,
-                           candidate.cond_recfg_id);
-        entry.cond_execution_cond_r16.push_back(1);
-      }
 
-      // Set the prepared RRC reconfiguration for this candidate
-      if (!candidate.prepared_rrc_recfg.empty()) {
-        entry.cond_rrc_recfg_r16 = candidate.prepared_rrc_recfg.copy();
-      }
+        // Set the prepared RRC reconfiguration for this candidate.
+        if (!candidate.prepared_rrc_recfg.empty()) {
+          entry.cond_rrc_recfg_r16 = candidate.prepared_rrc_recfg.copy();
+        }
 
-      cond_recfg.cond_recfg_to_add_mod_list_r16.push_back(entry);
+        cond_recfg.cond_recfg_to_add_mod_list_r16.push_back(entry);
+      }
+    }
+
+    // Add IDs to condReconfigToRemoveList when requested.
+    if (has_remove_list) {
+      for (const cond_recfg_id_t id : request.cond_recfg_ids_to_remove.value()) {
+        cond_recfg.cond_recfg_to_rem_list_r16.push_back(id.value());
+      }
     }
   }
 
