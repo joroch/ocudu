@@ -16,7 +16,6 @@
 
 using namespace ocudu;
 using namespace ocudu::ocucp;
-using namespace asn1::rrc_nr;
 
 static bool verify_ho_request(const cu_cp_intra_cu_handover_request& request,
                               ue_manager&                            ue_mng,
@@ -100,8 +99,12 @@ void intra_cu_handover_routine::operator()(coro_context<async_task<cu_cp_intra_c
     ue_mng.find_du_ue(target_ue_context_setup_request.ue_index)->set_cu_up_index(source_ue->get_cu_up_index());
 
     // Prepare F1AP UE Context Setup Command and call F1AP notifier of target DU.
-    if (!generate_ue_context_setup_request(
-            target_ue_context_setup_request, source_ue->get_rrc_ue()->get_srbs(), source_rrc_context)) {
+    if (!fill_ue_context_setup_request(target_ue_context_setup_request,
+                                       request.cgi,
+                                       source_ue->get_rrc_ue()->get_srbs(),
+                                       source_rrc_context,
+                                       next_config,
+                                       false)) {
       logger.warning("ue={}: \"{}\" failed to generate UeContextSetupRequest", request.source_ue_index, name());
       CORO_EARLY_RETURN(response_msg);
     }
@@ -206,63 +209,3 @@ void intra_cu_handover_routine::operator()(coro_context<async_task<cu_cp_intra_c
   CORO_RETURN(response_msg);
 }
 
-bool intra_cu_handover_routine::generate_ue_context_setup_request(f1ap_ue_context_setup_request& setup_request,
-                                                                  const static_vector<srb_id_t, MAX_NOF_SRBS>& srbs,
-                                                                  const rrc_ue_transfer_context& transfer_context)
-{
-  setup_request.serv_cell_idx = 0; // TODO: Remove hardcoded value
-  setup_request.sp_cell_id    = request.cgi;
-
-  if (transfer_context.handover_preparation_info.empty()) {
-    return false;
-  }
-
-  setup_request.cu_to_du_rrc_info.ie_exts.emplace();
-  auto buffer_copy = transfer_context.handover_preparation_info.deep_copy();
-  if (!buffer_copy) {
-    return false;
-  }
-  setup_request.cu_to_du_rrc_info.ie_exts.value().ho_prep_info = std::move(buffer_copy.value());
-  setup_request.cu_to_du_rrc_info.ue_cap_rat_container_list    = transfer_context.ue_cap_rat_container_list.copy();
-
-  for (const auto& srb_id : srbs) {
-    f1ap_srb_to_setup srb_item;
-    srb_item.srb_id = srb_id;
-    setup_request.srbs_to_be_setup_list.push_back(srb_item);
-  }
-
-  for (const auto& pdu_session : next_config.pdu_sessions_to_setup_list) {
-    for (const auto& drb : pdu_session.second.drb_to_add) {
-      const up_drb_context& drb_context = drb.second;
-
-      f1ap_drb_to_setup drb_item;
-      drb_item.drb_id           = drb_context.drb_id;
-      drb_item.qos_info.drb_qos = drb_context.qos_params;
-
-      // Add each QoS flow including QoS.
-      for (const auto& flow : drb_context.qos_flows) {
-        flow_mapped_to_drb flow_item;
-        flow_item.qos_flow_id               = flow.first;
-        flow_item.qos_flow_level_qos_params = flow.second.qos_params;
-        drb_item.qos_info.flows_mapped_to_drb_list.push_back(flow_item);
-      }
-      drb_item.uluptnl_info_list = drb_context.ul_up_tnl_info_to_be_setup_list;
-      drb_item.mode              = drb_context.rlc_mod;
-      drb_item.pdcp_sn_len       = drb_context.pdcp_cfg.tx.sn_size;
-
-      setup_request.drbs_to_be_setup_list.push_back(drb_item);
-    }
-  }
-
-  return true;
-}
-
-void intra_cu_handover_routine::create_srb(cu_cp_ue* ue, srb_id_t srb_id)
-{
-  srb_creation_message srb_msg{};
-  srb_msg.ue_index        = ue->get_ue_index();
-  srb_msg.srb_id          = srb_id;
-  srb_msg.enable_security = true;
-  // TODO: add support for non-default PDCP config.
-  ue->get_rrc_ue()->create_srb(srb_msg);
-}
