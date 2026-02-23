@@ -116,6 +116,13 @@ struct f1ap_ue_context_release_request {
   std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
+/// \brief Notification that a UE has successfully accessed a target cell during CHO execution (TS 38.473
+/// Section 8.3.x).
+struct f1ap_access_success_notif {
+  du_ue_index_t       ue_index;
+  nr_cell_global_id_t cgi; ///< NR-CGI of the cell where the UE successfully performed random access.
+};
+
 /// \brief Request Command for F1AP UE CONTEXT Modification Required.
 struct f1ap_ue_context_modification_required {};
 

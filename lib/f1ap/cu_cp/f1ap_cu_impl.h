@@ -132,6 +132,7 @@ private:
   /// \brief Handle the reception of an UE Context Release Request.
   /// \param[in] msg The UE Context Release Request message.
   void handle_ue_context_release_request(const asn1::f1ap::ue_context_release_request_s& msg);
+  void handle_access_success(const asn1::f1ap::access_success_s& msg);
 
   /// \brief Handle the reception of a gNB-DU Configuration Update.
   /// \param[in] msg The gNB-DU Configuration Update message.

@@ -246,5 +246,11 @@ struct f1ap_ue_context_release_request {
   std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
+/// \brief Indication from the DU that a UE has successfully accessed a target cell (TS 38.473 Section 8.3.x).
+struct f1ap_access_success {
+  ue_index_t          ue_index;
+  nr_cell_global_id_t cgi; ///< NR-CGI of the cell where the UE successfully performed random access.
+};
+
 } // namespace ocucp
 } // namespace ocudu
