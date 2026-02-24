@@ -16,4 +16,8 @@ namespace ocudu {
 /// Only cho_initiation and cho_replace are valid over the F1AP inter-DU interface.
 enum class f1ap_cho_trigger { cho_initiation = 0, cho_replace };
 
+/// \brief CHO trigger values for the intra-DU path (TS 38.473 Section 9.3.1.x).
+/// cho_cancel is only valid for intra-DU conditional mobility.
+enum class f1ap_cho_trigger_intra_du { cho_initiation = 0, cho_replace, cho_cancel };
+
 } // namespace ocudu

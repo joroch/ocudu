@@ -44,6 +44,36 @@ inline f1ap_cho_trigger asn1_to_cho_trigger_inter_du(asn1::f1ap::ch_otrigger_int
   }
 }
 
+/// \brief Convert \c f1ap_cho_trigger_intra_du to F1AP ASN.1 intra-DU type.
+inline asn1::f1ap::ch_otrigger_intra_du_e cho_trigger_to_asn1_intra_du(f1ap_cho_trigger_intra_du trigger)
+{
+  switch (trigger) {
+    case f1ap_cho_trigger_intra_du::cho_initiation:
+      return asn1::f1ap::ch_otrigger_intra_du_opts::cho_initiation;
+    case f1ap_cho_trigger_intra_du::cho_replace:
+      return asn1::f1ap::ch_otrigger_intra_du_opts::cho_replace;
+    case f1ap_cho_trigger_intra_du::cho_cancel:
+      return asn1::f1ap::ch_otrigger_intra_du_opts::cho_cancel;
+    default:
+      report_fatal_error("Cannot convert f1ap_cho_trigger_intra_du to ASN.1 intra-DU type");
+  }
+}
+
+/// \brief Convert F1AP ASN.1 intra-DU CHO trigger to \c f1ap_cho_trigger_intra_du.
+inline f1ap_cho_trigger_intra_du asn1_to_cho_trigger_intra_du(asn1::f1ap::ch_otrigger_intra_du_e asn1_trigger)
+{
+  switch (asn1_trigger) {
+    case asn1::f1ap::ch_otrigger_intra_du_opts::cho_initiation:
+      return f1ap_cho_trigger_intra_du::cho_initiation;
+    case asn1::f1ap::ch_otrigger_intra_du_opts::cho_replace:
+      return f1ap_cho_trigger_intra_du::cho_replace;
+    case asn1::f1ap::ch_otrigger_intra_du_opts::cho_cancel:
+      return f1ap_cho_trigger_intra_du::cho_cancel;
+    default:
+      report_fatal_error("Cannot convert ASN.1 ch_otrigger_intra_du_e to f1ap_cho_trigger_intra_du");
+  }
+}
+
 /// \brief Convert F1AP ASN.1 Cause to \c f1ap_cause_t type.
 /// \param asn1_cause The F1AP Cause.
 /// \return The f1ap_cause_t type.

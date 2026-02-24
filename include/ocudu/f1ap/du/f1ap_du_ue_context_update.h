@@ -82,6 +82,10 @@ struct f1ap_ue_context_update_request {
   std::optional<f1ap_cho_trigger> cho_trigger;
   /// \brief Optional target gNB-DU-UE-F1AP-ID for the inter-DU CHO replace case.
   std::optional<gnb_du_ue_f1ap_id_t> cho_target_gnb_du_ue_f1ap_id;
+  /// \brief Optional intra-DU CHO trigger. If set, this context update is part of an intra-DU CHO procedure.
+  std::optional<f1ap_cho_trigger_intra_du> cho_intra_du_trigger;
+  /// \brief Target cells to cancel for the intra-DU CHO cancel case.
+  std::vector<nr_cell_global_id_t> cho_intra_du_cells_to_cancel;
 };
 
 /// \brief Response from DU manager to DU F1AP with the result of the UE context update.

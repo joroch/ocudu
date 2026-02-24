@@ -32,6 +32,16 @@ void f1ap_du_ue_context_modification_procedure::operator()(coro_context<async_ta
 {
   CORO_BEGIN(ctx);
 
+  if (req->conditional_intra_du_mob_info_present &&
+      (req->conditional_intra_du_mob_info.cho_trigger == asn1::f1ap::ch_otrigger_intra_du_opts::cho_initiation ||
+       req->conditional_intra_du_mob_info.cho_trigger == asn1::f1ap::ch_otrigger_intra_du_opts::cho_replace) &&
+      !req->sp_cell_id_present) {
+    logger.warning("{}: UE Context Modification rejected. Cause: Missing SpCell ID for CHO initiation/replace",
+                   f1ap_log_prefix{ue.context, name()});
+    send_ue_context_modification_failure();
+    CORO_EARLY_RETURN();
+  }
+
   // Modify UE configuration in DU.
   create_du_request(req);
   CORO_AWAIT_VALUE(du_response, ue.du_handler.request_ue_context_update(du_request));
@@ -148,6 +158,21 @@ void f1ap_du_ue_context_modification_procedure::create_du_request(const asn1::f1
                                                        item->serving_cell_mo_list_item().ssb_freq});
     }
   }
+
+  // conditional intra-DU mobility info (TS 38.473, 8.3.4.2)
+  if (msg->conditional_intra_du_mob_info_present) {
+    const auto& cho_info            = msg->conditional_intra_du_mob_info;
+    du_request.cho_intra_du_trigger = asn1_to_cho_trigger_intra_du(cho_info.cho_trigger);
+    // TargetCellsToCancel is conditional on trigger == cho-cancel (TS 38.473 Section 9.3.1.x).
+    if (du_request.cho_intra_du_trigger == f1ap_cho_trigger_intra_du::cho_cancel) {
+      for (const auto& item : cho_info.target_cells_tocancel) {
+        auto cgi = cgi_from_asn1(item.target_cell);
+        if (cgi.has_value()) {
+          du_request.cho_intra_du_cells_to_cancel.push_back(cgi.value());
+        }
+      }
+    }
+  }
 }
 
 void f1ap_du_ue_context_modification_procedure::send_ue_context_modification_response()
@@ -213,6 +238,14 @@ void f1ap_du_ue_context_modification_procedure::send_ue_context_modification_res
         make_serving_cell_mo_encoded_in_cgc_list(du_response.serving_cell_mo_encoded_in_cgc_list);
   }
 
+  // > RequestedTargetCellGlobalID IE.
+  // If the request included an SpCell ID update as part of an intra-DU CHO procedure, populate the target cell ID
+  // in the response so the CU-CP can identify the cell that was selected.
+  if (du_request.cho_intra_du_trigger == f1ap_cho_trigger_intra_du::cho_initiation && req->sp_cell_id_present) {
+    resp->requested_target_cell_global_id_present = true;
+    resp->requested_target_cell_global_id         = req->sp_cell_id;
+  }
+
   ue.f1ap_msg_notifier.on_new_message(f1ap_msg);
 }
 
@@ -225,6 +258,14 @@ void f1ap_du_ue_context_modification_procedure::send_ue_context_modification_fai
   resp->gnb_du_ue_f1ap_id               = gnb_du_ue_f1ap_id_to_uint(ue.context.gnb_du_ue_f1ap_id);
   resp->gnb_cu_ue_f1ap_id               = gnb_cu_ue_f1ap_id_to_uint(ue.context.gnb_cu_ue_f1ap_id);
   resp->cause.set_radio_network().value = asn1::f1ap::cause_radio_network_opts::unspecified;
+
+  // > RequestedTargetCellGlobalID IE.
+  // [TS 38.473, 8.3.4] When a CHO initiation fails, report the target cell so the CU-CP can
+  // identify which candidate cell was involved.
+  if (du_request.cho_intra_du_trigger == f1ap_cho_trigger_intra_du::cho_initiation && req->sp_cell_id_present) {
+    resp->requested_target_cell_global_id_present = true;
+    resp->requested_target_cell_global_id         = req->sp_cell_id;
+  }
 
   ue.f1ap_msg_notifier.on_new_message(f1ap_msg);
 }

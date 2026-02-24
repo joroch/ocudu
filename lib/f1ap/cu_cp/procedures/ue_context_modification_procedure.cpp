@@ -348,6 +348,21 @@ static void fill_asn1_ue_context_modification_request(asn1::f1ap::ue_context_mod
     asn1_request->full_cfg_present = true;
     asn1::bool_to_enum(asn1_request->full_cfg, request.full_cfg.value());
   }
+
+  // conditional intra-DU mobility info
+  if (request.conditional_intra_du_mobility_info.has_value()) {
+    const auto& cho_info                                    = request.conditional_intra_du_mobility_info.value();
+    asn1_request->conditional_intra_du_mob_info_present     = true;
+    asn1_request->conditional_intra_du_mob_info.cho_trigger = cho_trigger_to_asn1_intra_du(cho_info.cho_trigger);
+    // [TS 38.473, 9.3.1.x] TargetCellsToCancel is present iff CHO-Trigger is cho-cancel.
+    if (cho_info.cho_trigger == f1ap_cho_trigger_intra_du::cho_cancel) {
+      for (const auto& cell : cho_info.target_cells_to_cancel) {
+        asn1::f1ap::target_cell_list_item_s item;
+        item.target_cell = cgi_to_asn1(cell);
+        asn1_request->conditional_intra_du_mob_info.target_cells_tocancel.push_back(item);
+      }
+    }
+  }
 }
 
 static void fill_f1ap_ue_context_modification_response(f1ap_ue_context_modification_response&   res,
@@ -458,6 +473,14 @@ static void fill_f1ap_ue_context_modification_response(f1ap_ue_context_modificat
   if (asn1_response->full_cfg_present) {
     res.full_cfg = asn1_response->full_cfg.to_string();
   }
+
+  // Requested target cell global ID (present when CHO was active)
+  if (asn1_response->requested_target_cell_global_id_present) {
+    auto cgi = cgi_from_asn1(asn1_response->requested_target_cell_global_id);
+    if (cgi.has_value()) {
+      res.requested_target_cell_id = cgi.value();
+    }
+  }
 }
 
 static void fill_f1ap_ue_context_modification_response(f1ap_ue_context_modification_response&   res,
@@ -467,5 +490,12 @@ static void fill_f1ap_ue_context_modification_response(f1ap_ue_context_modificat
   res.cause   = asn1_to_cause(asn1_fail->cause);
   if (asn1_fail->crit_diagnostics_present) {
     // TODO: Add crit diagnostics
+  }
+  // Requested target cell global ID (present when intra-DU CHO failed)
+  if (asn1_fail->requested_target_cell_global_id_present) {
+    auto cgi = cgi_from_asn1(asn1_fail->requested_target_cell_global_id);
+    if (cgi.has_value()) {
+      res.requested_target_cell_id = cgi.value();
+    }
   }
 }

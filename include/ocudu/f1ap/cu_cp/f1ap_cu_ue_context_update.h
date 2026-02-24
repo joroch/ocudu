@@ -82,6 +82,11 @@ struct f1ap_conditional_inter_du_mobility_info {
   std::optional<gnb_du_ue_f1ap_id_t> target_gnb_du_ue_f1ap_id; // present iff cho_replace
 };
 
+struct f1ap_conditional_intra_du_mobility_info {
+  f1ap_cho_trigger_intra_du        cho_trigger;
+  std::vector<nr_cell_global_id_t> target_cells_to_cancel; // present iff cho_cancel (max 8)
+};
+
 /// \brief Request from CU to F1AP-CU to start an F1AP "UE Context Setup" procedure, as per TS38.473 8.3.1.
 struct f1ap_ue_context_setup_request {
   ue_index_t                                             ue_index = ue_index_t::invalid;
@@ -169,36 +174,37 @@ struct f1ap_rlc_fail_ind {
 
 /// \brief Request from CU to F1AP-CU to start an F1AP "UE Context Modification" procedure, as per TS38.473 8.3.4.
 struct f1ap_ue_context_modification_request {
-  ue_index_t                                         ue_index = ue_index_t::invalid;
-  std::optional<nr_cell_global_id_t>                 sp_cell_id;
-  std::optional<uint8_t>                             serv_cell_idx;
-  std::optional<f1ap_cell_ul_cfg>                    sp_cell_ul_cfg;
-  std::optional<f1ap_drx_cycle>                      drx_cycle;
-  std::optional<f1ap_cu_to_du_rrc_info>              cu_to_du_rrc_info;
-  std::optional<f1ap_tx_action_ind>                  tx_action_ind;
-  byte_buffer                                        res_coordination_transfer_container;
-  std::optional<f1ap_rrc_recfg_complete_ind>         rrc_recfg_complete_ind;
-  byte_buffer                                        rrc_container;
-  std::vector<f1ap_scell_to_be_setup_mod_item>       scell_to_be_setup_mod_list;
-  std::vector<f1ap_scell_to_be_remd_item>            scell_to_be_remd_list;
-  std::vector<f1ap_srb_to_setup>                     srbs_to_be_setup_mod_list;
-  std::vector<f1ap_drb_to_setup>                     drbs_to_be_setup_mod_list;
-  std::vector<f1ap_drb_to_modify>                    drbs_to_be_modified_list;
-  std::vector<srb_id_t>                              srbs_to_be_released_list;
-  std::vector<drb_id_t>                              drbs_to_be_released_list;
-  std::optional<bool>                                inactivity_monitoring_request;
-  std::optional<f1ap_rat_freq_prio_info>             rat_freq_prio_info;
-  std::optional<bool>                                drx_cfg_ind;
-  std::optional<f1ap_rlc_fail_ind>                   rlc_fail_ind;
-  byte_buffer                                        ul_tx_direct_current_list_info;
-  std::optional<bool>                                gnb_du_cfg_query;
-  std::optional<uint64_t>                            gnb_du_ue_ambr_ul;
-  std::optional<bool>                                execute_dupl;
-  std::optional<bool>                                rrc_delivery_status_request;
-  std::optional<f1ap_res_coordination_transfer_info> res_coordination_transfer_info;
-  std::optional<uint8_t>                             serving_cell_mo;
-  std::optional<bool>                                need_for_gap;
-  std::optional<bool>                                full_cfg;
+  ue_index_t                                             ue_index = ue_index_t::invalid;
+  std::optional<nr_cell_global_id_t>                     sp_cell_id;
+  std::optional<uint8_t>                                 serv_cell_idx;
+  std::optional<f1ap_cell_ul_cfg>                        sp_cell_ul_cfg;
+  std::optional<f1ap_drx_cycle>                          drx_cycle;
+  std::optional<f1ap_cu_to_du_rrc_info>                  cu_to_du_rrc_info;
+  std::optional<f1ap_tx_action_ind>                      tx_action_ind;
+  byte_buffer                                            res_coordination_transfer_container;
+  std::optional<f1ap_rrc_recfg_complete_ind>             rrc_recfg_complete_ind;
+  byte_buffer                                            rrc_container;
+  std::vector<f1ap_scell_to_be_setup_mod_item>           scell_to_be_setup_mod_list;
+  std::vector<f1ap_scell_to_be_remd_item>                scell_to_be_remd_list;
+  std::vector<f1ap_srb_to_setup>                         srbs_to_be_setup_mod_list;
+  std::vector<f1ap_drb_to_setup>                         drbs_to_be_setup_mod_list;
+  std::vector<f1ap_drb_to_modify>                        drbs_to_be_modified_list;
+  std::vector<srb_id_t>                                  srbs_to_be_released_list;
+  std::vector<drb_id_t>                                  drbs_to_be_released_list;
+  std::optional<bool>                                    inactivity_monitoring_request;
+  std::optional<f1ap_rat_freq_prio_info>                 rat_freq_prio_info;
+  std::optional<bool>                                    drx_cfg_ind;
+  std::optional<f1ap_rlc_fail_ind>                       rlc_fail_ind;
+  byte_buffer                                            ul_tx_direct_current_list_info;
+  std::optional<bool>                                    gnb_du_cfg_query;
+  std::optional<uint64_t>                                gnb_du_ue_ambr_ul;
+  std::optional<bool>                                    execute_dupl;
+  std::optional<bool>                                    rrc_delivery_status_request;
+  std::optional<f1ap_res_coordination_transfer_info>     res_coordination_transfer_info;
+  std::optional<uint8_t>                                 serving_cell_mo;
+  std::optional<bool>                                    need_for_gap;
+  std::optional<bool>                                    full_cfg;
+  std::optional<f1ap_conditional_intra_du_mobility_info> conditional_intra_du_mobility_info;
 };
 
 struct f1ap_associated_scell_item {
@@ -223,6 +229,7 @@ struct f1ap_ue_context_modification_response {
   std::vector<f1ap_srbs_setup_mod_item>            srbs_setup_mod_list;
   std::vector<f1ap_srbs_setup_mod_item>            srbs_modified_list;
   std::optional<bool>                              full_cfg;
+  std::optional<nr_cell_global_id_t>               requested_target_cell_id; // present when CHO was requested
 
   // UE Context Modification Failure
   std::optional<f1ap_cause_t> cause;
