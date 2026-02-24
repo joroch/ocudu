@@ -11,6 +11,7 @@
 namespace ocudu {
 
 struct ul_ccch_indication_message;
+struct ul_crnti_ce_indication_message;
 struct mac_metric_report;
 struct scheduler_cell_metrics;
 
@@ -24,6 +25,8 @@ public:
 
   /// \brief Handle UL CCCH message arrival.
   virtual void handle_ul_ccch_indication(const ul_ccch_indication_message& msg) = 0;
+  /// \brief Handle Msg3 C-RNTI CE detection.
+  virtual void handle_crnti_ce_indication(const ul_crnti_ce_indication_message& msg) = 0;
 };
 
 /// Interface used to handle metric reports from the DU-high remaining layers.
