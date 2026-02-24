@@ -24,6 +24,7 @@
 #include "ocudu/support/async/execute_on_blocking.h"
 #include "ocudu/support/executors/execute_until_success.h"
 #include "ocudu/support/synchronization/sync_event.h"
+#include <algorithm>
 #include <thread>
 
 using namespace ocudu;
@@ -121,6 +122,27 @@ void du_manager_impl::handle_ul_ccch_indication(const ul_ccch_indication_message
 
 void du_manager_impl::handle_crnti_ce_indication(const ul_crnti_ce_indication_message& msg)
 {
+  if (not params.services.du_mng_exec.execute([this, msg]() {
+        du_ue* ue = ue_mng.find_ue(msg.ue_index);
+        if (ue == nullptr || !cell_mng.has_cell(msg.cell_index)) {
+          return;
+        }
+
+        const auto target_cgi     = cell_mng.get_cell_cfg(msg.cell_index).nr_cgi;
+        const auto prepared_cells = ue->cond_mobility.prepared_cells();
+        const bool reached_prepared_target =
+            std::find(prepared_cells.begin(), prepared_cells.end(), target_cgi) != prepared_cells.end();
+        if (!reached_prepared_target) {
+          return;
+        }
+
+        params.f1ap.ue_mng.handle_access_success({msg.ue_index, target_cgi});
+        ue->cond_mobility.cancel_prepared_cells({});
+      })) {
+    logger.warning("Discarding C-RNTI CE indication cell={} ue={}. Cause: DU manager task queue is full",
+                   fmt::underlying(msg.cell_index),
+                   fmt::underlying(msg.ue_index));
+  }
 }
 
 void du_manager_impl::handle_f1c_connection_loss()
