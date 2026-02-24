@@ -62,6 +62,9 @@ struct f1ap_ue_delete_request {
   /// resources (e.g. for CSI and SR). To avoid the reallocation of RAN resources to other UEs too early (and
   /// potentially cause collisions), we may need to postpone the UE context full removal from the DU.
   std::chrono::milliseconds ran_resource_release_timeout{0};
+  /// \brief Optional CHO candidate cells to cancel. When non-empty, the DU shall cancel any ongoing CHO
+  /// preparation for the listed cells before removing the UE context.
+  std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
 /// Handle F1AP UE context management procedures as defined in TS 38.473 section 8.3.

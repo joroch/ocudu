@@ -9,6 +9,7 @@
  */
 
 #include "f1ap_du_ue_context_release_procedure.h"
+#include "../../asn1_helpers.h"
 #include "../f1ap_du_context.h"
 #include "proc_logger.h"
 #include "ocudu/asn1/f1ap/common.h"
@@ -72,7 +73,18 @@ void f1ap_du_ue_context_release_procedure::operator()(coro_context<async_task<vo
 
   // Remove UE from DU manager.
   logger.debug("{}: Initiate UE release in lower layers.", f1ap_log_prefix{ue.context, name()});
-  CORO_AWAIT(ue.du_handler.request_ue_removal(f1ap_ue_delete_request{ue.context.ue_index, rem_timeout}));
+  del_req.ue_index                     = ue.context.ue_index;
+  del_req.ran_resource_release_timeout = rem_timeout;
+  del_req.target_cells_to_cancel.clear();
+  if (msg->target_cells_to_cancel_present) {
+    for (const auto& item : msg->target_cells_to_cancel) {
+      auto cgi = cgi_from_asn1(item.target_cell);
+      if (cgi.has_value()) {
+        del_req.target_cells_to_cancel.push_back(cgi.value());
+      }
+    }
+  }
+  CORO_AWAIT(ue.du_handler.request_ue_removal(del_req));
 
   // Note: UE F1AP context deleted at this point.
 

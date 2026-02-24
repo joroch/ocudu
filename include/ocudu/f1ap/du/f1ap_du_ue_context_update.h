@@ -112,6 +112,8 @@ struct f1ap_ue_context_release_request {
 
   du_ue_index_t ue_index;
   cause_type    cause;
+  /// \brief Optional list of CHO candidate cells to cancel. Present when the DU triggers CHO cancellation.
+  std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
 /// \brief Request Command for F1AP UE CONTEXT Modification Required.

@@ -37,6 +37,15 @@ ue_context_release_procedure::ue_context_release_procedure(const f1ap_configurat
     command->srb_id_present = true;
     command->srb_id         = srb_id_to_uint(cmd_.srb_id.value());
   }
+  // target cells to cancel (CHO candidate cells whose preparation should be cancelled at the DU)
+  if (!cmd_.target_cells_to_cancel.empty()) {
+    command->target_cells_to_cancel_present = true;
+    for (const auto& cell : cmd_.target_cells_to_cancel) {
+      asn1::f1ap::target_cell_list_item_s item;
+      item.target_cell = cgi_to_asn1(cell);
+      command->target_cells_to_cancel.push_back(item);
+    }
+  }
 }
 
 void ue_context_release_procedure::operator()(coro_context<async_task<ue_index_t>>& ctx)

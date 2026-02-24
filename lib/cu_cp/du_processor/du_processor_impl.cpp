@@ -331,13 +331,17 @@ void du_processor_impl::handle_du_initiated_ue_context_release_request(const f1a
 
   logger.debug("ue={}: Handling DU initiated UE context release request", request.ue_index);
 
+  cu_cp_ue_context_release_request rel_req;
+  rel_req.ue_index                         = request.ue_index;
+  rel_req.pdu_session_res_list_cxt_rel_req = ue->get_up_resource_manager().get_pdu_sessions();
+  rel_req.cause                            = f1ap_to_ngap_cause(request.cause);
+  rel_req.target_cells_to_cancel           = request.target_cells_to_cancel;
+
   // Schedule on UE task scheduler
   ue->get_task_sched().schedule_async_task(
-      launch_async([this, request, ue](coro_context<async_task<void>>& ctx) mutable {
+      launch_async([this, rel_req = std::move(rel_req)](coro_context<async_task<void>>& ctx) mutable {
         CORO_BEGIN(ctx);
-
-        CORO_AWAIT(cu_cp_notifier.on_ue_release_required(
-            {request.ue_index, ue->get_up_resource_manager().get_pdu_sessions(), f1ap_to_ngap_cause(request.cause)}));
+        CORO_AWAIT(cu_cp_notifier.on_ue_release_required(rel_req));
         CORO_RETURN();
       }));
 }

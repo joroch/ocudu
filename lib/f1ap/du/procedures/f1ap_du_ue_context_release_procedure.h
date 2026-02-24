@@ -45,6 +45,7 @@ private:
 
   std::chrono::milliseconds rem_timeout{0};
   bool                      success = false;
+  f1ap_ue_delete_request    del_req;
 };
 
 } // namespace odu

@@ -242,6 +242,8 @@ struct f1ap_ue_context_modification_response {
 struct f1ap_ue_context_release_request {
   ue_index_t   ue_index;
   f1ap_cause_t cause;
+  /// \brief Optional list of CHO candidate cells to cancel. Present when the DU triggers CHO cancellation.
+  std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
 } // namespace ocucp

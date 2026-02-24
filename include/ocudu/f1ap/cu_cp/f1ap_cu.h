@@ -31,6 +31,8 @@ struct f1ap_ue_context_release_command {
   f1ap_cause_t            cause;
   byte_buffer             rrc_release_pdu;
   std::optional<srb_id_t> srb_id;
+  /// CHO candidate cells to cancel. When non-empty, the DU shall cancel ongoing CHO preparation for the listed cells.
+  std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
 /// Handle F1AP UE context management procedures as defined in TS 38.473 section 8.3.

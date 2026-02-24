@@ -440,6 +440,15 @@ void f1ap_cu_impl::handle_ue_context_release_request(const asn1::f1ap::ue_contex
   req.ue_index = ue_ctxt.ue_ids.ue_index;
   req.cause    = asn1_to_cause(msg->cause);
 
+  if (msg->target_cells_to_cancel_present) {
+    for (const auto& item : msg->target_cells_to_cancel) {
+      auto cgi = cgi_from_asn1(item.target_cell);
+      if (cgi.has_value()) {
+        req.target_cells_to_cancel.push_back(cgi.value());
+      }
+    }
+  }
+
   du_processor_notifier.on_du_initiated_ue_context_release_request(req);
 }
 

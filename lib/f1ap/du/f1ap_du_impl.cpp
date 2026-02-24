@@ -331,6 +331,16 @@ void f1ap_du_impl::handle_ue_context_release_request(const f1ap_ue_context_relea
   rel_req->gnb_du_ue_f1ap_id = gnb_du_ue_f1ap_id_to_uint(ue->context.gnb_du_ue_f1ap_id);
   rel_req->gnb_cu_ue_f1ap_id = gnb_cu_ue_f1ap_id_to_uint(ue->context.gnb_cu_ue_f1ap_id);
 
+  // target cells to cancel (CHO cancellation)
+  if (!request.target_cells_to_cancel.empty()) {
+    rel_req->target_cells_to_cancel_present = true;
+    for (const auto& cell : request.target_cells_to_cancel) {
+      asn1::f1ap::target_cell_list_item_s item;
+      item.target_cell = cgi_to_asn1(cell);
+      rel_req->target_cells_to_cancel.push_back(item);
+    }
+  }
+
   // Set F1AP cause.
   using cause_type = f1ap_ue_context_release_request::cause_type;
   if (request.cause == cause_type::rlf_mac or request.cause == cause_type::rlf_rlc) {

@@ -511,9 +511,10 @@ struct cu_cp_ue_context_release_command {
 };
 
 struct cu_cp_ue_context_release_request {
-  ue_index_t                    ue_index = ue_index_t::invalid;
-  std::vector<pdu_session_id_t> pdu_session_res_list_cxt_rel_req;
-  ngap_cause_t                  cause;
+  ue_index_t                       ue_index = ue_index_t::invalid;
+  std::vector<pdu_session_id_t>    pdu_session_res_list_cxt_rel_req;
+  ngap_cause_t                     cause;
+  std::vector<nr_cell_global_id_t> target_cells_to_cancel;
 };
 
 struct cu_cp_recommended_cell_item {
