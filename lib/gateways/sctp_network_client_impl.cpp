@@ -241,6 +241,46 @@ sctp_network_client_impl::connect(std::unique_ptr<sctp_association_sdu_notifier>
   sctp_assoc_t assoc_id           = 0;
   bool         connection_success = socket.connectx(resolved_addrs, assoc_id);
 
+  // Some setups don't populate assoc_id via sctp_connectx(). Retrieve it from the pending
+  // SCTP_ASSOC_CHANGE/SCTP_COMM_UP notification instead.
+  if (connection_success and assoc_id == 0) {
+    logger.info("{}: sctp_connectx() did not return assoc_id, retrieving from SCTP_COMM_UP notification",
+                node_cfg.if_name);
+
+    struct sctp_sndrcvinfo                            sri       = {};
+    int                                               msg_flags = 0;
+    std::array<uint8_t, network_gateway_sctp_max_len> temp_recv_buffer;
+    sockaddr_storage                                  msg_src_addr;
+    socklen_t                                         msg_src_addrlen = sizeof(msg_src_addr);
+
+    int rx_bytes = ::sctp_recvmsg(socket.fd().value(),
+                                  temp_recv_buffer.data(),
+                                  temp_recv_buffer.size(),
+                                  reinterpret_cast<sockaddr*>(&msg_src_addr),
+                                  &msg_src_addrlen,
+                                  &sri,
+                                  &msg_flags);
+    if (rx_bytes > 0 and (msg_flags & MSG_NOTIFICATION)) {
+      span<const uint8_t> payload(temp_recv_buffer.data(), rx_bytes);
+      if (validate_and_log_sctp_notification(payload)) {
+        const auto* notif = reinterpret_cast<const union sctp_notification*>(payload.data());
+        if (notif->sn_header.sn_type == SCTP_ASSOC_CHANGE) {
+          const struct sctp_assoc_change* n = &notif->sn_assoc_change;
+          if (n->sac_state == SCTP_COMM_UP) {
+            assoc_id = n->sac_assoc_id;
+            logger.info("{}: Retrieved assoc_id={} from SCTP_COMM_UP notification", node_cfg.if_name, assoc_id);
+          }
+        }
+      }
+    } else {
+      logger.info("{}: SCTP data was received instead of SCTP notification", node_cfg.if_name);
+    }
+  } else {
+    logger.info("{}: sctp_connectx() returned assoc_id = {}, no need to retrieve it from SCTP_COMM_UP notification",
+                node_cfg.if_name,
+                assoc_id);
+  }
+
   if (not connection_success or assoc_id == 0) {
     if (not reuse_socket) {
       // Connection failed, make sure the just created socket is deleted.

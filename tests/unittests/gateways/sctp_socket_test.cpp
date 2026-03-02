@@ -53,6 +53,24 @@ protected:
     return addr_storage;
   }
 
+  /// Retrieve assoc_id via SCTP_GET_ASSOC_ID_LIST. Useful when sctp_connectx() doesn't populate it.
+  static sctp_assoc_t get_assoc_id_from_list(int fd)
+  {
+    struct {
+      uint32_t     gaids_number_of_ids;
+      sctp_assoc_t gaids_assoc_id[16];
+    } assoc_ids      = {};
+    socklen_t optlen = sizeof(assoc_ids);
+
+    if (::getsockopt(fd, IPPROTO_SCTP, SCTP_GET_ASSOC_ID_LIST, &assoc_ids, &optlen) < 0) {
+      return 0;
+    }
+    if (assoc_ids.gaids_number_of_ids == 0) {
+      return 0;
+    }
+    return assoc_ids.gaids_assoc_id[0];
+  }
+
   /// Verify bound addresses using sctp_getladdrs.
   static void verify_bound_address_ipv4(int fd, std::optional<uint16_t> expected_port, in_addr_t expected_addr)
   {
@@ -564,6 +582,10 @@ TEST_F(sctp_socket_test, connectx_with_multiple_ipv4_addresses)
 
   sctp_assoc_t assoc_id = 0;
   EXPECT_TRUE(client_sock.connectx(client_addrs, assoc_id));
+  if (assoc_id == 0) {
+    // Some setups don't populate assoc_id via sctp_connectx(). Retrieve it from the socket.
+    assoc_id = get_assoc_id_from_list(client_sock.fd().value());
+  }
   EXPECT_GT(assoc_id, 0);
 
   // Verify server's 2 IPv4 peer addresses are visible to client
@@ -624,6 +646,10 @@ TEST_F(sctp_socket_test, connectx_with_mixed_ipv4_and_ipv6_addresses)
 
   sctp_assoc_t assoc_id = 0;
   EXPECT_TRUE(client_sock.connectx(client_addrs, assoc_id));
+  if (assoc_id == 0) {
+    // Some setups don't populate assoc_id via sctp_connectx(). Retrieve it from the socket.
+    assoc_id = get_assoc_id_from_list(client_sock.fd().value());
+  }
   EXPECT_GT(assoc_id, 0);
 
   // Verify server's 2 peer addresses (1 IPv4 + 1 IPv6) are visible to client
@@ -686,6 +712,10 @@ TEST_F(sctp_socket_test, connectx_with_different_address_counts)
   sctp_assoc_t assoc_id = 0;
   // connectx should succeed even with different address counts
   EXPECT_TRUE(client_sock.connectx(client_addrs, assoc_id));
+  if (assoc_id == 0) {
+    // Some setups don't populate assoc_id via sctp_connectx(). Retrieve it from the socket.
+    assoc_id = get_assoc_id_from_list(client_sock.fd().value());
+  }
   EXPECT_GT(assoc_id, 0);
 
   // Server has 2 IPv4 addresses, verify peer addresses
