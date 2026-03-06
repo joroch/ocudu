@@ -33,6 +33,27 @@ public:
     tx_notifier.connect(std::move(tx_notifier_));
   }
 
+  async_task<void> handle_xnc_association_removal() override
+  {
+    return launch_async([this](coro_context<async_task<void>>& ctx) {
+      CORO_BEGIN(ctx);
+
+      // if (not is_connected()) {
+      //  No need to wait for any event if the N2 TNL association is already down.
+      //  CORO_EARLY_RETURN();
+      //}
+
+      // Stop Tx PDU path.
+      // Note: This should notify the N2 GW that the Rx path should be disconnected as well.
+      tx_notifier.disconnect();
+
+      // Wait for Rx PDU disconnection notification.
+      CORO_AWAIT(rx_path_disconnected);
+
+      CORO_RETURN();
+    });
+  }
+
 private:
   /// \brief Notify about the reception of an initiating message.
   /// \param[in] msg The received initiating message.
@@ -59,6 +80,7 @@ private:
   task_executor&       ctrl_exec;
 
   xnap_tx_pdu_notifier_with_logging tx_notifier;
+  manual_event_flag                 rx_path_disconnected;
 
   /// XN Setup Response/Failure Event Source.
   protocol_transaction_event_source<asn1::xnap::xn_setup_resp_s, asn1::xnap::xn_setup_fail_s> xn_setup_outcome;

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "adapters/xnap_adapters.h"
+#include "ocudu/cu_cp/common_task_scheduler.h"
 #include "ocudu/cu_cp/cu_cp_configuration.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
 #include "ocudu/support/io/transport_layer_address.h"
@@ -19,6 +20,7 @@ struct cu_cp_configuration;
 struct xnap_repository_config {
   const cu_cp_configuration& cu_cp;
   cu_cp_xnap_handler&        cu_cp_notifier;
+  common_task_scheduler&     common_task_sched;
   ocudulog::basic_logger&    logger;
 };
 
@@ -44,6 +46,11 @@ public:
   /// \param[in] peer_addr Address of the XN-C peer to which the XNAP object is connected.
   /// \return The index of the XN-C peer if the XNAP object was found, xnc_peer_index_t::invalid otherwise.
   xnc_peer_index_t find_xnap(const transport_layer_address& peer_addr);
+
+  /// \brief Remove an XNAP object in the repository.
+  /// \param[in] xnc_index Index of the XN-C peer to remove.
+  /// \return A pointer to the interface of the added XNAP object if it was successfully found, a nullptr otherwise.
+  async_task<void> remove_xnap(xnc_peer_index_t xnc_index);
 
   /// \brief Get the all XNAP interfaces.
   std::map<xnc_peer_index_t, xnap_interface*> get_xnaps();

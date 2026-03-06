@@ -32,6 +32,8 @@ public:
   /// \returns true if the procedure completed successfully, false otherwise.
   virtual async_task<bool> handle_xn_setup_request_required() = 0;
 
+  virtual async_task<void> handle_xnc_association_removal() = 0;
+
   /// \brief Provide the SCTP association notifier after the SCTP association establishment.
   /// \param[in] tx_notifier_ The SCTP association notifier.
   virtual void set_tx_association_notifier(std::unique_ptr<xnap_message_notifier> tx_notifier_) = 0;

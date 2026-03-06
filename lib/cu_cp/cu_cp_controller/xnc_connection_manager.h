@@ -7,6 +7,8 @@
 #include "../xnap_repository.h"
 #include "ocudu/cu_cp/common_task_scheduler.h"
 #include "ocudu/cu_cp/cu_cp_xnc_handler.h"
+#include <condition_variable>
+#include <mutex>
 
 namespace ocudu::ocucp {
 
@@ -32,7 +34,7 @@ private:
   class shared_xnc_connection_context;
   class xnc_gw_to_cu_cp_pdu_adapter;
 
-  void connect_to_neighbours();
+  void handle_xnc_gw_connection_closed(xnc_peer_index_t xnc_idx);
 
   xnap_repository&        xnaps;
   task_executor&          cu_cp_exec;
@@ -41,7 +43,10 @@ private:
 
   std::map<xnc_peer_index_t, std::shared_ptr<shared_xnc_connection_context>> xnc_connections;
 
-  std::atomic<bool> stopped{false};
+  std::atomic<bool>       stopped{false};
+  std::mutex              stop_mutex;
+  std::condition_variable stop_cvar;
+  bool                    stop_completed = false;
 };
 
 } // namespace ocudu::ocucp

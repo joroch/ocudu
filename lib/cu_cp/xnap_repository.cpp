@@ -71,6 +71,31 @@ xnc_peer_index_t xnap_repository::find_xnap(const transport_layer_address& peer_
   return it->first;
 }
 
+async_task<void> xnap_repository::remove_xnap(xnc_peer_index_t xnc_index)
+{
+  ocudu_assert(xnc_index != xnc_peer_index_t::invalid, "Invalid xnc_index={}", xnc_index);
+  logger.debug("Removing XN-C {}...", xnc_index);
+
+  return launch_async([this, xnc_index](coro_context<async_task<void>>& ctx) {
+    CORO_BEGIN(ctx);
+
+    // Remove DU
+    if (xnap_db.find(xnc_index) == xnap_db.end()) {
+      logger.warning("Remove XNAP called for inexistent xnc_index={}", xnc_index);
+      return;
+    }
+
+    // Stop XNAP activity.
+    CORO_AWAIT(xnap_db.find(xnc_index)->second.xnap->handle_xnc_association_removal());
+
+    // Remove XNAP.
+    xnap_db.erase(xnc_index);
+    logger.info("Removed XN-C {}", xnc_index);
+
+    CORO_RETURN();
+  });
+}
+
 void xnap_repository::connect_association(xnc_peer_index_t idx, std::unique_ptr<xnap_message_notifier> sender_notifier)
 {
   auto it = xnap_db.find(idx);

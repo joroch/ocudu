@@ -15,7 +15,7 @@ class cu_cp_xnap_repository_test : public cu_cp_test_environment, public ::testi
 public:
   cu_cp_xnap_repository_test() :
     cu_cp_test_environment(cu_cp_test_env_params{}),
-    xnap_db(xnap_repository_config{get_cu_cp_cfg(), cu_cp_xnap_handler, test_logger})
+    xnap_db(xnap_repository_config{get_cu_cp_cfg(), cu_cp_xnap_handler, {}, test_logger}) // TODO wrong task sched.
   {
   }
 
