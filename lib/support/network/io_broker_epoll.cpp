@@ -173,6 +173,10 @@ void io_broker_epoll::thread_loop()
         continue;
       }
 
+      if (it->second.is_executing_recv_callback.load(std::memory_order_acquire)) {
+        fmt::println("got a receive message while still waiting for a callback");
+        continue;
+      }
       it->second.is_executing_recv_callback.store(true, std::memory_order_release);
       if (not it->second.executor->defer([this,
                                           fd,
