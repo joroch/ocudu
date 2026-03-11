@@ -266,7 +266,8 @@ void xnc_connection_manager::handle_xnc_cu_cp_initialization_failure(transport_l
       logger.warning("Rejecting new CU-CP connection. Cause: Failed to create a new XNAP for peer address {}", addr);
       return;
     }
-    // xnap_interface* xnap = xnaps.get_xnaps()[xnc_index];
+    xnap_interface* xnap = xnaps.get_xnaps()[xnc_index];
+    xnap->set_initial_association_failure();
   })) {
     logger.debug("Failed to dispatch CU-CP connection failure task. Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
