@@ -23,7 +23,7 @@ public:
   virtual std::unique_ptr<sctp_association_sdu_notifier>
   create(std::unique_ptr<sctp_association_sdu_notifier> sctp_send_notifier, sctp_association_info assoc_info) = 0;
 
-  virtual void handle_sctp_association_creation_failure() {}
+  virtual void handle_sctp_association_creation_failure(transport_layer_address addr) {}
 };
 
 /// SCTP network server interface, which will handle requests to start new SCTP associations.

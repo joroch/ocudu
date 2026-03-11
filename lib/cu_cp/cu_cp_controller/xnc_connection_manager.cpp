@@ -249,7 +249,7 @@ void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xn
   }));
 }
 
-void xnc_connection_manager::handle_xnc_cu_cp_initialization_failure()
+void xnc_connection_manager::handle_xnc_cu_cp_initialization_failure(transport_layer_address addr)
 {
   fmt::println("wazza!");
   // Note: This function may be called from a different execution context than the CU-CP.
@@ -258,14 +258,15 @@ void xnc_connection_manager::handle_xnc_cu_cp_initialization_failure()
     // CU-CP is in the process of being stopped.
     return;
   }
-  while (not cu_cp_exec.execute([]() mutable {
+
+  while (not cu_cp_exec.execute([this, addr]() mutable {
     // Find XNAP based on address of peer.
-    // xnc_peer_index_t xnc_index = xnaps.find_xnap(addr);
-    // if (xnc_index == xnc_peer_index_t::invalid) {
-    //  logger.warning("Rejecting new CU-CP connection. Cause: Failed to create a new XNAP for peer address {}",
-    //                 addr);
-    //  return;
-    //}
+    xnc_peer_index_t xnc_index = xnaps.find_xnap(addr);
+    if (xnc_index == xnc_peer_index_t::invalid) {
+      logger.warning("Rejecting new CU-CP connection. Cause: Failed to create a new XNAP for peer address {}", addr);
+      return;
+    }
+    // xnap_interface* xnap = xnaps.get_xnaps()[xnc_index];
   })) {
     logger.debug("Failed to dispatch CU-CP connection failure task. Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

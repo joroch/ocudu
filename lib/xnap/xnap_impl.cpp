@@ -38,6 +38,7 @@ xnap_impl::xnap_impl(xnc_peer_index_t                       xnc_index_,
   timers(timers_),
   ctrl_exec(ctrl_exec_),
   tx_notifier(std::move(init_tx_notifier_)),
+  sctp_init_outcome(timer_factory{timers, ctrl_exec}),
   xn_setup_outcome(timer_factory{timers, ctrl_exec})
 {
 }
@@ -128,7 +129,7 @@ void xnap_impl::handle_unsuccessful_outcome(const unsuccessful_outcome_s& outcom
 async_task<bool> xnap_impl::handle_xn_setup_request_required()
 {
   return launch_async<xn_setup_procedure>(
-      xnap_cfg, peer_ctxt, tx_notifier, xn_setup_outcome, timer_factory{timers, ctrl_exec}, logger);
+      xnap_cfg, peer_ctxt, tx_notifier, sctp_init_outcome, xn_setup_outcome, timer_factory{timers, ctrl_exec}, logger);
 }
 
 void xnap_impl::handle_xn_setup_request(const xn_setup_request_s& request)

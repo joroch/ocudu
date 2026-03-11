@@ -193,10 +193,10 @@ public:
     return std::make_unique<gw_to_xnc_pdu_notifier>(std::move(xnc_receiver), params.pcap, logger);
   }
 
-  void handle_sctp_association_creation_failure() override
+  void handle_sctp_association_creation_failure(transport_layer_address addr) override
   {
     fmt::println("reached gateway factory!");
-    xnc_handler->handle_xnc_cu_cp_initialization_failure();
+    xnc_handler->handle_xnc_cu_cp_initialization_failure(addr);
   }
 
 private:

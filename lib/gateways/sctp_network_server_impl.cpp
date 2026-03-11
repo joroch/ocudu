@@ -325,12 +325,13 @@ void sctp_network_server_impl::handle_cannot_start_association(int             a
   if (logger.info.enabled()) {
     std::string addr;
     if (sockaddr_to_ip_str(&src_addr, addr, logger)) {
-      logger.info("{} assoc={}: SCTP association could not start (src_addr={})", node_cfg.if_name, assoc_id, addr);
+      logger.info("{} assoc={}: SCTP association could not start (peer_addr={})", node_cfg.if_name, assoc_id, addr);
     } else {
       logger.info("{} assoc={}: SCTP association could not start", node_cfg.if_name, assoc_id);
     }
   }
-  assoc_factory.handle_sctp_association_creation_failure();
+  transport_layer_address taddr = transport_layer_address::create_from_sockaddr(src_addr, src_addr_len);
+  assoc_factory.handle_sctp_association_creation_failure(taddr);
 }
 
 void sctp_network_server_impl::handle_association_shutdown(int assoc_id, const char* cause)

@@ -29,7 +29,7 @@ public:
   handle_new_xnc_cu_cp_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier,
                                   const sctp_association_info&           assoc_info) = 0;
 
-  virtual void handle_xnc_cu_cp_initialization_failure() = 0;
+  virtual void handle_xnc_cu_cp_initialization_failure(transport_layer_address addr) = 0;
 };
 
 } // namespace ocudu::ocucp
