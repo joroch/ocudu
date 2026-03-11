@@ -70,6 +70,7 @@ private:
                            const struct sctp_sndrcvinfo& sri,
                            const sockaddr&               src_addr,
                            socklen_t                     src_addr_len);
+  void handle_cannot_start_association(int assoc_id, const sockaddr& src_addr, socklen_t src_addr_len);
   void handle_association_shutdown(int assoc_id, const char* cause);
   void handle_sctp_shutdown_comp(int assoc_id);
 

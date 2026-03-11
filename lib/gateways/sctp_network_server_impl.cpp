@@ -234,6 +234,7 @@ bool sctp_network_server_impl::init_association_with_msg(transport_layer_address
     logger.error(": Closing SCTP association. Cause: could not initialize association. errno={}", ::strerror(errno));
     return false;
   }
+  fmt::println("bytes_sent={}", bytes_sent);
   return true;
 }
 
@@ -315,6 +316,19 @@ void sctp_network_server_impl::handle_sctp_comm_up(const struct sctp_assoc_chang
   }
 
   logger.info("{} assoc={}: New client SCTP association (client_addr={})", node_cfg.if_name, assoc_id, assoc_ctxt.addr);
+}
+
+void sctp_network_server_impl::handle_cannot_start_association(int             assoc_id,
+                                                               const sockaddr& src_addr,
+                                                               socklen_t       src_addr_len)
+{
+  auto assoc_it = associations.find(assoc_id);
+  if (assoc_it == associations.end()) {
+    logger.error("{} assoc={}: Failed to shutdown SCTP association. Cause: SCTP association Id not found",
+                 node_cfg.if_name,
+                 assoc_id);
+    return;
+  }
 }
 
 void sctp_network_server_impl::handle_association_shutdown(int assoc_id, const char* cause)
