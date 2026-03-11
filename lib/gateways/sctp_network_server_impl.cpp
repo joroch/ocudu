@@ -261,7 +261,7 @@ void sctp_network_server_impl::handle_notification(span<const uint8_t>          
           handle_association_shutdown(n->sac_assoc_id, "Communication was lost");
           break;
         case SCTP_CANT_STR_ASSOC:
-          handle_association_shutdown(n->sac_assoc_id, "Can't state association");
+          handle_cannot_start_association(n->sac_assoc_id, src_addr, src_addr_len);
           break;
         case SCTP_SHUTDOWN_COMP:
           handle_sctp_shutdown_comp(n->sac_assoc_id);
@@ -322,13 +322,15 @@ void sctp_network_server_impl::handle_cannot_start_association(int             a
                                                                const sockaddr& src_addr,
                                                                socklen_t       src_addr_len)
 {
-  auto assoc_it = associations.find(assoc_id);
-  if (assoc_it == associations.end()) {
-    logger.error("{} assoc={}: Failed to shutdown SCTP association. Cause: SCTP association Id not found",
-                 node_cfg.if_name,
-                 assoc_id);
-    return;
+  if (logger.info.enabled()) {
+    std::string addr;
+    if (sockaddr_to_ip_str(&src_addr, addr, logger)) {
+      logger.info("{} assoc={}: SCTP association could not start (src_addr={})", node_cfg.if_name, assoc_id, addr);
+    } else {
+      logger.info("{} assoc={}: SCTP association could not start", node_cfg.if_name, assoc_id);
+    }
   }
+  assoc_factory.handle_sctp_association_creation_failure();
 }
 
 void sctp_network_server_impl::handle_association_shutdown(int assoc_id, const char* cause)

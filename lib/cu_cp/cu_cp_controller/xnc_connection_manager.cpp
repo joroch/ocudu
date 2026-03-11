@@ -101,10 +101,12 @@ private:
   std::shared_ptr<shared_xnc_connection_context> ctxt;
 };
 
-xnc_connection_manager::xnc_connection_manager(xnap_repository&       xnaps_,
-                                               task_executor&         cu_cp_exec_,
-                                               common_task_scheduler& common_task_sched_) :
+xnc_connection_manager::xnc_connection_manager(xnap_repository&        xnaps_,
+                                               xnc_connection_gateway* xnc_gw_,
+                                               task_executor&          cu_cp_exec_,
+                                               common_task_scheduler&  common_task_sched_) :
   xnaps(xnaps_),
+  xnc_gw(xnc_gw_),
   cu_cp_exec(cu_cp_exec_),
   common_task_sched(common_task_sched_),
   logger(ocudulog::fetch_basic_logger("CU-CP"))
@@ -245,4 +247,27 @@ void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xn
 
     CORO_RETURN();
   }));
+}
+
+void xnc_connection_manager::handle_xnc_cu_cp_initialization_failure()
+{
+  fmt::println("wazza!");
+  // Note: This function may be called from a different execution context than the CU-CP.
+
+  if (stopped.load(std::memory_order_acquire)) {
+    // CU-CP is in the process of being stopped.
+    return;
+  }
+  while (not cu_cp_exec.execute([]() mutable {
+    // Find XNAP based on address of peer.
+    // xnc_peer_index_t xnc_index = xnaps.find_xnap(addr);
+    // if (xnc_index == xnc_peer_index_t::invalid) {
+    //  logger.warning("Rejecting new CU-CP connection. Cause: Failed to create a new XNAP for peer address {}",
+    //                 addr);
+    //  return;
+    //}
+  })) {
+    logger.debug("Failed to dispatch CU-CP connection failure task. Retrying...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
 }

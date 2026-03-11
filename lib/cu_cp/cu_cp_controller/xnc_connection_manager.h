@@ -18,15 +18,17 @@ struct cu_cp_configuration;
 class xnc_connection_manager : public cu_cp_xnc_handler
 {
 public:
-  xnc_connection_manager(xnap_repository&       xnaps_,
-                         task_executor&         cu_cp_exec_,
-                         common_task_scheduler& common_task_sched_);
+  xnc_connection_manager(xnap_repository&        xnaps_,
+                         xnc_connection_gateway* xnc_gw_,
+                         task_executor&          cu_cp_exec_,
+                         common_task_scheduler&  common_task_sched_);
 
   void start();
 
   std::unique_ptr<xnap_message_notifier>
-  handle_new_xnc_cu_cp_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier,
-                                  const sctp_association_info&           assoc_info) override;
+       handle_new_xnc_cu_cp_connection(std::unique_ptr<xnap_message_notifier> xnap_tx_pdu_notifier,
+                                       const sctp_association_info&           assoc_info) override;
+  void handle_xnc_cu_cp_initialization_failure() override;
 
   void handle_xnc_gw_connection_closed(xnc_peer_index_t xnc_idx);
 
@@ -35,10 +37,12 @@ public:
 private:
   class shared_xnc_connection_context;
   class xnc_gw_to_cu_cp_pdu_adapter;
+  class xnc_gw_to_cu_cp_init_failure_adapter;
 
   void connect_to_neighbours();
 
   xnap_repository&        xnaps;
+  xnc_connection_gateway* xnc_gw;
   task_executor&          cu_cp_exec;
   common_task_scheduler&  common_task_sched;
   ocudulog::basic_logger& logger;

@@ -193,6 +193,12 @@ public:
     return std::make_unique<gw_to_xnc_pdu_notifier>(std::move(xnc_receiver), params.pcap, logger);
   }
 
+  void handle_sctp_association_creation_failure() override
+  {
+    fmt::println("reached gateway factory!");
+    xnc_handler->handle_xnc_cu_cp_initialization_failure();
+  }
+
 private:
   const xnc_sctp_gateway_config params;
   ocudulog::basic_logger&       logger      = ocudulog::fetch_basic_logger("CU-CP-XN");
