@@ -45,44 +45,49 @@ void xn_setup_procedure::operator()(coro_context<async_task<bool>>& ctx)
   // Prepare XN Setup message.
   xn_setup_req = generate_asn1_xn_setup_request(xnap_cfg);
 
-  while (true) {
-    // Subscribe to respective publisher for SCTP  message.
-    sctp_init_transaction_sink.subscribe_to(sctp_init_outcome, sctp_init_timeout);
+  // Subscribe to respective publisher for SCTP  message.
+  sctp_init_transaction_sink.subscribe_to(sctp_init_outcome, sctp_init_timeout);
+
+  // Forward message to XN-C.
+  if (!tx_notifier.on_xn_setup_request(xn_setup_req)) {
+    logger.warning("Cannot send XNSetupRequest");
+    CORO_EARLY_RETURN(false);
+  }
+
+  // Await SCTP association inicialization.
+  CORO_AWAIT(sctp_init_transaction_sink);
+
+  if (!sctp_init_transaction_sink.successful()) {
+    logger.warning("\"{}\" failed. No successful outcome received", name());
+    CORO_EARLY_RETURN(false);
+  }
+  if (!sctp_init_transaction_sink.response()) {
+    logger.warning("\"{}\" failed. SCTP initializtaion failed", name());
+    CORO_EARLY_RETURN(false);
+  }
+
+  // Subscribe to respective publisher to receive XN SETUP RESPONSE/FAILURE message.
+  xn_setup_transaction_sink.subscribe_to(xn_setup_outcome, xn_setup_response_timeout);
+
+  // Await XN Setup response.
+  CORO_AWAIT(xn_setup_transaction_sink);
+
+  while (retry_required()) {
+    // Await timer.
+    logger.debug("Reinitiating XN setup in {}s. Received XNSetupFailure with Time to Wait IE", time_to_wait.count());
+    CORO_AWAIT(
+        async_wait_for(xn_setup_wait_timer, std::chrono::duration_cast<std::chrono::milliseconds>(time_to_wait)));
 
     // Forward message to XN-C.
     if (!tx_notifier.on_xn_setup_request(xn_setup_req)) {
       logger.warning("Cannot send XNSetupRequest");
       CORO_EARLY_RETURN(false);
     }
-
-    // Await SCTP association inicialization.
-    CORO_AWAIT(sctp_init_transaction_sink);
-
-    if (!sctp_init_transaction_sink.successful()) {
-      logger.warning("\"{}\" failed. No successful outcome received", name());
-      CORO_EARLY_RETURN(false);
-    }
-    if (!sctp_init_transaction_sink.response()) {
-      logger.warning("\"{}\" failed. SCTP initializtaion failed", name());
-      CORO_EARLY_RETURN(false);
-    }
-
     // Subscribe to respective publisher to receive XN SETUP RESPONSE/FAILURE message.
     xn_setup_transaction_sink.subscribe_to(xn_setup_outcome, xn_setup_response_timeout);
 
     // Await XN Setup response.
     CORO_AWAIT(xn_setup_transaction_sink);
-
-    if (not retry_required()) {
-      // No more attempts. Exit loop.
-      break;
-    }
-
-    // Await timer.
-    logger.debug("Reinitiating XN setup in {}s. Cause: Received XNSetupFailure with Time to Wait IE",
-                 time_to_wait.count());
-    CORO_AWAIT(
-        async_wait_for(xn_setup_wait_timer, std::chrono::duration_cast<std::chrono::milliseconds>(time_to_wait)));
   }
 
   if (!xn_setup_transaction_sink.successful()) {
