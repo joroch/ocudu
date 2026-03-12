@@ -207,7 +207,7 @@ public:
 
 struct fuzz_state {
   /// Background thread that runs CU-CP tasks (matches production/unit-test setup).
-  task_worker                    worker{"ngap_fuzz_worker", 1024};
+  task_worker                    worker{"ngap_fuzz_workr", 1024};
   std::unique_ptr<task_executor> exec{std::make_unique<task_worker_executor>(worker)};
 
   timer_manager     timers{64};
@@ -296,7 +296,7 @@ extern "C" int LLVMFuzzerInitialize(int* /*argc*/, char*** /*argv*/)
 {
   for (const char* name :
        {"NGAP", "CU-CP", "RRC", "PDCP", "SEC", "F1AP", "E1AP", "NRPPA", "XNAP", "ALL"}) {
-    ocudulog::fetch_basic_logger(name).set_level(ocudulog::basic_levels::none);
+    ocudulog::fetch_basic_logger(name).set_level(ocudulog::basic_levels::debug);
   }
   // NOTE: do NOT call ensure_state() here.  The state (and its task_worker
   // thread) must be created after AFL++ forks so each child has its own thread.
