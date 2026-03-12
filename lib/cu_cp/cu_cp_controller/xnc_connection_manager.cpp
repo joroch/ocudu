@@ -251,7 +251,6 @@ void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xn
 
 void xnc_connection_manager::handle_xnc_cu_cp_initialization_failure(transport_layer_address addr)
 {
-  fmt::println("wazza!");
   // Note: This function may be called from a different execution context than the CU-CP.
 
   if (stopped.load(std::memory_order_acquire)) {

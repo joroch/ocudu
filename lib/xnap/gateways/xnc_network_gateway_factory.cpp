@@ -195,7 +195,6 @@ public:
 
   void handle_sctp_association_creation_failure(transport_layer_address addr) override
   {
-    fmt::println("reached gateway factory!");
     xnc_handler->handle_xnc_cu_cp_initialization_failure(addr);
   }
 

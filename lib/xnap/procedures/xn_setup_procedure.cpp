@@ -128,7 +128,6 @@ bool xn_setup_procedure::retry_required()
   if (!xn_setup_transaction_sink.failed()) {
     // No response received.
     logger.warning("\"{}\" failed. No response received", name());
-    fmt::print("\"{}\" failed. No response received\n", name());
     return false;
   }
 
@@ -138,7 +137,6 @@ bool xn_setup_procedure::retry_required()
     // XN-C peer didn't command a waiting time.
     logger.warning("\"{}\": Stopping procedure. Cause: XN-C peer did not set any retry waiting time", name());
     logger.warning("\"{}\" failed. XN-C peer Cause: \"{}\"", name(), asn1_utils::get_cause_str(xn_fail->cause));
-    fmt::print("\"{}\" failed. XN-C peer Cause: \"{}\"\n", name(), asn1_utils::get_cause_str(xn_fail->cause));
     return false;
   }
 

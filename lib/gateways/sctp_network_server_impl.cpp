@@ -234,7 +234,6 @@ bool sctp_network_server_impl::init_association_with_msg(transport_layer_address
     logger.error(": Closing SCTP association. Cause: could not initialize association. errno={}", ::strerror(errno));
     return false;
   }
-  fmt::println("bytes_sent={}", bytes_sent);
   return true;
 }
 
