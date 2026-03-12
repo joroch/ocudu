@@ -57,6 +57,7 @@ public:
     association_senders.push_back(std::move(send_notifier));
     return std::make_unique<dummy_sctp_recv_notifier>(*this, association_senders.back().get());
   }
+  void handle_sctp_association_creation_failure(transport_layer_address addr) override {}
 
   unsigned association_count() const { return association_senders.size(); }
 };

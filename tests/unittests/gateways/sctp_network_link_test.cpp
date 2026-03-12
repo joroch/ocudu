@@ -106,6 +106,8 @@ protected:
       return receiver;
     }
 
+    void handle_sctp_association_creation_failure(transport_layer_address addr) override {}
+
   private:
     base_sctp_network_link_test& parent;
     unsigned                     next_server_assoc_key = 0;
