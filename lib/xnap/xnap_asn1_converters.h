@@ -418,14 +418,27 @@ inline void asn1_to_security_indication(security_indication_t& security_ind, con
 }
 
 /// \brief Converts type \c up_transport_layer_info to an ASN.1 type.
-/// \param asn1_up_tp_layer_info ASN.1 object where the result of the conversion is stored.
-/// \param up_tp_layer_info UP Transport Layer Info object.
+/// \param[out] asn1_up_tp_layer_info ASN.1 object where the result of the conversion is stored.
+/// \param[in] up_tp_layer_info UP Transport Layer Info object.
 inline void up_transport_layer_info_to_asn1(asn1::xnap::up_transport_layer_info_c& asn1_up_tp_layer_info,
                                             const up_transport_layer_info&         up_tp_layer_info)
 {
   asn1_up_tp_layer_info.set_gtp_tunnel();
   asn1_up_tp_layer_info.gtp_tunnel().gtp_teid.from_number(up_tp_layer_info.gtp_teid.value());
   asn1_up_tp_layer_info.gtp_tunnel().tnl_address.from_string(up_tp_layer_info.tp_address.to_bitstring());
+}
+
+/// \brief Converts type \c up_transport_layer_info to an ASN.1 type.
+/// \param[in] asn1_up_tp_layer_info ASN.1 object where the result of the conversion is stored.
+/// \returns the converted UP Transport Layer Info object.
+inline up_transport_layer_info
+asn1_to_up_transport_layer_info(const asn1::xnap::up_transport_layer_info_c& asn1_up_tp_layer_info)
+{
+  up_transport_layer_info up_tp_layer_info;
+  up_tp_layer_info.tp_address =
+      transport_layer_address::create_from_bitstring(asn1_up_tp_layer_info.gtp_tunnel().tnl_address.to_string());
+  up_tp_layer_info.gtp_teid = gtpu_teid_t(asn1_up_tp_layer_info.gtp_tunnel().gtp_teid.to_number());
+  return up_tp_layer_info;
 }
 
 /// \brief Convert common type PDU session resource admitted item to ASN.1.
@@ -439,12 +452,6 @@ inline bool pdu_session_res_admitted_item_to_asn1(asn1::xnap::pdu_session_res_ad
   asn1_admitted_item.pdu_session_id = pdu_session_id_to_uint(admitted_item.pdu_session_id);
 
   // Fill PDU session res admitted info.
-  // > Fill DL NGU UP TNL info unchanged.
-  if (admitted_item.dl_ngu_tnl_info_unchanged) {
-    asn1_admitted_item.pdu_session_res_admitted_info.dl_ng_u_tnl_info_unchanged_present = true;
-    asn1_admitted_item.pdu_session_res_admitted_info.dl_ng_u_tnl_info_unchanged =
-        asn1::xnap::pdu_session_res_admitted_info_s::dl_ng_u_tnl_info_unchanged_opts::options::true_value;
-  }
   // > Fill QoS flows admitted list.
   for (const auto& qos_flow_item : admitted_item.qos_flows_setup_list) {
     asn1::xnap::qos_flows_admitted_item_s asn1_qos_flow_admitted_item;

@@ -7,6 +7,7 @@
 #include "../cell_meas_manager/cell_meas_manager_impl.h"
 #include "../ngap_repository.h"
 #include "../ue_manager/ue_manager_impl.h"
+#include "../xnap_repository.h"
 #include "metrics/mobility_manager_metrics_aggregator.h"
 #include "ocudu/cu_cp/cu_cp_command_handler.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
@@ -49,6 +50,7 @@ public:
                    mobility_manager_cu_cp_notifier& cu_cp_notifier_,
                    ngap_repository&                 ngap_db_,
                    du_processor_repository&         du_db_,
+                   xnap_repository&                 xnap_db_,
                    ue_manager&                      ue_mng_,
                    cell_meas_manager&               cell_meas_mng_);
 
@@ -81,6 +83,13 @@ private:
                                 pci_t      neighbor_pci,
                                 du_index_t source_du_index,
                                 du_index_t target_du_index);
+  static void
+       handle_ngap_handover(ngap_interface& ngap, cu_cp_ue& ue, gnb_id_t target_gnb_id, nr_cell_identity target_nci);
+  void handle_xnap_handover(ngap_interface&  ngap,
+                            xnap_interface&  xnap,
+                            cu_cp_ue&        ue,
+                            plmn_identity    plmn,
+                            nr_cell_identity target_nci);
 
   void handle_conditional_handover(pci_t                                                source_pci,
                                    rnti_t                                               rnti,
@@ -92,6 +101,7 @@ private:
   mobility_manager_cu_cp_notifier& cu_cp_notifier;
   ngap_repository&                 ngap_db;
   du_processor_repository&         du_db;
+  xnap_repository&                 xnap_db;
   ue_manager&                      ue_mng;
   cell_meas_manager&               cell_meas_mng;
 
