@@ -98,6 +98,18 @@ void xnap_repository::connect_association(xnc_peer_index_t idx, std::unique_ptr<
   ctx.xnap->set_tx_association_notifier(std::move(sender_notifier));
 }
 
+void xnap_repository::disconnect_xnap(xnc_peer_index_t idx)
+{
+  auto it = xnap_db.find(idx);
+  if (it == xnap_db.end()) {
+    logger.warning("Disconnect XNAP called for inexistent xnc_peer_index={}", idx);
+    return;
+  }
+
+  it->second.xnap->disconnect();
+  logger.info("Disconnected XNAP {}", idx);
+}
+
 async_task<void> xnap_repository::remove_xnap(xnc_peer_index_t idx)
 {
   ocudu_assert(idx != xnc_peer_index_t::invalid, "Invalid xnc_peer_index={}", idx);

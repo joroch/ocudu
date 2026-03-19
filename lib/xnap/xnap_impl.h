@@ -29,6 +29,7 @@ public:
   void handle_message(const xnap_message& msg) override;
 
   async_task<void> stop() override;
+  void             disconnect() override;
 
   // XNAP ue context removal handler functions.
   void remove_ue_context(ue_index_t ue_index) override;

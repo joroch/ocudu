@@ -48,6 +48,13 @@ async_task<void> xnap_impl::stop()
   return launch_no_op_task();
 }
 
+void xnap_impl::disconnect()
+{
+  xn_setup_outcome.stop();
+  peer_ctxt.reset();
+  tx_notifier.disconnect();
+}
+
 void xnap_impl::handle_message(const xnap_message& msg)
 {
   // Run XNAP protocols in Control executor.

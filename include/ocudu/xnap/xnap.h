@@ -74,8 +74,14 @@ public:
 class xnap_controller
 {
 public:
-  virtual ~xnap_controller()      = default;
+  virtual ~xnap_controller() = default;
+
   virtual async_task<void> stop() = 0;
+
+  /// \brief Reset the Xn layer state after a disconnection.
+  /// Cancels pending procedures, clears peer context and disconnects the TX notifier.
+  /// The XNAP object remains alive and can be reconnected.
+  virtual void disconnect() = 0;
 };
 
 /// XNAP notifier to the CU-CP.

@@ -226,26 +226,20 @@ xnc_connection_manager::handle_new_xnc_cu_cp_connection(std::unique_ptr<xnap_mes
 void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xnc_idx)
 {
   // Note: Called from within CU-CP execution context.
-  common_task_sched.schedule_async_task(launch_async([this, xnc_idx](coro_context<async_task<void>>& ctx) {
-    CORO_BEGIN(ctx);
-    if (xnaps.find_xnap(xnc_idx) == nullptr) {
-      // XN-C was already removed.
-      CORO_EARLY_RETURN();
-    }
+  if (xnaps.find_xnap(xnc_idx) == nullptr) {
+    return;
+  }
 
-    // Await for clean removal of the DU from the DU repository.
-    CORO_AWAIT(xnaps.remove_xnap(xnc_idx));
+  // Reset the Xn layer state but keep the XNAP object alive for reconnection.
+  xnaps.disconnect_xnap(xnc_idx);
 
-    // Mark the connection as closed.
-    xnc_connections.erase(xnc_idx);
+  // Mark the SCTP association as closed.
+  xnc_connections.erase(xnc_idx);
 
-    // Flag that all DUs got removed.
-    if (stopped and xnc_connections.empty()) {
-      std::unique_lock<std::mutex> lock(stop_mutex);
-      stop_completed = true;
-      stop_cvar.notify_one();
-    }
-
-    CORO_RETURN();
-  }));
+  // Flag that all peers got disconnected (only during shutdown).
+  if (stopped and xnc_connections.empty()) {
+    std::unique_lock<std::mutex> lock(stop_mutex);
+    stop_completed = true;
+    stop_cvar.notify_one();
+  }
 }

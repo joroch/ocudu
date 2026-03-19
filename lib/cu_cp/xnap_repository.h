@@ -63,6 +63,10 @@ public:
 
   void connect_association(xnc_peer_index_t idx, std::unique_ptr<xnap_message_notifier> sender_notifier);
 
+  /// \brief Disconnect the Xn layer for a peer without removing it from the repository.
+  /// The XNAP object remains alive and can be reconnected.
+  void disconnect_xnap(xnc_peer_index_t idx);
+
   async_task<void> remove_xnap(xnc_peer_index_t idx);
 
 private:
