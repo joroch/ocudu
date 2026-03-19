@@ -101,10 +101,12 @@ private:
   std::shared_ptr<shared_xnc_connection_context> ctxt;
 };
 
-xnc_connection_manager::xnc_connection_manager(xnap_repository&       xnaps_,
-                                               task_executor&         cu_cp_exec_,
-                                               common_task_scheduler& common_task_sched_) :
+xnc_connection_manager::xnc_connection_manager(xnap_repository&        xnaps_,
+                                               xnc_connection_gateway& xnc_gw_,
+                                               task_executor&          cu_cp_exec_,
+                                               common_task_scheduler&  common_task_sched_) :
   xnaps(xnaps_),
+  xnc_gw(xnc_gw_),
   cu_cp_exec(cu_cp_exec_),
   common_task_sched(common_task_sched_),
   logger(ocudulog::fetch_basic_logger("CU-CP"))
@@ -113,28 +115,29 @@ xnc_connection_manager::xnc_connection_manager(xnap_repository&       xnaps_,
 
 void xnc_connection_manager::start()
 {
-  // Schedules setup routine to be executed in sequence with other CU-CP procedures.
-  common_task_sched.schedule_async_task(
-      launch_async([xn_it     = std::map<xnc_peer_index_t, xnap_interface*>::iterator{},
-                    xnaps_map = xnaps.get_xnaps()](coro_context<async_task<void>>& ctx) mutable {
-        CORO_BEGIN(ctx);
+  auto xnaps_map = xnaps.get_xnaps();
+  for (auto& xnap : xnaps_map) {
+    std::optional<transport_layer_address> peer_addr = xnaps.get_peer_addr(xnap.first);
+    if (!peer_addr.has_value()) {
+      logger.warning("No peer address for XN-C peer {}", xnap.first);
+      continue;
+    }
 
-        // TODO try to connect to all neighbours.
-        for (xn_it = xnaps_map.begin(); xn_it != xnaps_map.end(); ++xn_it) {
-          CORO_AWAIT(xn_it->second->handle_xn_setup_request_required());
-          // TODO: Handle setup failure
-        }
+    common_task_sched.schedule_async_task(
+        launch_async([this, xnap_if = xnap.second, peer_addr = peer_addr.value(), connect_result = false](
+                         coro_context<async_task<void>>& ctx) mutable {
+          CORO_BEGIN(ctx);
+          // Establish the SCTP association first.
+          CORO_AWAIT_VALUE(connect_result, xnc_gw.connect_to_peer(peer_addr));
+          if (!connect_result) {
+            logger.warning("Failed to connect to XN-C peer at {}", peer_addr);
+            CORO_EARLY_RETURN();
+          }
+          // Trigger XN Setup on the established association.
+          CORO_AWAIT(xnap_if->handle_xn_setup_request_required());
 
-        CORO_RETURN();
-      }));
-}
-
-void xnc_connection_manager::connect_to_neighbours()
-{
-  std::map<xnc_peer_index_t, xnap_interface*> xn = xnaps.get_xnaps();
-  for (const std::pair<const xnc_peer_index_t, xnap_interface*>& xnap_it : xn) {
-    xnap_it.second->handle_xn_setup_request_required();
-    // TODO: Handle setup failure
+          CORO_RETURN();
+        }));
   }
 }
 
@@ -223,26 +226,20 @@ xnc_connection_manager::handle_new_xnc_cu_cp_connection(std::unique_ptr<xnap_mes
 void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xnc_idx)
 {
   // Note: Called from within CU-CP execution context.
-  common_task_sched.schedule_async_task(launch_async([this, xnc_idx](coro_context<async_task<void>>& ctx) {
-    CORO_BEGIN(ctx);
-    if (xnaps.find_xnap(xnc_idx) == nullptr) {
-      // XN-C was already removed.
-      CORO_EARLY_RETURN();
-    }
+  if (xnaps.find_xnap(xnc_idx) == nullptr) {
+    return;
+  }
 
-    // Await for clean removal of the DU from the DU repository.
-    CORO_AWAIT(xnaps.remove_xnap(xnc_idx));
+  // Reset the Xn layer state but keep the XNAP object alive for reconnection.
+  xnaps.disconnect_xnap(xnc_idx);
 
-    // Mark the connection as closed.
-    xnc_connections.erase(xnc_idx);
+  // Mark the SCTP association as closed.
+  xnc_connections.erase(xnc_idx);
 
-    // Flag that all DUs got removed.
-    if (stopped and xnc_connections.empty()) {
-      std::unique_lock<std::mutex> lock(stop_mutex);
-      stop_completed = true;
-      stop_cvar.notify_one();
-    }
-
-    CORO_RETURN();
-  }));
+  // Flag that all peers got disconnected (only during shutdown).
+  if (stopped and xnc_connections.empty()) {
+    std::unique_lock<std::mutex> lock(stop_mutex);
+    stop_completed = true;
+    stop_cvar.notify_one();
+  }
 }

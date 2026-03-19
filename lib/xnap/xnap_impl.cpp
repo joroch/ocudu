@@ -25,12 +25,11 @@ using namespace ocudu;
 using namespace asn1::xnap;
 using namespace ocucp;
 
-xnap_impl::xnap_impl(xnc_peer_index_t                       xnc_index_,
-                     const xnap_configuration&              xnap_cfg_,
-                     xnap_cu_cp_notifier&                   cu_cp_notifier_,
-                     std::unique_ptr<xnap_message_notifier> init_tx_notifier_,
-                     timer_manager&                         timers_,
-                     task_executor&                         ctrl_exec_) :
+xnap_impl::xnap_impl(xnc_peer_index_t          xnc_index_,
+                     const xnap_configuration& xnap_cfg_,
+                     xnap_cu_cp_notifier&      cu_cp_notifier_,
+                     timer_manager&            timers_,
+                     task_executor&            ctrl_exec_) :
   logger(ocudulog::fetch_basic_logger("XNAP")),
   ue_ctxt_list(timers_, ctrl_exec_, logger),
   xnc_index(xnc_index_),
@@ -38,7 +37,6 @@ xnap_impl::xnap_impl(xnc_peer_index_t                       xnc_index_,
   cu_cp_notifier(cu_cp_notifier_),
   timers(timers_),
   ctrl_exec(ctrl_exec_),
-  tx_notifier(std::move(init_tx_notifier_)),
   xn_setup_outcome(timer_factory{timers, ctrl_exec})
 {
 }
@@ -48,6 +46,13 @@ async_task<void> xnap_impl::stop()
   // Stop XN setup procedure if in progress.
   xn_setup_outcome.stop();
   return launch_no_op_task();
+}
+
+void xnap_impl::disconnect()
+{
+  xn_setup_outcome.stop();
+  peer_ctxt.reset();
+  tx_notifier.disconnect();
 }
 
 void xnap_impl::handle_message(const xnap_message& msg)

@@ -50,6 +50,11 @@ public:
   /// \return A pointer to the interface of the added XNAP object if it was successfully found, a nullptr otherwise.
   xnap_interface* find_xnap(const gnb_id_t& peer_gnb_id);
 
+  /// \brief Get the peer address of an XNAP connection.
+  /// \param[in] Index of the XN-C peer in the XNAP repository.
+  /// \return Address of the XN-C peer to which the XNAP object should be connected.
+  std::optional<transport_layer_address> get_peer_addr(xnc_peer_index_t xnc_index) const;
+
   /// \brief Get the all XNAP interfaces.
   std::map<xnc_peer_index_t, xnap_interface*> get_xnaps();
 
@@ -57,6 +62,10 @@ public:
   size_t get_nof_xnaps() const { return xnap_db.size(); }
 
   void connect_association(xnc_peer_index_t idx, std::unique_ptr<xnap_message_notifier> sender_notifier);
+
+  /// \brief Disconnect the Xn layer for a peer without removing it from the repository.
+  /// The XNAP object remains alive and can be reconnected.
+  void disconnect_xnap(xnc_peer_index_t idx);
 
   async_task<void> remove_xnap(xnc_peer_index_t idx);
 

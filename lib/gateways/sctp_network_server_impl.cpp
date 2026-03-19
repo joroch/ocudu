@@ -201,8 +201,9 @@ void sctp_network_server_impl::handle_socket_shutdown(const char* cause)
   // Clean up all associations.
   // Note: Callers are responsible for stopping the io_broker subscription (io_sub.reset()) before invoking this.
   while (not associations.empty()) {
+    // TO-DO: send EOF to close association gracefully
     handle_association_shutdown(associations.begin()->first, cause);
-    handle_sctp_shutdown_comp(associations.begin()->first);
+    remove_association(associations.begin()->first);
   }
 }
 
@@ -218,30 +219,6 @@ void sctp_network_server_impl::handle_data(int assoc_id, span<const uint8_t> pay
 
   // Note: For SCTP, we avoid byte buffer allocation failures by resorting to fallback allocation.
   assoc_it->second.sctp_data_recv_notifier->on_new_sdu(byte_buffer{byte_buffer::fallback_allocation_tag{}, payload});
-}
-
-bool sctp_network_server_impl::init_association_with_msg(transport_layer_address dest_addr, byte_buffer payload)
-{
-  logger.info("{}: Initializing association to {}", node_cfg.if_name, dest_addr);
-
-  std::array<uint8_t, 3000> buffer = {};
-  to_span(payload, buffer);
-  transport_layer_address::native_type native_addr = dest_addr.native();
-  int                                  bytes_sent  = ::sctp_sendmsg(get_socket_fd(),
-                                  buffer.data(),
-                                  payload.length(),
-                                  const_cast<struct sockaddr*>(native_addr.addr),
-                                  native_addr.addrlen,
-                                  htonl(node_cfg.ppid),
-                                  0,
-                                  stream_no,
-                                  0,
-                                  0);
-  if (bytes_sent == -1) {
-    logger.error(": Closing SCTP association. Cause: could not initialize association. errno={}", ::strerror(errno));
-    return false;
-  }
-  return true;
 }
 
 async_task<bool> sctp_network_server_impl::connect(transport_layer_address dest_addr)
@@ -307,7 +284,7 @@ void sctp_network_server_impl::handle_notification(span<const uint8_t>          
           handle_sctp_comm_up(*n, src_addr, src_addr_len);
           break;
         case SCTP_COMM_LOST:
-          handle_association_shutdown(n->sac_assoc_id, "Communication was lost");
+          handle_sctp_comm_lost(n->sac_assoc_id);
           break;
         case SCTP_CANT_STR_ASSOC:
           handle_cannot_start_association(n->sac_assoc_id, src_addr, src_addr_len);
@@ -415,9 +392,20 @@ void sctp_network_server_impl::handle_association_shutdown(int assoc_id, const c
 
 void sctp_network_server_impl::handle_sctp_shutdown_comp(int assoc_id)
 {
+  remove_association(assoc_id);
+}
+
+void sctp_network_server_impl::handle_sctp_comm_lost(int assoc_id)
+{
+  handle_association_shutdown(assoc_id, "SCTP_COMM_LOST");
+  remove_association(assoc_id);
+}
+
+void sctp_network_server_impl::remove_association(int assoc_id)
+{
   auto assoc_it = associations.find(assoc_id);
   if (assoc_it == associations.end()) {
-    logger.error("{} assoc={}: Failed to shutdown SCTP association. Cause: SCTP association Id not found",
+    logger.error("{} assoc={}: Failed to remove SCTP association. Cause: SCTP association Id not found",
                  node_cfg.if_name,
                  assoc_id);
     return;
