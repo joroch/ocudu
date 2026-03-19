@@ -39,6 +39,17 @@ public:
   virtual void set_tx_association_notifier(std::unique_ptr<xnap_message_notifier> tx_notifier_) = 0;
 };
 
+/// Handle UE context removal.
+class xnap_ue_context_removal_handler
+{
+public:
+  virtual ~xnap_ue_context_removal_handler() = default;
+
+  /// \brief Remove the context of an UE.
+  /// \param[in] ue_index The index of the UE to remove.
+  virtual void remove_ue_context(ue_index_t ue_index) = 0;
+};
+
 class xnap_control_message_handler
 {
 public:
@@ -48,11 +59,14 @@ public:
   virtual async_task<xnap_handover_preparation_response>
   handle_handover_request_required(const xnap_handover_request& request) = 0;
 
-  /// \brief Initiate the transmission of a SN Status Transfer message as defined in TS 38.423 section 9.1.1.4.
+  /// \brief Initiate the transmission of a SN Status Transfer message as defined in TS 38.423 section 8.2.2.
   virtual void handle_sn_status_transfer_required(const cu_cp_status_transfer& sn_status_transfer) = 0;
 
   /// \brief Prepares the reception of a SN status transfer message.
   virtual async_task<expected<cu_cp_status_transfer>> handle_sn_status_transfer_expected(ue_index_t ue_index) = 0;
+
+  /// \brief Initiate the transmission of a UE Context Release message as defined in TS 38.423 section 8.2.7.
+  virtual bool handle_ue_context_release_required(ue_index_t ue_index) = 0;
 };
 
 /// This interface for the CU-CP to stop an XNAP instance.
@@ -107,16 +121,23 @@ public:
   /// \brief Notify the CU-CP about the reception of a Handover Cancel message.
   /// \param[in] ue_index The index of the UE.
   virtual void on_handover_cancel_received(ue_index_t ue_index) = 0;
+
+  /// \brief Notify the CU-CP about the reception of a UE Context Release message.
+  /// \param[in] ue_index The index of the UE.
+  virtual void on_ue_context_release_received(ue_index_t ue_index) = 0;
 };
 
 /// Combined entry point for the XNAP object.
 class xnap_interface : public xnap_message_handler,
                        public xnap_connection_manager,
+                       public xnap_ue_context_removal_handler,
                        public xnap_control_message_handler,
                        public xnap_controller
 {
 public:
   virtual ~xnap_interface() = default;
+
+  virtual xnap_ue_context_removal_handler& get_xnap_ue_context_removal_handler() = 0;
 };
 
 } // namespace ocudu::ocucp

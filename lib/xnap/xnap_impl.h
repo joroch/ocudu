@@ -30,6 +30,9 @@ public:
 
   async_task<void> stop() override;
 
+  // XNAP ue context removal handler functions.
+  void remove_ue_context(ue_index_t ue_index) override;
+
   // XNAP connection manager functions.
   async_task<bool> handle_xn_setup_request_required() override;
   void             set_tx_association_notifier(std::unique_ptr<xnap_message_notifier> tx_notifier_) override
@@ -40,11 +43,18 @@ public:
        handle_handover_request_required(const xnap_handover_request& request) override;
   void handle_sn_status_transfer_required(const cu_cp_status_transfer& sn_status_transfer) override;
   async_task<expected<cu_cp_status_transfer>> handle_sn_status_transfer_expected(ue_index_t ue_index) override;
+  bool                                        handle_ue_context_release_required(ue_index_t ue_index) override;
+
+  xnap_ue_context_removal_handler& get_xnap_ue_context_removal_handler() override { return *this; }
 
 private:
   /// \brief Notify about the reception of an initiating message.
   /// \param[in] msg The received initiating message.
   void handle_initiating_message(const asn1::xnap::init_msg_s& msg);
+
+  /// \brief Notify about the reception of an XN Setup Request message.
+  /// \param[in] request The received XN Setup Request message.
+  void handle_xn_setup_request(const asn1::xnap::xn_setup_request_s& request);
 
   /// \brief Notify about the reception of a Handover Request message.
   /// \param[in] msg The received handover request message.
@@ -58,6 +68,10 @@ private:
   /// \param[in] msg The received SN Status Transfer message.
   void handle_sn_status_transfer(const asn1::xnap::sn_status_transfer_s& msg);
 
+  /// \brief Notify about the reception of a UE Context Release message.
+  /// \param[in] msg The received UE Context Release message.
+  void handle_ue_context_release(const asn1::xnap::ue_context_release_s& msg);
+
   /// \brief Notify about the reception of a successful outcome message.
   /// \param[in] outcome The successful outcome message.
   void handle_successful_outcome(const asn1::xnap::successful_outcome_s& outcome);
@@ -65,8 +79,6 @@ private:
   /// \brief Notify about the reception of an unsuccessful outcome message.
   /// \param[in] outcome The unsuccessful outcome message.
   void handle_unsuccessful_outcome(const asn1::xnap::unsuccessful_outcome_s& outcome);
-
-  void handle_xn_setup_request(const asn1::xnap::xn_setup_request_s& request);
 
   ocudulog::basic_logger& logger;
 
