@@ -5,6 +5,8 @@
 #include "lib/ran/ssb/ssb_freq_position_generator.h"
 #include "ssb_coreset0_freq_pos_checker.h"
 #include "ocudu/ran/band_helper.h"
+#include "ocudu/ran/pdcch/search_space.h"
+#include <fmt/core.h>
 #include <gtest/gtest.h>
 
 using namespace ocudu;
@@ -587,3 +589,34 @@ INSTANTIATE_TEST_SUITE_P(
                          to_string(info_.param.scs_common),
                          to_string(info_.param.scs_ssb));
     });
+
+/*
+ * Enumerate CORESET#0 index -> SSB ARFCN for band 78, 100MHz, dl_arfcn 646724.
+ * Run with: --gtest_also_run_disabled_tests --gtest_filter=*EnumerateCoreset0SsbArfcn*
+ */
+TEST(ssb_coreset0_enumeration, DISABLED_EnumerateCoreset0SsbArfcn_band78_100MHz)
+{
+  const arfcn_t            dl_arfcn   = 646724;
+  const nr_band            band       = nr_band::n78;
+  const unsigned           n_rbs      = 273;
+  const subcarrier_spacing scs_common = subcarrier_spacing::kHz30;
+  const subcarrier_spacing scs_ssb    = subcarrier_spacing::kHz30;
+  const search_space0_index ss0_idx   = 0;
+
+  const double dl_freq_mhz = band_helper::nr_arfcn_to_freq(dl_arfcn) * 1e-6;
+  fmt::print("dl_arfcn={} ({:.3f} MHz), band=n78, n_rbs={}, scs={}kHz\n",
+             dl_arfcn,
+             dl_freq_mhz,
+             n_rbs,
+             scs_to_khz(scs_common));
+  fmt::print("coreset0_index  ssb_arfcn   ssb_freq_MHz  (in-band: >= lower edge)\n");
+
+  for (unsigned i = 0; i <= 15; ++i) {
+    const auto result = band_helper::get_ssb_coreset0_freq_location_for_cset0_idx(
+        dl_arfcn, band, n_rbs, scs_common, scs_ssb, ss0_idx, coreset0_index{static_cast<uint8_t>(i)});
+    if (result.has_value()) {
+      const double ssb_freq_mhz = band_helper::nr_arfcn_to_freq(result->ssb_arfcn) * 1e-6;
+      fmt::print("  {:2}            {:6}      {:.3f}\n", i, result->ssb_arfcn, ssb_freq_mhz);
+    }
+  }
+}
