@@ -45,8 +45,6 @@ public:
 
   std::optional<uint16_t> get_listen_port() override;
 
-  bool init_association_with_msg(transport_layer_address dest_addr, byte_buffer payload) override;
-
   async_task<bool> connect(transport_layer_address dest_addr) override;
 
 private:
@@ -81,9 +79,13 @@ private:
                            socklen_t                     src_addr_len);
   void handle_association_shutdown(int assoc_id, const char* cause);
   void handle_sctp_shutdown_comp(int assoc_id);
+  void handle_sctp_comm_lost(int assoc_id);
   void
   handle_sctp_comm_up(const struct sctp_assoc_change& assoc_change, const sockaddr& src_addr, socklen_t src_addr_len);
   void handle_cannot_start_association(int assoc_id, const sockaddr& src_addr, socklen_t src_addr_len);
+
+  /// Remove association from the map, triggering recv notifier destruction.
+  void remove_association(int assoc_id);
 
   io_broker&                        broker;
   task_executor&                    io_rx_executor;
