@@ -132,6 +132,11 @@ public:
     return std::make_unique<gw_to_e1_pdu_notifier>(std::move(e1_receiver), params.pcap, logger);
   }
 
+  void handle_sctp_association_creation_failure(transport_layer_address addr) override
+  {
+    logger.debug("Failed to create SCTP association. peer_addr={}", addr);
+  }
+
 private:
   const e1_cu_cp_sctp_gateway_config params;
   ocudulog::basic_logger&            logger        = ocudulog::fetch_basic_logger("CU-CP-E1");

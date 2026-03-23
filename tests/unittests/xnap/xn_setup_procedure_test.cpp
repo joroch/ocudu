@@ -30,8 +30,7 @@ TEST_F(xn_setup_procedure_test, when_correct_setup_received_from_peer_setup_comp
             asn1::xnap::xnap_elem_procs_o::successful_outcome_c::types_opts::xn_setup_resp);
 }
 
-/// Test the XN setup procedure timeout
-TEST_F(xnap_test, when_xn_setup_procedure_times_out_then_setup_failure_is_returned)
+TEST_F(xn_setup_procedure_test, when_xn_setup_request_required_then_setup_is_sent_to_peer)
 {
   // Action 1: Launch XN setup procedure
   logger.info("Launch xn setup request procedure...");
@@ -39,6 +38,37 @@ TEST_F(xnap_test, when_xn_setup_procedure_times_out_then_setup_failure_is_return
   lazy_task_launcher<bool> t_launcher(t);
 
   ASSERT_FALSE(t.ready());
+
+  // Conect TX notifier to the XNAP instance, so that we can capture the response to the setup request.
+  init_sctp_association();
+
+  // Check XN setup request.
+  xnap_message setup_req = xnc_gw.get_last_tx_message();
+  ASSERT_EQ(setup_req.pdu.type(), asn1::xnap::xn_ap_pdu_c::types_opts::init_msg);
+  ASSERT_EQ(setup_req.pdu.init_msg().value.type(),
+            asn1::xnap::xnap_elem_procs_o::init_msg_c::types_opts::xn_setup_request);
+
+  // Action 2: Send XN setup response from peer.
+  xnap_message setup_resp = generate_asn1_xn_setup_response(xnap_peer_cfg);
+  xnap->handle_message(setup_resp);
+
+  // Check procedure completion.
+  ASSERT_TRUE(t.ready());
+  ASSERT_TRUE(t.get());
+}
+
+/// Test the XN setup procedure timeout
+TEST_F(xn_setup_procedure_test, when_xn_setup_procedure_times_out_then_setup_failure_is_returned)
+{
+  // Action 1: Launch XN setup procedure
+  logger.info("Launch xn setup request procedure...");
+  async_task<bool>         t = xnap->handle_xn_setup_request_required();
+  lazy_task_launcher<bool> t_launcher(t);
+
+  ASSERT_FALSE(t.ready());
+
+  // Conect TX notifier to the XNAP instance, so that we can capture the response to the setup request.
+  init_sctp_association();
 
   // Check XN setup request.
   xnap_message setup_req = xnc_gw.get_last_tx_message();
@@ -62,6 +92,9 @@ TEST_F(xn_setup_procedure_test,
   lazy_task_launcher<bool> t_launcher(t);
 
   ASSERT_FALSE(t.ready());
+
+  // Conect TX notifier to the XNAP instance, so that we can capture the response to the setup request.
+  init_sctp_association();
 
   // Check XN setup request.
   xnap_message setup_req = xnc_gw.get_last_tx_message();
@@ -101,6 +134,9 @@ TEST_F(xn_setup_procedure_test, when_xn_setup_failure_without_time_to_wait_recei
 
   ASSERT_FALSE(t.ready());
 
+  // Conect TX notifier to the XNAP instance, so that we can capture the response to the setup request.
+  init_sctp_association();
+
   // Check XN setup request.
   xnap_message setup_req = xnc_gw.get_last_tx_message();
   ASSERT_EQ(setup_req.pdu.type(), asn1::xnap::xn_ap_pdu_c::types_opts::init_msg);
@@ -114,30 +150,6 @@ TEST_F(xn_setup_procedure_test, when_xn_setup_failure_without_time_to_wait_recei
   // Check procedure completion.
   ASSERT_TRUE(t.ready());
   ASSERT_FALSE(t.get());
-}
-
-TEST_F(xn_setup_procedure_test, when_xn_setup_request_required_then_setup_is_sent_to_peer)
-{
-  // Action 1: Launch XN setup procedure
-  logger.info("Launch xn setup request procedure...");
-  async_task<bool>         t = xnap->handle_xn_setup_request_required();
-  lazy_task_launcher<bool> t_launcher(t);
-
-  ASSERT_FALSE(t.ready());
-
-  // Check XN setup request.
-  xnap_message setup_req = xnc_gw.get_last_tx_message();
-  ASSERT_EQ(setup_req.pdu.type(), asn1::xnap::xn_ap_pdu_c::types_opts::init_msg);
-  ASSERT_EQ(setup_req.pdu.init_msg().value.type(),
-            asn1::xnap::xnap_elem_procs_o::init_msg_c::types_opts::xn_setup_request);
-
-  // Action 2: Send XN setup response from peer.
-  xnap_message setup_resp = generate_asn1_xn_setup_response(xnap_peer_cfg);
-  xnap->handle_message(setup_resp);
-
-  // Check procedure completion.
-  ASSERT_TRUE(t.ready());
-  ASSERT_TRUE(t.get());
 }
 
 int main(int argc, char** argv)

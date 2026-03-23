@@ -47,6 +47,9 @@ bool xnap_test::run_xn_setup(const xnap_configuration& peer_cfg)
   async_task<bool>         t = xnap->handle_xn_setup_request_required();
   lazy_task_launcher<bool> t_launcher(t);
 
+  // Set TX association notifier.
+  init_sctp_association();
+
   // Action 2: Send XN setup response from peer.
   xnap_message setup_resp = generate_asn1_xn_setup_response(peer_cfg);
   xnap->handle_message(setup_resp);
@@ -56,9 +59,6 @@ bool xnap_test::run_xn_setup(const xnap_configuration& peer_cfg)
     logger.error("XN Setup procedure failed");
     return false;
   }
-
-  // Set TX association notifier.
-  init_sctp_association();
 
   return true;
 }

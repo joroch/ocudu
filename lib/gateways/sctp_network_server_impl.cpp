@@ -260,7 +260,7 @@ void sctp_network_server_impl::handle_notification(span<const uint8_t>          
           handle_association_shutdown(n->sac_assoc_id, "Communication was lost");
           break;
         case SCTP_CANT_STR_ASSOC:
-          handle_association_shutdown(n->sac_assoc_id, "Can't state association");
+          handle_cannot_start_association(n->sac_assoc_id, src_addr, src_addr_len);
           break;
         case SCTP_SHUTDOWN_COMP:
           handle_sctp_shutdown_comp(n->sac_assoc_id);
@@ -315,6 +315,22 @@ void sctp_network_server_impl::handle_sctp_comm_up(const struct sctp_assoc_chang
   }
 
   logger.info("{} assoc={}: New client SCTP association (client_addr={})", node_cfg.if_name, assoc_id, assoc_ctxt.addr);
+}
+
+void sctp_network_server_impl::handle_cannot_start_association(int             assoc_id,
+                                                               const sockaddr& src_addr,
+                                                               socklen_t       src_addr_len)
+{
+  if (logger.info.enabled()) {
+    std::string addr;
+    if (sockaddr_to_ip_str(&src_addr, addr, logger)) {
+      logger.info("{} assoc={}: SCTP association could not start (peer_addr={})", node_cfg.if_name, assoc_id, addr);
+    } else {
+      logger.info("{} assoc={}: SCTP association could not start", node_cfg.if_name, assoc_id);
+    }
+  }
+  transport_layer_address taddr = transport_layer_address::create_from_sockaddr(src_addr, src_addr_len);
+  assoc_factory.handle_sctp_association_creation_failure(taddr);
 }
 
 void sctp_network_server_impl::handle_association_shutdown(int assoc_id, const char* cause)

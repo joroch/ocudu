@@ -38,6 +38,8 @@ public:
   /// \brief Provide the SCTP association notifier after the SCTP association establishment.
   /// \param[in] tx_notifier_ The SCTP association notifier.
   virtual void set_tx_association_notifier(std::unique_ptr<xnap_message_notifier> tx_notifier_) = 0;
+
+  virtual void set_initial_association_failure() = 0;
 };
 
 /// Handle UE context removal.

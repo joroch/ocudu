@@ -123,6 +123,8 @@ public:
     return std::make_unique<gw_to_ric_pdu_notifier>(std::move(e2_receiver), params.pcap, logger, params.rx_sniffer);
   }
 
+  void handle_sctp_association_creation_failure(transport_layer_address addr) override {}
+
 private:
   const ric_sctp_gateway_config        params;
   ocudulog::basic_logger&              logger             = ocudulog::fetch_basic_logger("RIC");

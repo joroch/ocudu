@@ -21,6 +21,7 @@ public:
       const xnap_configuration&                                                                    xnap_cfg_,
       std::optional<xnap_context>&                                                                 peer_ctxt_,
       xnap_tx_pdu_notifier_with_logging&                                                           tx_notifier_,
+      protocol_transaction_event_source<bool>&                                                     sctp_init_outcome_,
       protocol_transaction_event_source<asn1::xnap::xn_setup_resp_s, asn1::xnap::xn_setup_fail_s>& xn_setup_outcome_,
       timer_factory                                                                                timers_,
       ocudulog::basic_logger&                                                                      logger_);
@@ -38,6 +39,7 @@ private:
   const xnap_configuration&                                                                    xnap_cfg;
   std::optional<xnap_context>&                                                                 peer_ctxt;
   xnap_tx_pdu_notifier_with_logging&                                                           tx_notifier;
+  protocol_transaction_event_source<bool>&                                                     sctp_init_outcome;
   protocol_transaction_event_source<asn1::xnap::xn_setup_resp_s, asn1::xnap::xn_setup_fail_s>& xn_setup_outcome;
   ocudulog::basic_logger&                                                                      logger;
 
@@ -49,7 +51,9 @@ private:
   asn1::xnap::xn_setup_resp_s                             received_xn_setup_resp;
   error_type<std::pair<asn1::xnap::cause_c, std::string>> validation_error;
 
-  protocol_transaction_outcome_observer<asn1::xnap::xn_setup_resp_s, asn1::xnap::xn_setup_fail_s> transaction_sink;
+  protocol_transaction_outcome_observer<bool> sctp_init_transaction_sink;
+  protocol_transaction_outcome_observer<asn1::xnap::xn_setup_resp_s, asn1::xnap::xn_setup_fail_s>
+      xn_setup_transaction_sink;
 };
 
 } // namespace ocudu::ocucp

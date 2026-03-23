@@ -38,8 +38,12 @@ public:
   async_task<bool> handle_xn_setup_request_required() override;
   void             set_tx_association_notifier(std::unique_ptr<xnap_message_notifier> tx_notifier_) override
   {
+    sctp_init_outcome.set(true);
     tx_notifier.connect(std::move(tx_notifier_));
   }
+
+  void set_initial_association_failure() override { sctp_init_outcome.set(false); }
+
   async_task<xnap_handover_preparation_response>
        handle_handover_request_required(const xnap_handover_request& request) override;
   void handle_sn_status_transfer_required(const cu_cp_status_transfer& sn_status_transfer) override;
@@ -100,6 +104,8 @@ private:
 
   xnap_tx_pdu_notifier_with_logging tx_notifier;
 
+  /// XN SCTP initiation Success/Failure Event Source.
+  protocol_transaction_event_source<bool> sctp_init_outcome;
   /// XN Setup Response/Failure Event Source.
   protocol_transaction_event_source<asn1::xnap::xn_setup_resp_s, asn1::xnap::xn_setup_fail_s> xn_setup_outcome;
 };
