@@ -4,6 +4,7 @@
 
 #include "xnc_connection_manager.h"
 #include "ocudu/cu_cp/cu_cp_types.h"
+#include "ocudu/support/async/async_timer.h"
 #include "ocudu/xnap/xnap_message.h"
 #include "ocudu/xnap/xnap_message_notifier.h"
 
@@ -102,11 +103,13 @@ private:
 };
 
 xnc_connection_manager::xnc_connection_manager(xnap_repository&        xnaps_,
-                                               xnc_connection_gateway& xnc_gw_,
+                                               xnc_connection_gateway* xnc_gw_,
+                                               timer_manager&          timers_,
                                                task_executor&          cu_cp_exec_,
                                                common_task_scheduler&  common_task_sched_) :
   xnaps(xnaps_),
   xnc_gw(xnc_gw_),
+  timers(timers_),
   cu_cp_exec(cu_cp_exec_),
   common_task_sched(common_task_sched_),
   logger(ocudulog::fetch_basic_logger("CU-CP"))
@@ -117,22 +120,34 @@ void xnc_connection_manager::start(const xnap_configuration& xnap_cfg_)
 {
   xnap_cfg = xnap_cfg_;
 
+  if (xnap_cfg.no_connection_init) {
+    logger.info("XNAP no_connection_init mode: skipping outbound connections, accepting inbound only");
+    return;
+  }
+
   auto xnaps_map = xnaps.get_xnaps();
   for (auto& xnap : xnaps_map) {
-    std::optional<transport_layer_address> peer_addr = xnaps.get_peer_addr(xnap.first);
+    auto  xnc_idx = xnap.first;
+    auto* xnap_if = xnap.second;
+
+    std::optional<transport_layer_address> peer_addr = xnaps.get_peer_addr(xnc_idx);
     if (!peer_addr.has_value()) {
-      logger.warning("No peer address for XN-C peer {}", xnap.first);
+      logger.warning("No peer address for XN-C peer {}", xnc_idx);
       continue;
     }
 
-    common_task_sched.schedule_async_task(
-        launch_async([this, xnap_if = xnap.second, peer_addr = peer_addr.value(), connect_result = false](
+    xnaps.get_xnap_task_scheduler().handle_xnc_async_task(
+        xnc_idx,
+        launch_async([this, xnc_idx, xnap_if, peer_addr = peer_addr.value(), connect_result = false](
                          coro_context<async_task<void>>& ctx) mutable {
           CORO_BEGIN(ctx);
           // Establish the SCTP association first.
-          CORO_AWAIT_VALUE(connect_result, xnc_gw.connect_to_peer(peer_addr));
+          CORO_AWAIT_VALUE(connect_result, xnc_gw->connect_to_peer(peer_addr));
           if (!connect_result) {
-            logger.warning("Failed to connect to XN-C peer at {}", peer_addr);
+            logger.warning("Failed to connect to XN-C peer at {}. Scheduling reconnection in {}...",
+                           peer_addr,
+                           std::chrono::duration_cast<std::chrono::seconds>(xnap_cfg.reconnect_timer));
+            reconnect_peer(xnc_idx, peer_addr);
             CORO_EARLY_RETURN();
           }
           // Trigger XN Setup on the established association.
@@ -177,6 +192,10 @@ void xnc_connection_manager::stop()
   {
     std::unique_lock<std::mutex> lock(stop_mutex);
     stop_cvar.wait(lock, [this] { return stop_completed; });
+  }
+
+  if (xnc_gw != nullptr) {
+    xnc_gw->stop();
   }
 }
 
@@ -245,6 +264,9 @@ void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xn
           CORO_EARLY_RETURN();
         }
 
+        // Clear any pending reconnection tasks for this peer before removing it.
+        xnaps.get_xnap_task_scheduler().clear_pending_tasks(xnc_idx);
+
         // Await for clean removal of the XNAP from the repository.
         CORO_AWAIT(xnaps.remove_xnap(xnc_idx));
 
@@ -265,9 +287,54 @@ void xnc_connection_manager::handle_xnc_gw_connection_closed(xnc_peer_index_t xn
         if (peer_addr.has_value()) {
           if (xnaps.add_xnap(xnc_idx, peer_addr.value(), xnap_cfg) == nullptr) {
             logger.error("Failed to recreate XNAP instance for peer address {}", peer_addr.value());
+          } else if (xnap_cfg.no_connection_init) {
+            logger.info(
+                "XN-C peer {} disconnected. Recreated XNAP, waiting for inbound reconnection (no_connection_init mode)",
+                xnc_idx);
           } else {
-            logger.info("XN-C peer {} disconnected. Recreated XNAP, awaiting reconnection", xnc_idx);
+            logger.info("XN-C peer {} disconnected. Recreated XNAP, scheduling reconnection in {}...",
+                        xnc_idx,
+                        std::chrono::duration_cast<std::chrono::seconds>(xnap_cfg.reconnect_timer));
+            // Schedule outbound reconnection attempt.
+            reconnect_peer(xnc_idx, peer_addr.value());
           }
+        }
+
+        CORO_RETURN();
+      }));
+}
+
+void xnc_connection_manager::reconnect_peer(xnc_peer_index_t xnc_idx, const transport_layer_address& peer_addr)
+{
+  // Schedule on the per-peer task scheduler so the reconnect coroutine does not block the common task queue.
+  xnaps.get_xnap_task_scheduler().handle_xnc_async_task(
+      xnc_idx,
+      launch_async([this,
+                    xnc_idx,
+                    peer_addr,
+                    retry_timer    = unique_timer{timer_factory{timers, cu_cp_exec}.create_timer()},
+                    connect_result = false,
+                    xnap_if = static_cast<xnap_interface*>(nullptr)](coro_context<async_task<void>>& ctx) mutable {
+        CORO_BEGIN(ctx);
+
+        logger.info("XN-C peer {}: Scheduling reconnection in {}...", xnc_idx, xnap_cfg.reconnect_timer);
+        CORO_AWAIT(async_wait_for(retry_timer, xnap_cfg.reconnect_timer));
+
+        // Skip if shutting down or peer was already reconnected (e.g. by an inbound connection).
+        if (stopped or xnc_connections.count(xnc_idx) > 0) {
+          CORO_EARLY_RETURN();
+        }
+
+        // Establish SCTP association.
+        CORO_AWAIT_VALUE(connect_result, xnc_gw->connect_to_peer(peer_addr));
+        if (!connect_result) {
+          CORO_EARLY_RETURN();
+        }
+
+        // Trigger XN Setup on the re-established association.
+        xnap_if = xnaps.find_xnap(xnc_idx);
+        if (xnap_if != nullptr) {
+          CORO_AWAIT(xnap_if->handle_xn_setup_request_required());
         }
 
         CORO_RETURN();
