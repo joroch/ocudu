@@ -370,20 +370,11 @@ int main(int argc, char** argv)
   // Create O-CU-CP.
   auto            o_cucp_unit = o_cu_cp_app_unit->create_o_cu_cp(o_cucp_deps);
   ocucp::o_cu_cp& o_cucp_obj  = *o_cucp_unit.unit;
-
-  if (std::unique_ptr<app_services::cmdline_command> cmd = app_services::create_stdout_metrics_app_command(
-          {{o_cucp_unit.commands.cmdline.metrics_subcommands}}, false)) {
-    o_cucp_unit.commands.cmdline.commands.push_back(std::move(cmd));
-  }
-
-  // Create console helper object for commands and metrics printing.
-  app_services::cmdline_command_dispatcher command_parser(
-      *epoll_broker, workers.get_cmd_line_executor(), o_cucp_unit.commands.cmdline.commands);
-
   for (auto& metric : o_cucp_unit.metrics) {
     metrics_configs.push_back(std::move(metric));
   }
 
+  // Create metrics manager.
   app_services::metrics_manager metrics_mngr(
       ocudulog::fetch_basic_logger("CU"),
       workers.get_metrics_executor(),
@@ -394,12 +385,18 @@ int main(int argc, char** argv)
   // Connect the forwarder to the metrics manager.
   metrics_notifier_forwarder.connect(metrics_mngr);
 
+  // Add the metrics STDOUT command.
+  if (std::unique_ptr<app_services::cmdline_command> cmd = app_services::create_stdout_metrics_app_command(
+          {{o_cucp_unit.commands.cmdline.metrics_subcommands}}, false)) {
+    o_cucp_unit.commands.cmdline.commands.push_back(std::move(cmd));
+  }
+
+  // Create console helper object for commands and metrics printing.
+  app_services::cmdline_command_dispatcher command_parser(
+      *epoll_broker, workers.get_cmd_line_executor(), o_cucp_unit.commands.cmdline.commands);
+
   // Connect E1AP to O-CU-CP.
   e1_gw->attach_cu_cp(o_cucp_obj.get_cu_cp().get_e1_handler());
-
-  if (remote_control_server) {
-    remote_control_server->get_operation_controller().start();
-  }
 
   if (xnc_gw != nullptr) {
     // Connect XN-C to O-CU-CP and start listening for new XN-C connection requests.
@@ -416,9 +413,15 @@ int main(int argc, char** argv)
     report_error("CU-CP failed to connect to AMF");
   }
 
+  // Configure the remote commands and start the service.
+  if (remote_control_server) {
+    remote_control_server->get_operation_controller().start();
+  }
+
   // Connect F1-C to O-CU-CP and start listening for new F1-C connection requests.
   cu_f1c_gw->attach_cu_cp(o_cucp_obj.get_cu_cp().get_f1c_handler());
 
+  // Start metrics manager.
   metrics_mngr.start();
 
   {
@@ -434,8 +437,10 @@ int main(int argc, char** argv)
     }
   }
 
+  // Stop metrics manager.
   metrics_mngr.stop();
 
+  // Stop remote control server.
   if (remote_control_server) {
     remote_control_server->get_operation_controller().stop();
   }
