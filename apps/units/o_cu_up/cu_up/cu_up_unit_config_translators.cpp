@@ -12,9 +12,10 @@ using namespace ocudu;
 ocuup::cu_up_config ocudu::generate_cu_up_config(const cu_up_unit_config& config)
 {
   ocuup::cu_up_config out_cfg;
-  out_cfg.gnb_id     = config.gnb_id;
-  out_cfg.cu_up_id   = config.gnb_cu_up_id;
-  out_cfg.cu_up_name = fmt::format("ocuup_{}", fmt::underlying(config.gnb_cu_up_id));
+  out_cfg.gnb_id      = config.gnb_id;
+  out_cfg.cu_up_id    = config.gnb_cu_up_id;
+  out_cfg.cu_up_name  = fmt::format("ocuup_{}", fmt::underlying(config.gnb_cu_up_id));
+  out_cfg.max_nof_ues = config.max_nof_ues;
 
   out_cfg.statistics_report_period = std::chrono::seconds{config.metrics.cu_up_report_period};
 
@@ -27,6 +28,7 @@ ocuup::cu_up_config ocudu::generate_cu_up_config(const cu_up_unit_config& config
 
   // E1AP-CU-UP config.
   // JSON metrics are not supported at E1AP for now, so only enable if log metrics are enabled.
+  out_cfg.e1ap.max_nof_ues      = config.max_nof_ues;
   out_cfg.e1ap.json_log_enabled = config.loggers.e1ap_json_enabled;
   out_cfg.e1ap.metrics_period =
       timer_duration{config.metrics.layers_cfg.enable_e1ap && config.metrics.common_metrics_cfg.enable_log_metrics
