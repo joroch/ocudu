@@ -117,10 +117,10 @@ protected:
 
     void on_new_message(const e2_message& msg) override
     {
+      notifier.on_new_message(msg);
       if (on_message_callback) {
         on_message_callback(msg);
       }
-      notifier.on_new_message(msg);
     }
 
     e2_message_notifier& notifier;
