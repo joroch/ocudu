@@ -20,13 +20,8 @@ struct cell_creation_event {
   du_cell_index_t cell_index;
 };
 
-/// Maximum number of bytes that a slot list of events can use to store data.
-/// \note It needs to be smaller than the memory blocks allocated from the byte buffer pool.
-constexpr size_t slot_event_buffer_size = 2016;
-
 /// Storage type of events taking place during a slot.
-using slot_event_buffer = static_type_list_buffer<slot_event_buffer_size,
-                                                  cell_creation_event,
+using slot_event_buffer = type_list_buffer_stream<cell_creation_event,
                                                   sel::prach_event,
                                                   rach_indication_message,
                                                   sel::ue_creation_event,
@@ -229,77 +224,13 @@ void format_debug_level(FormatContext& ctx, const Event& ev)
   }
 }
 
-/// This class makes the slot event buffer copyable and formattable.
-/// \remark The memory of a slot_event_list is managed by the byte_buffer default pool. We did it this way, because
-/// the memory pool lifetime needs to be larger than the log backend, otherwise the blocks may point to a dangling pool.
-struct slot_event_list {
-  /// Format events in info level.
-  template <typename FormatContext>
-  auto format_info(FormatContext& ctx) const
-  {
-    buffer.for_each([&ctx, first = true](const auto& ev) mutable {
-      format_info_level(ctx, ev, first);
-      first = false;
-    });
-    return ctx.out();
-  }
-
-  /// Format events in debug level.
-  template <typename FormatContext>
-  auto format_debug(FormatContext& ctx) const
-  {
-    buffer.for_each([&ctx](const auto& ev) mutable { format_debug_level(ctx, ev); });
-    return ctx.out();
-  }
-
-  template <typename Event>
-  void push(const Event& ev)
-  {
-    buffer.push(ev);
-  }
-
-  bool empty() const { return buffer.empty(); }
-
-  static intrusive_ptr<slot_event_list> make_slot_event_list()
-  {
-    static auto&  mem_pool  = get_default_fallback_byte_buffer_segment_pool();
-    span<uint8_t> mem_block = mem_pool.allocate(sizeof(slot_event_list));
-    ocudu_assert(mem_block.size() >= sizeof(slot_event_list),
-                 "Invalid memory block size ({} < {})",
-                 mem_block.size(),
-                 sizeof(slot_event_list));
-    auto* buffer = new (mem_block.data()) slot_event_list{};
-    return {buffer};
-  }
-
-private:
-  slot_event_list() = default;
-
-  friend void intrusive_ptr_inc_ref(slot_event_list* ptr) { ptr->ref_count.inc_ref(); }
-  friend void intrusive_ptr_dec_ref(slot_event_list* ptr)
-  {
-    if (ptr->ref_count.dec_ref()) {
-      // Destroy buffer and return it back to the pool.
-      void* block = ptr;
-      ptr->~slot_event_list();
-      get_default_fallback_byte_buffer_segment_pool().deallocate(block);
-    }
-  }
-
-  /// Intrusive ptr reference counter.
-  intrusive_ptr_atomic_ref_counter ref_count;
-  slot_event_buffer                buffer;
-};
-
-using slot_event_list_ptr = intrusive_ptr<slot_event_list>;
-
 } // namespace
 
 namespace fmt {
 
 /// Formatter of slot_event_list that supports both info and debug modes.
 template <>
-struct formatter<slot_event_list_ptr> {
+struct formatter<slot_event_buffer> {
   bool debug = false;
 
   template <typename ParseContext>
@@ -316,12 +247,15 @@ struct formatter<slot_event_list_ptr> {
   }
 
   template <typename FormatContext>
-  auto format(const slot_event_list_ptr& obj, FormatContext& ctx) const
+  auto format(const slot_event_buffer& obj, FormatContext& ctx) const
   {
     if (debug) {
-      obj->format_debug(ctx);
+      obj.for_each([&ctx](const auto& ev) mutable { format_debug_level(ctx, ev); });
     } else {
-      obj->format_info(ctx);
+      obj.for_each([&ctx, first = true](const auto& ev) mutable {
+        format_info_level(ctx, ev, first);
+        first = false;
+      });
     }
     return ctx.out();
   }
@@ -333,13 +267,11 @@ struct formatter<slot_event_list_ptr> {
 class scheduler_event_logger::event_buffer_writer
 {
 public:
-  using ptr = slot_event_list_ptr;
-
-  event_buffer_writer(mode_t mode_) : mode(mode_)
+  event_buffer_writer(mode_t mode_) :
+    mode(mode_),
+    cur_buffer(mode == mode_t::none ? slot_event_buffer{}
+                                    : *slot_event_buffer::make(get_default_fallback_byte_buffer_segment_pool()))
   {
-    if (mode != mode_t::none) {
-      cur_buffer = slot_event_list::make_slot_event_list();
-    }
   }
 
   template <typename EventType>
@@ -348,27 +280,26 @@ public:
     if (mode == mode_t::none or (mode == mode_t::info and not has_info_formatter<EventType>())) {
       return;
     }
-    cur_buffer->push(ev);
+    cur_buffer.push(ev);
   }
 
-  bool empty() const { return mode == mode_t::none or cur_buffer->empty(); }
+  bool empty() const { return mode == mode_t::none or cur_buffer.empty(); }
 
   /// Extract a formattable event list.
-  slot_event_list_ptr pop_event_list()
+  slot_event_buffer pop_event_list()
   {
     if (mode == mode_t::none) {
-      return nullptr;
+      return slot_event_buffer();
     }
 
     // Start a new current buffer.
-    auto ret   = std::move(cur_buffer);
-    cur_buffer = slot_event_list::make_slot_event_list();
+    auto ret = std::move(cur_buffer);
     return ret;
   }
 
 private:
-  mode_t              mode = mode_t::none;
-  slot_event_list_ptr cur_buffer;
+  mode_t            mode = mode_t::none;
+  slot_event_buffer cur_buffer;
 };
 
 scheduler_event_logger::scheduler_event_logger(du_cell_index_t cell_index_, pci_t pci_) :

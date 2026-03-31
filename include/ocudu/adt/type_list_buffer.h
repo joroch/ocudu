@@ -3,10 +3,11 @@
 
 #pragma once
 
+#include "ocudu/adt/detail/shared_segment_list.h"
+#include "ocudu/adt/span.h"
 #include "ocudu/support/detail/type_list.h"
 #include "ocudu/support/ocudu_assert.h"
 #include <array>
-#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -427,19 +428,19 @@ public:
   static_type_list_buffer(const static_type_list_buffer&)            = delete;
   static_type_list_buffer& operator=(const static_type_list_buffer&) = delete;
 
-  static_type_list_buffer(static_type_list_buffer&& other) noexcept :
-    storage(other.storage), used(std::exchange(other.used, 0))
+  static_type_list_buffer(static_type_list_buffer&& other) noexcept : used(std::exchange(other.used, 0))
   {
     this->nof_elements = std::exchange(other.nof_elements, 0);
+    relocate_from(other.storage.data(), storage.data(), used);
   }
 
   static_type_list_buffer& operator=(static_type_list_buffer&& other) noexcept
   {
     if (this != &other) {
       this->destroy_all();
-      storage            = other.storage;
       used               = std::exchange(other.used, 0);
       this->nof_elements = std::exchange(other.nof_elements, 0);
+      relocate_from(other.storage.data(), storage.data(), used);
     }
     return *this;
   }
@@ -488,8 +489,260 @@ private:
     return true;
   }
 
+  /// Move-constructs each live object from \p src into \p dst at the same offsets, then destroys
+  /// the source objects. For trivially copyable types this is a plain byte copy.
+  static void relocate_from(uint8_t* src, uint8_t* dst, size_t nbytes) noexcept
+  {
+    if constexpr (std::conjunction_v<std::is_trivially_copyable<Types>...>) {
+      std::memcpy(dst, src, nbytes);
+    } else {
+      size_t pos = 0;
+      while (pos < nbytes) {
+        typename base::type_idx_t idx;
+        std::memcpy(&idx, src + pos, sizeof(typename base::type_idx_t));
+        const size_t after_idx = pos + sizeof(typename base::type_idx_t);
+        pos =
+            base::mut_dispatch::relocate(static_cast<size_t>(idx), pos, after_idx, src, dst, typename base::idx_seq{});
+        ocudu_assert(pos != ~size_t{0}, "Corrupt static_type_list_buffer during move");
+      }
+    }
+  }
+
   std::array<uint8_t, N> storage;
   size_t                 used = 0;
+};
+
+// ---------------------------------------------------------------------------
+// type_list_buffer_view
+// ---------------------------------------------------------------------------
+
+/// \brief Non-owning heterogeneous container that stores a sequence of objects of a fixed type list in a caller-
+/// supplied byte buffer.
+///
+/// The backing storage is a \c span<uint8_t> provided at construction time. This class does not allocate or free any
+/// memory; the caller is responsible for the lifetime of the underlying buffer. \c push / \c emplace return a pointer
+/// to the newly stored element, or \c nullptr if there is insufficient space remaining.
+///
+/// \tparam Types List of types that may be stored. All types must be destructible.
+template <typename... Types>
+class type_list_buffer_view : private detail::type_list_buffer_base<type_list_buffer_view<Types...>, Types...>
+{
+  using base = detail::type_list_buffer_base<type_list_buffer_view<Types...>, Types...>;
+
+public:
+  // Inherited methods from the private base.
+  using base::byte_size;
+  using base::clear;
+  using base::empty;
+  using base::for_each;
+  using base::size;
+
+  explicit type_list_buffer_view(span<uint8_t> storage) noexcept : buf(storage) {}
+
+  ~type_list_buffer_view() { this->destroy_all(); }
+
+  // Move-only: copying a view with potentially non-trivial objects is not supported.
+  type_list_buffer_view(const type_list_buffer_view&)            = delete;
+  type_list_buffer_view& operator=(const type_list_buffer_view&) = delete;
+
+  type_list_buffer_view(type_list_buffer_view&& other) noexcept : buf(other.buf), used(std::exchange(other.used, 0))
+  {
+    this->nof_elements = std::exchange(other.nof_elements, 0);
+  }
+
+  type_list_buffer_view& operator=(type_list_buffer_view&& other) noexcept
+  {
+    if (this != &other) {
+      this->destroy_all();
+      buf                = other.buf;
+      used               = std::exchange(other.used, 0);
+      this->nof_elements = std::exchange(other.nof_elements, 0);
+    }
+    return *this;
+  }
+
+  /// Returns the capacity in bytes of the backing span.
+  size_t capacity_bytes() const noexcept { return buf.size(); }
+
+  /// Appends a copy or move of \p val to the buffer.
+  /// \tparam T must appear in \c Types.
+  /// \returns A pointer to the newly stored element, or \c nullptr if the buffer is full.
+  template <typename T>
+  std::decay_t<T>* push(T&& val)
+  {
+    using U = std::decay_t<T>;
+    static_assert(type_list_helper::contains_v<U, Types...>,
+                  "push(): T is not present in this type_list_buffer_view's type list");
+    return emplace<U>(std::forward<T>(val));
+  }
+
+  /// Constructs a \c T in-place at the end of the buffer.
+  /// \tparam T must appear in \c Types.
+  /// \returns A pointer to the newly constructed element, or \c nullptr if the buffer is full.
+  template <typename T, typename... Args>
+  T* emplace(Args&&... args)
+  {
+    static_assert(type_list_helper::contains_v<T, Types...>,
+                  "emplace(): T is not present in this type_list_buffer_view's type list");
+    return this->template base_emplace_impl<T>(std::forward<Args>(args)...);
+  }
+
+private:
+  friend base;
+
+  // CRTP hooks.
+  uint8_t*       buf_data_impl() noexcept { return buf.data(); }
+  const uint8_t* buf_data_impl() const noexcept { return buf.data(); }
+  size_t         buf_size_impl() const noexcept { return used; }
+  void           reset_buf_impl() noexcept { used = 0; }
+
+  bool ensure_space_impl(size_t new_size) noexcept
+  {
+    if (new_size > buf.size()) {
+      return false;
+    }
+    used = new_size;
+    return true;
+  }
+
+  span<uint8_t> buf;
+  size_t        used = 0;
+};
+
+/// \brief Heterogeneous container that stores a sequence of objects of a fixed type list in a
+/// \c detail::shared_segment_list<T>.
+///
+/// The buffer is organized as a linked list of segments. At the start of each segment a \c type_list_buffer_view is
+/// placement-constructed; the rest of the segment's payload is the view's backing store. Records are appended through
+/// the tail view. When it is full a fresh segment is allocated, a new view is placement-constructed there, and the
+/// record goes into that segment instead.
+///
+/// \note For types with non-trivial destructors, a shallow copy must not outlive the copy that ultimately destroys
+///       the buffer, since the destructor walks every segment and calls each view's destructor (which destroys the
+///       stored objects in the shared memory).
+///
+/// \tparam Types List of types that may be stored. All types must be destructible.
+template <typename... Types>
+class type_list_buffer_stream
+{
+  using view_t = type_list_buffer_view<Types...>;
+
+  /// Default segment size.
+  static constexpr size_t segment_size = 2048;
+
+public:
+  type_list_buffer_stream() = default;
+
+  /// Creates a type_list_buffer_stream with an eagerly allocated first segment from \p p.
+  static expected<type_list_buffer_stream> make(byte_buffer_memory_resource& p) noexcept
+  {
+    auto seg_list = detail::shared_segment_list<view_t>::make(segment_size, p);
+    if (not seg_list) {
+      return make_unexpected(default_error_t{});
+    }
+    type_list_buffer_stream result;
+    result.buf = std::move(*seg_list);
+    return result;
+  }
+  type_list_buffer_stream(const type_list_buffer_stream& other) noexcept = default;
+  type_list_buffer_stream& operator=(const type_list_buffer_stream& other) noexcept
+  {
+    if (this != &other) {
+      buf = other.buf;
+    }
+    return *this;
+  }
+
+  type_list_buffer_stream(type_list_buffer_stream&& other) noexcept = default;
+
+  type_list_buffer_stream& operator=(type_list_buffer_stream&& other) noexcept
+  {
+    if (this != &other) {
+      buf = std::move(other.buf);
+    }
+    return *this;
+  }
+
+  /// Returns the total number of stored elements (O(number of segments)).
+  size_t size() const noexcept
+  {
+    size_t total = 0;
+    for (const view_t& seg : buf) {
+      total += seg.size();
+    }
+    return total;
+  }
+
+  bool empty() const noexcept { return buf.empty(); }
+
+  /// Returns the total number of record bytes used across all segments.
+  size_t byte_size() const noexcept
+  {
+    size_t total = 0;
+    for (const view_t& seg : buf) {
+      total += seg.byte_size();
+    }
+    return total;
+  }
+
+  /// Calls \p visitor once for every stored element in insertion order (const overload).
+  template <typename Visitor>
+  void for_each(Visitor&& visitor) const
+  {
+    for (const view_t& seg : buf) {
+      seg.for_each(visitor);
+    }
+  }
+
+  /// Calls \p visitor once for every stored element in insertion order (mutable overload).
+  template <typename Visitor>
+  void for_each(Visitor&& visitor)
+  {
+    for (view_t& seg : buf) {
+      seg.for_each(visitor);
+    }
+  }
+
+  /// Destroys all stored elements and resets the buffer to an empty state.
+  void clear() noexcept { buf.clear(); }
+
+  /// Appends a copy or move of \p val to the buffer.
+  /// \returns A pointer to the newly stored element, or \c nullptr on allocation failure.
+  template <typename T>
+  std::decay_t<T>* push(T&& val)
+  {
+    using U = std::decay_t<T>;
+    static_assert(type_list_helper::contains_v<U, Types...>,
+                  "push(): T is not present in this type_list_buffer_stream's type list");
+    return emplace<U>(std::forward<T>(val));
+  }
+
+  /// Constructs a \c T in-place at the end of the buffer.
+  /// \returns A pointer to the newly constructed element, or \c nullptr on allocation failure.
+  template <typename T, typename... Args>
+  T* emplace(Args&&... args)
+  {
+    static_assert(type_list_helper::contains_v<T, Types...>,
+                  "emplace(): T is not present in this type_list_buffer_stream's type list");
+    if (buf.empty() && !alloc_new_segment()) {
+      return nullptr;
+    }
+    T* obj = buf.tail()->template emplace<T>(std::forward<Args>(args)...);
+    if (obj != nullptr) {
+      return obj;
+    }
+    // Current segment is full; allocate a new one and retry.
+    if (!alloc_new_segment()) {
+      return nullptr;
+    }
+    return buf.tail()->template emplace<T>(std::forward<Args>(args)...);
+  }
+
+private:
+  /// Allocates a fresh segment, placement-constructs a \c view_t at its start, and appends it to \c buf.
+  bool alloc_new_segment() noexcept { return buf.append_segment(segment_size); }
+
+  detail::shared_segment_list<view_t> buf;
 };
 
 } // namespace ocudu
