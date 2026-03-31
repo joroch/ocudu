@@ -8,6 +8,7 @@
 #include "../cell/resource_grid.h"
 #include "../pdcch_scheduling/pdcch_resource_allocator.h"
 #include "../support/prbs_calculator.h"
+#include "ocudu/adt/circular_map.h"
 #include "ocudu/adt/mpmc_queue.h"
 #include "ocudu/ocudulog/ocudulog.h"
 #include "ocudu/ran/resource_allocation/rb_bitmap.h"
@@ -21,40 +22,27 @@ class scheduler_event_logger;
 class cell_metrics_handler;
 struct ul_crc_indication;
 
-/// Get MSG3 Delay.
-/// \param[in] pusch_td_res_alloc PUSCH-TimeDomainResourceAllocation.
-/// \param[in] pusch_scs SCS used by initial UL BWP.
-/// \return Msg3 delay in number of slots.
-unsigned get_msg3_delay(const pusch_time_domain_resource_allocation& pusch_td_res_alloc, subcarrier_spacing pusch_scs);
-
-/// \brief Computes the RA-RNTI based on PRACH parameters, as per TS 38.321, Section 5.1.3.
-/// \param[in] slot_index Index of the first slot of the PRACH occasion in a system frame. Values {0,...,79}.
-/// \param[in] symbol_index Index of the first OFDM symbol of the first PRACH occasion. Values {0,...,13}.
-/// \param[in] frequency_index Index of the PRACH occation in the frequency domain. Values {0,...,7}.
-/// \param[in] is_sul true is this is SUL carrier, false otherwise.
-/// \return the RA-RNRI, as per , as per TS 38.321, Section 5.1.3.
-uint16_t get_ra_rnti(unsigned slot_index, unsigned symbol_index, unsigned frequency_index, bool is_sul = false);
-
-/// Scheduler for PRACH occasions, RAR PDSCHs and Msg3 PUSCH grants.
+/// Scheduler for RAR PDSCHs and Msg3 PUSCH grants and handler of RACH indications.
 class ra_scheduler
 {
 public:
-  explicit ra_scheduler(const scheduler_ra_expert_config& sched_cfg_,
-                        const cell_configuration&         cfg_,
-                        pdcch_resource_allocator&         pdcch_sched_,
-                        scheduler_event_logger&           ev_logger_,
-                        cell_metrics_handler&             metrics_handler_);
+  explicit ra_scheduler(const cell_configuration& cfg_,
+                        pdcch_resource_allocator& pdcch_sched_,
+                        scheduler_event_logger&   ev_logger_,
+                        cell_metrics_handler&     metrics_handler_);
 
-  /// Enqueue RACH indication
-  /// \remark See TS 38.321, 5.1.3 - RAP transmission.
+  /// Enqueue RACH indication coming from lower layers.
+  /// \note Potentially called from a different executor than the cell scheduler executor.
   void handle_rach_indication(const rach_indication_message& msg);
 
-  /// Handle UL CRC directed at Msg3 HARQ.
+  /// Handle UL CRC ACKing/NACKing a Msg3 HARQ process.
+  /// \note Potentially called from a different executor than the cell scheduler executor.
   void handle_crc_indication(const ul_crc_indication& crc_ind);
 
   /// Allocate pending RARs + Msg3s
   void run_slot(cell_resource_allocator& res_alloc);
 
+  /// Halt any pending allocations and stop RA scheduler activity.
   void stop();
 
 private:
@@ -65,45 +53,40 @@ private:
     unsigned pdsch = 0;
     unsigned pusch = 0;
   };
-  struct pending_rar_t {
-    rnti_t                                                  ra_rnti = rnti_t::INVALID_RNTI;
-    slot_point                                              prach_slot_rx;
-    slot_point                                              last_sched_try_slot;
-    slot_interval                                           rar_window;
+  /// RAR grant pending to be scheduled.
+  struct pending_rar_alloc {
+    /// RA-RNTI generated for a given group of detected RACH preambles.
+    rnti_t ra_rnti = rnti_t::INVALID_RNTI;
+    /// Slot at which PRACH preambles were detected.
+    slot_point prach_slot_rx;
+    /// Last slot at which the scheduler attempted to allocated this RAR grant.
+    slot_point last_sched_try_slot;
+    /// Range of slots valid for RAR transmission.
+    slot_interval rar_window;
+    /// List of generated TC-RNTIs for each of the detected PRACH preambles.
     static_vector<rnti_t, MAX_PREAMBLES_PER_PRACH_OCCASION> tc_rntis;
-    pending_rar_failed_attempts_t                           failed_attempts;
+    /// Attempts at scheduling a RAR and associated Msg3 grants.
+    pending_rar_failed_attempts_t failed_attempts;
   };
   /// Msg3 grant pending to be scheduled.
-  struct pending_msg3_t {
+  struct pending_msg3_alloc {
     /// Detected PRACH Preamble associated to this Msg3 being scheduled.
     rach_indication_message::preamble preamble{};
     /// UL Harq used to schedule Msg3.
     /// Note: [TS 38.321, 5.4.2.1] "For UL transmission with UL grant in RA Response, HARQ process identifier 0 is
     /// used".
     unique_ue_harq_entity msg3_harq_ent;
-
-    bool busy() const { return not msg3_harq_ent.empty(); }
   };
   struct msg3_alloc_candidate {
     unsigned     pusch_td_res_index;
     crb_interval crbs;
   };
 
-  using rach_indication_queue = concurrent_queue<rach_indication_message,
-                                                 concurrent_queue_policy::lockfree_mpmc,
-                                                 concurrent_queue_wait_policy::non_blocking>;
-  using crc_indication_queue  = concurrent_queue<ul_crc_indication,
-                                                 concurrent_queue_policy::lockfree_mpmc,
-                                                 concurrent_queue_wait_policy::non_blocking>;
+  /// Queue type used to store pending RACH indications.
+  using rach_indication_queue = concurrent_queue<rach_indication_message, concurrent_queue_policy::lockfree_mpmc>;
 
-  const bwp_configuration&   get_dl_bwp_cfg() const { return cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params; }
-  const pdsch_config_common& get_pdsch_cfg() const { return cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common; }
-  const bwp_configuration&   get_ul_bwp_cfg() const { return cell_cfg.params.ul_cfg_common.init_ul_bwp.generic_params; }
-  const pusch_config_common& get_pusch_cfg() const
-  {
-    return *cell_cfg.params.ul_cfg_common.init_ul_bwp.pusch_cfg_common;
-  }
-  const rach_config_common& get_rach_cfg() const { return *cell_cfg.params.ul_cfg_common.init_ul_bwp.rach_cfg_common; }
+  /// Queue type used to store pending CRC indications.
+  using crc_indication_queue = concurrent_queue<ul_crc_indication, concurrent_queue_policy::lockfree_mpmc>;
 
   /// Pre-compute invariant fields of RAR PDUs (PDSCH, DCI, etc.) for faster scheduling.
   void precompute_rar_fields();
@@ -115,8 +98,9 @@ private:
 
   void handle_pending_crc_indications_impl(cell_resource_allocator& res_alloc);
 
-  void
-  log_postponed_rar(const pending_rar_t& rar, const char* cause_str, std::optional<slot_point> sl = std::nullopt) const;
+  void log_postponed_rar(const pending_rar_alloc&  rar,
+                         const char*               cause_str,
+                         std::optional<slot_point> sl = std::nullopt) const;
 
   /// Delete RARs that are out of the RAR window.
   void update_pending_rars(slot_point pdcch_slot);
@@ -129,7 +113,7 @@ private:
 
   /// Find and allocate DL and UL resources for pending RAR and associated Msg3 grants.
   /// \return The number of allocated Msg3 grants.
-  unsigned schedule_rar(pending_rar_t& rar, cell_resource_allocator& res_alloc, slot_point pdcch_slot);
+  unsigned schedule_rar(pending_rar_alloc& rar, cell_resource_allocator& res_alloc, slot_point pdcch_slot);
 
   /// Schedule RAR grant and associated Msg3 grants in the provided scheduling resources.
   /// \param res_alloc Cell Resource Allocator.
@@ -139,14 +123,14 @@ private:
   /// \param pdsch_time_res_index Index of PDSCH time domain resource.
   /// \param msg3_candidates List of Msg3s with respective resource information (e.g. RBs and symbols) to allocate.
   void fill_rar_grant(cell_resource_allocator&         res_alloc,
-                      const pending_rar_t&             pending_rar,
+                      const pending_rar_alloc&         pending_rar,
                       slot_point                       pdcch_slot,
                       crb_interval                     rar_crbs,
                       unsigned                         pdsch_time_res_index,
                       span<const msg3_alloc_candidate> msg3_candidates);
 
   /// Schedule retransmission of Msg3.
-  void schedule_msg3_retx(cell_resource_allocator& res_alloc, pending_msg3_t& msg3_ctx) const;
+  void schedule_msg3_retx(cell_resource_allocator& res_alloc, pending_msg3_alloc& msg3_ctx) const;
 
   sch_prbs_tbs get_nof_pdsch_prbs_required(unsigned time_res_idx, unsigned nof_ul_grants) const;
 
@@ -154,19 +138,25 @@ private:
   // find PDSCH space for RAR.
   static constexpr unsigned max_dl_slots_ahead_sched = 8U;
 
-  // Args.
+  // -- args.
+
   const scheduler_ra_expert_config& sched_cfg;
   const cell_configuration&         cell_cfg;
   pdcch_resource_allocator&         pdcch_sch;
   scheduler_event_logger&           ev_logger;
   cell_metrics_handler&             metrics_hdlr;
+  ocudulog::basic_logger&           logger = ocudulog::fetch_basic_logger("SCHED");
 
-  // Derived from args.
-  ocudulog::basic_logger& logger = ocudulog::fetch_basic_logger("SCHED");
+  // -- Derived from args.
+
   /// RA window size in number of slots.
   const unsigned ra_win_nof_slots;
   crb_interval   ra_crb_lims;
   const bool     prach_format_is_long;
+  /// Duration of a single PRACH occasion in slots.
+  const unsigned prach_occasion_duration_slots;
+  /// Bitmap of CRBs that might be used for PUCCH transmissions, to avoid scheduling MSG3-PUSCH over them.
+  crb_bitmap pucch_crbs;
 
   /// Pre-cached information related to RAR for a given PDSCH time resource.
   struct rar_param_cached_data {
@@ -187,27 +177,23 @@ private:
   std::vector<msg3_param_cached_data> msg3_data;
   sch_mcs_description                 msg3_mcs_config;
 
-  // Variables.
-  cell_harq_manager     msg3_harqs;
+  // -- State.
+
+  // Currently managed HARQ processes for Random Access in this cell.
+  cell_harq_manager msg3_harqs;
+
+  // RACH indications pending to be processed.
   rach_indication_queue pending_rachs;
-  crc_indication_queue  pending_crcs;
 
-  /// The maximum number of pending RARs is given by the maximum number of PRACH occasions that can accumulate from a
-  /// given UL slot (at which the PRACH is received) until the expiration of the RAR window. The worst case is when:
-  /// (i) the PRACH is received instantaneously by the scheduler, and the PRACH slot is the farthest possible from the
-  ///     beginning of the start of the RAR window.
-  /// (ii) RAR window is min(80 slots, 10 ms).
-  /// (iii) there are PRACHs occasions in every UL slot.
-  /// (iv) there are no suitable DL slots for scheduling the RARs (pending RARs will be in the vector until the RAR
-  ///      window expires).
-  /// [Implementation-defined] Assume 80 slots RAR window + TDD 2D1S7D with 30kHz SCS slots and
-  /// MAX_PRACH_OCCASIONS_PER_SLOT (the actual number would depend on the PRACH configuration index).
-  static constexpr size_t                                                             MAX_PENDING_RARS_SLOTS = 90U;
-  static_vector<pending_rar_t, MAX_PRACH_OCCASIONS_PER_SLOT * MAX_PENDING_RARS_SLOTS> pending_rars;
-  std::vector<pending_msg3_t>                                                         pending_msg3s;
+  // CRC indications pending to be processed.
+  crc_indication_queue pending_crcs;
 
-  // Bitmap of CRBs that might be used for PUCCH transmissions, to avoid scheduling MSG3-PUSCH over them.
-  crb_bitmap pucch_crbs;
+  // List of pending RARs to be scheduled.
+  std::vector<pending_rar_alloc> pending_rars;
+
+  // Map of pending Msg3 grants to be scheduled or waiting for a positive HARQ-ACK.
+  // Keyed by ring_idx = to_value(tc_rnti) % SIZE.
+  circular_map<uint16_t, pending_msg3_alloc> pending_msg3s;
 };
 
 } // namespace ocudu
