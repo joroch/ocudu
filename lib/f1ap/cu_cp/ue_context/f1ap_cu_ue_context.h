@@ -7,7 +7,7 @@
 #include "f1ap_cu_ue_transaction_manager.h"
 #include "f1ap_ue_logger.h"
 #include "ue_ul_bearer_manager.h"
-#include "ocudu/f1ap/cu_cp/f1ap_cu.h"
+#include "ocudu/f1ap/cu_cp/f1ap_rrc_msg_transfer_handling.h"
 #include "ocudu/f1ap/f1ap_message_notifier.h"
 #include "ocudu/f1ap/f1ap_ue_id_types.h"
 #include "ocudu/support/async/eager_async_task.h"
