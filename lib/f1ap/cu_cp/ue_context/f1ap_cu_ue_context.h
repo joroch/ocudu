@@ -10,8 +10,9 @@
 #include "ocudu/f1ap/cu_cp/f1ap_cu.h"
 #include "ocudu/f1ap/f1ap_message_notifier.h"
 #include "ocudu/f1ap/f1ap_ue_id_types.h"
+#include "ocudu/support/async/eager_async_task.h"
 #include "ocudu/support/async/manual_event.h"
-#include <unordered_map>
+#include <map>
 
 namespace ocudu::ocucp {
 
@@ -186,6 +187,14 @@ public:
       ue_index_to_ue_f1ap_id.erase(ues.at(cu_ue_id).ue_ids.ue_index);
     }
 
+    // Remove pending release task if it exists.
+    if (ue_release_tasks.find(cu_ue_id) != ue_release_tasks.end() && !ue_release_tasks.at(cu_ue_id).ready()) {
+      // Stop ongoing release procedure if it exists, and wait for completion.
+      ues.at(cu_ue_id).ev_mng.context_release_complete.stop();
+      ue_release_tasks.at(cu_ue_id).await_ready();
+      ue_release_tasks.erase(cu_ue_id);
+    }
+
     logger.debug("{}cu_ue={}: Removing F1AP UE context",
                  ues.at(cu_ue_id).ue_ids.ue_index == ue_index_t::invalid
                      ? ""
@@ -277,6 +286,11 @@ public:
     return gnb_cu_ue_f1ap_id_t::invalid;
   }
 
+  std::map<gnb_cu_ue_f1ap_id_t, eager_async_task<gnb_cu_ue_f1ap_id_t>>& get_ue_release_tasks()
+  {
+    return ue_release_tasks;
+  }
+
   std::unordered_map<gnb_cu_ue_f1ap_id_t, f1ap_ue_context>::iterator       begin() { return ues.begin(); }
   std::unordered_map<gnb_cu_ue_f1ap_id_t, f1ap_ue_context>::const_iterator begin() const { return ues.begin(); }
   std::unordered_map<gnb_cu_ue_f1ap_id_t, f1ap_ue_context>::iterator       end() { return ues.end(); }
@@ -303,6 +317,8 @@ private:
   // Note: Given that UEs will self-remove from the map, we don't want to destructor to clear the lookups beforehand.
   std::unordered_map<ue_index_t, gnb_cu_ue_f1ap_id_t>      ue_index_to_ue_f1ap_id; // indexed by ue_index
   std::unordered_map<gnb_cu_ue_f1ap_id_t, f1ap_ue_context> ues;                    // indexed by gnb_cu_ue_f1ap_id
+
+  std::map<gnb_cu_ue_f1ap_id_t, eager_async_task<gnb_cu_ue_f1ap_id_t>> ue_release_tasks;
 };
 
 } // namespace ocudu::ocucp
