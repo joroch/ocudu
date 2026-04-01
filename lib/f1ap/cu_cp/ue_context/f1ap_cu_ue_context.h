@@ -21,7 +21,7 @@ struct f1ap_ue_context {
   /// Whether the release procedure has been started for this UE context.
   bool marked_for_release = false;
   /// Event to notify all pending release callers when release completes. Stores the result.
-  manual_event<ue_index_t> release_complete_event;
+  manual_event<gnb_cu_ue_f1ap_id_t> release_complete_event;
   /// Whether the old gNB-DU UE F1AP UE ID IE needs to be notified back to the DU, due to reestablishment.
   std::optional<gnb_du_ue_f1ap_id_t> pending_old_ue_id;
   f1ap_ue_transaction_manager        ev_mng;

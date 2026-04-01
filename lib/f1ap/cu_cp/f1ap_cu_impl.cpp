@@ -85,7 +85,17 @@ async_task<ue_index_t> f1ap_cu_impl::handle_ue_context_release_command(const f1a
     });
   }
 
-  return launch_async<ue_context_release_procedure>(cfg, msg, ue_ctxt_list[msg.ue_index], tx_pdu_notifier);
+  return launch_async(
+      [this, msg, resp = gnb_cu_ue_f1ap_id_t::invalid](coro_context<async_task<ue_index_t>>& ctx) mutable {
+        CORO_BEGIN(ctx);
+        CORO_AWAIT_VALUE(
+            resp, launch_async<ue_context_release_procedure>(cfg, msg, ue_ctxt_list[msg.ue_index], tx_pdu_notifier));
+        if (resp == gnb_cu_ue_f1ap_id_t::invalid) {
+          CORO_EARLY_RETURN(ue_index_t::invalid);
+        }
+
+        CORO_RETURN(msg.ue_index);
+      });
 }
 
 async_task<f1ap_ue_context_modification_response>
