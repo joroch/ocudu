@@ -106,6 +106,18 @@ constexpr uint8_t to_number(security_direction direction)
 enum class integrity_enabled { off = 0, on = 1 };
 enum class ciphering_enabled { off = 0, on = 1 };
 
+/// Security state.
+/// Not enabled: No security applied.
+/// Partially enabled: Integrity protection is applied, but ciphering is not yet applied.
+///                    This is used during the security mode command procedure until the successful reception of the
+///                    security mode complete.
+/// Fully enabled: Both integrity protection and ciphering are applied.
+enum class security_state {
+  not_enabled       = 0,
+  partially_enabled = 1,
+  fully_enabled     = 2,
+};
+
 using sec_mac = std::array<uint8_t, sec_mac_len>;
 
 using sec_key     = std::array<uint8_t, sec_key_len>;
@@ -186,6 +198,7 @@ struct security_context {
   security::supported_algorithms supported_enc_algos;
   sec_selected_algos             sel_algos;
   sec_as_keys                    as_keys;
+  security_state                 state = security_state::not_enabled;
 
   security_context() = default;
 
@@ -195,7 +208,8 @@ struct security_context {
     supported_int_algos(sec_ctxt.supported_int_algos),
     supported_enc_algos(sec_ctxt.supported_enc_algos),
     sel_algos(sec_ctxt.sel_algos),
-    as_keys(sec_ctxt.as_keys)
+    as_keys(sec_ctxt.as_keys),
+    state(sec_ctxt.state)
   {
   }
 
@@ -210,6 +224,7 @@ struct security_context {
     supported_enc_algos = sec_ctxt.supported_enc_algos;
     sel_algos           = sec_ctxt.sel_algos;
     as_keys             = sec_ctxt.as_keys;
+    state               = sec_ctxt.state;
     return *this;
   }
 
@@ -250,32 +265,29 @@ constexpr void zero_tailing_bits(uint8_t& tail_byte, uint8_t length_bits)
 /// Ref: TS 33.220 Sec. B.2.
 void generic_kdf(sec_key&                   key_out,
                  const sec_key&             key_in,
-                 const fc_value             fc,
+                 fc_value                   fc,
                  const span<const uint8_t>& p0,
                  const span<const uint8_t>& p1);
 
 /// Algorithm key derivation function (RRC).
 /// Ref: TS 33.501 Sec. A.8.
-void generate_k_rrc(sec_key&                  k_rrc_enc,
-                    sec_key&                  k_rrc_int,
-                    const sec_key&            k_gnb,
-                    const ciphering_algorithm enc_alg_id,
-                    const integrity_algorithm int_alg_id);
+void generate_k_rrc(sec_key&            k_rrc_enc,
+                    sec_key&            k_rrc_int,
+                    const sec_key&      k_gnb,
+                    ciphering_algorithm enc_alg_id,
+                    integrity_algorithm int_alg_id);
 
 /// Algorithm key derivation function (UP).
 /// Ref: TS 33.501 Sec. A.8.
-void generate_k_up(sec_key&                  k_up_enc,
-                   sec_key&                  k_up_int,
-                   const sec_key&            k_gnb,
-                   const ciphering_algorithm enc_alg_id,
-                   const integrity_algorithm int_alg_id);
+void generate_k_up(sec_key&            k_up_enc,
+                   sec_key&            k_up_int,
+                   const sec_key&      k_gnb,
+                   ciphering_algorithm enc_alg_id,
+                   integrity_algorithm int_alg_id);
 
 /// K_NG-RAN* derivation function for target gNB.
 /// Ref: TS 33.501 Sec. A.11.
-void generate_k_ng_ran_star(sec_key&       k_star,
-                            const sec_key& k,
-                            const pci_t&   target_pci_,
-                            const uint32_t target_ssb_arfcn_);
+void generate_k_ng_ran_star(sec_key& k_star, const sec_key& k, const pci_t& target_pci_, uint32_t target_ssb_arfcn_);
 
 /// Truncate 256-bit key to 128-bit key using the least significant bits.
 /// Ref: TS 33.501 Sec. A.8.
