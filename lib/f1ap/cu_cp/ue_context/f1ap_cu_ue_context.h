@@ -120,7 +120,7 @@ public:
     return it != ue_index_to_ue_f1ap_id.end() ? &ues.at(it->second) : nullptr;
   }
 
-  f1ap_ue_context& add_ue(std::optional<ue_index_t> ue_index, gnb_cu_ue_f1ap_id_t cu_ue_id)
+  f1ap_ue_context& add_ue(gnb_cu_ue_f1ap_id_t cu_ue_id, std::optional<ue_index_t> ue_index)
   {
     ocudu_assert(cu_ue_id != gnb_cu_ue_f1ap_id_t::invalid, "Invalid cu_ue={}", fmt::underlying(cu_ue_id));
 

@@ -367,8 +367,9 @@ void f1ap_cu_impl::handle_initial_ul_rrc_message(const asn1::f1ap::init_ul_rrc_m
 
   // Reject the UE if the creation was not successful.
   if (not resp.has_value()) {
-    // Create temporary UE context.
-    ue_ctxt_list.add_ue(std::nullopt, cu_ue_f1ap_id);
+    // Create UE context.
+    // Note: The context will be removed after the UE context release procedure has completed.
+    ue_ctxt_list.add_ue(cu_ue_f1ap_id, std::nullopt);
     ue_ctxt_list.add_du_ue_f1ap_id(cu_ue_f1ap_id, du_ue_id);
 
     f1ap_ue_context_release_command ue_context_release_cmd;
@@ -428,7 +429,7 @@ void f1ap_cu_impl::handle_initial_ul_rrc_message(const asn1::f1ap::init_ul_rrc_m
     ue_ctxt.logger.log_info("Updated resumed UE context with new DU UE F1AP ID");
   } else {
     // Create UE context and store it.
-    f1ap_ue_context& ue_ctxt = ue_ctxt_list.add_ue(resp->ue_index, cu_ue_f1ap_id);
+    f1ap_ue_context& ue_ctxt = ue_ctxt_list.add_ue(cu_ue_f1ap_id, resp->ue_index);
     ue_ctxt_list.add_du_ue_f1ap_id(cu_ue_f1ap_id, du_ue_id);
     ue_ctxt_list.add_srb0_rrc_notifier(resp->ue_index, resp->f1ap_srb0_notifier);
     ue_ctxt_list.add_srb1_rrc_notifier(resp->ue_index, resp->f1ap_srb1_notifier);
