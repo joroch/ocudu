@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "sched_bwp_config.h"
+#include "sched_bwp_res_config.h"
+#include "ocudu/adt/slotted_vector.h"
 #include "ocudu/ran/band_helper.h"
 #include "ocudu/ran/subcarrier_spacing.h"
-#include "ocudu/scheduler/config/cell_bwp_config.h"
 #include "ocudu/scheduler/config/ran_cell_config.h"
 #include "ocudu/scheduler/config/scheduler_expert_config.h"
 #include "ocudu/scheduler/scheduler_configurator.h"
@@ -50,26 +50,13 @@ public:
   const std::vector<nzp_csi_rs_resource> nzp_csi_rs_list;
   /// List of dl-DataToUL-ACK values sent to UE in its dedicated configuration.
   const static_vector<uint8_t, 8> dl_data_to_ul_ack;
-  const ssb_pattern_case          ssb_case;
-  const uint8_t                   L_max;
-  /// Parameters for the initial BWP that are common for all UEs.
-  const cell_bwp_config init_bwp;
-  /// BWP config resources used when UEs have no dedicated config.
-  const sched_bwp_config init_bwp_res;
   /// List of BWP config resources handled by this cell.
-  slotted_id_vector<bwp_id_t, sched_bwp_config> ded_bwp_res;
+  slotted_id_vector<bwp_id_t, sched_bwp_res_config> bwp_res;
 
   ///@}
-
-  /// @name NTN parameters.
-  ///@{
 
   /// Cell-specific K-offset in slots defined by the cell subcarrier spacing.
   unsigned ntn_cs_koffset;
-  /// UL HARQ Mode B.
-  bool ul_harq_mode_b;
-
-  ///@}
 
   subcarrier_spacing scs_common() const { return params.dl_cfg_common.init_dl_bwp.generic_params.scs; }
 

@@ -52,7 +52,7 @@ void search_space_info::update_pdcch_candidates(
 void search_space_info::update_pdsch_time_domain_list(const ue_cell_configuration& ue_cell_cfg)
 {
   pdsch_time_domain_list = get_c_rnti_pdsch_time_domain_list(*cfg,
-                                                             *bwp->dl_common.value(),
+                                                             *bwp->dl_common,
                                                              bwp->dl_ded.has_value() ? &*bwp->dl_ded.value() : nullptr,
                                                              ue_cell_cfg.cell_cfg_common.params.dmrs_typeA_pos);
 
@@ -84,7 +84,7 @@ void search_space_info::update_pdsch_time_domain_list(const ue_cell_configuratio
 void search_space_info::update_pdsch_mappings(vrb_to_prb::mapping_type interleaving_bundle_size)
 {
   const dci_dl_format               dci_fmt       = get_dl_dci_format();
-  const bwp_downlink_common&        active_dl_bwp = *bwp->dl_common.value();
+  const bwp_downlink_common&        active_dl_bwp = *bwp->dl_common;
   const search_space_configuration& ss_cfg        = *cfg;
 
   if (dci_fmt == dci_dl_format::f1_0 and ss_cfg.is_common_search_space()) {
@@ -111,7 +111,7 @@ static bool is_dci_format_monitored_in_ue_ss(const ue_cell_configuration& ue_cel
                                       ? search_space_configuration::ue_specific_dci_format::f0_0_and_f1_0
                                       : search_space_configuration::ue_specific_dci_format::f0_1_and_1_1;
   return std::any_of(
-      bwp_search_spaces.begin(), bwp_search_spaces.end(), [dci_format](const search_space_config_ptr& ss) {
+      bwp_search_spaces.begin(), bwp_search_spaces.end(), [dci_format](const search_space_configuration* ss) {
         return (not ss->is_common_search_space()) and (std::get<search_space_configuration::ue_specific_dci_format>(
                                                            ss->get_monitored_dci_formats()) == dci_format);
       });
@@ -130,8 +130,8 @@ static dci_size_config get_dci_size_config(const ue_cell_configuration& ue_cell_
   const search_space_info&                 ss_info                    = ue_cell_cfg.search_space(ss_id);
   const bwp_config&                        init_bwp                   = ue_cell_cfg.init_bwp();
   const bwp_config&                        active_bwp                 = *ss_info.bwp;
-  const bwp_downlink_common&               init_dl_bwp                = *init_bwp.dl_common.value();
-  const bwp_downlink_common&               active_dl_bwp_cmn          = *active_bwp.dl_common.value();
+  const bwp_downlink_common&               init_dl_bwp                = *init_bwp.dl_common;
+  const bwp_downlink_common&               active_dl_bwp_cmn          = *active_bwp.dl_common;
   const bwp_configuration&                 active_dl_bwp              = active_dl_bwp_cmn.generic_params;
   const bwp_uplink_common&                 init_ul_bwp                = *init_bwp.ul_common.value();
   const bwp_configuration&                 active_ul_bwp              = active_bwp.ul_common->value().generic_params;
@@ -462,15 +462,15 @@ static void apply_pdcch_candidate_monitoring_limits(slotted_array<search_space_i
   static constexpr unsigned maximum_nof_cces =
       pdcch_constants::MAX_NOF_FREQ_RESOURCES * pdcch_constants::MAX_CORESET_DURATION;
 
-  const unsigned max_pdcch_candidates = max_nof_monitored_pdcch_candidates(bwp.dl_common->value().generic_params.scs);
+  const unsigned max_pdcch_candidates = max_nof_monitored_pdcch_candidates(bwp.dl_common->generic_params.scs);
   const unsigned max_non_overlapped_cces =
-      max_non_overlapped_cces_per_slot[to_numerology_value(bwp.dl_common->value().generic_params.scs)];
+      max_non_overlapped_cces_per_slot[to_numerology_value(bwp.dl_common->generic_params.scs)];
 
   const unsigned ss_period_lcm = candidates.begin()->size();
   for (unsigned slot_index = 0; slot_index != ss_period_lcm; ++slot_index) {
     // Limit number of PDCCH candidates for the slot.
     unsigned candidate_count = 0;
-    for (const search_space_config_ptr& ss : bwp.search_spaces) {
+    for (const search_space_configuration* ss : bwp.search_spaces) {
       for (unsigned i = 0; i != NOF_AGGREGATION_LEVELS; ++i) {
         pdcch_candidate_list& ss_candidates = candidates[(*ss).get_id()][slot_index][i];
 
@@ -537,13 +537,13 @@ static void generate_crnti_monitored_pdcch_candidates(slotted_array<search_space
                                                       rnti_t                                                   crnti)
 {
   const unsigned slots_per_frame =
-      NOF_SUBFRAMES_PER_FRAME * get_nof_slots_per_subframe(bwp_cfg.dl_common->value().generic_params.scs);
+      NOF_SUBFRAMES_PER_FRAME * get_nof_slots_per_subframe(bwp_cfg.dl_common->generic_params.scs);
 
   // We compute the candidates for all search spaces, considering their slot monitoring periodicity.
   unsigned max_slot_periodicity = 0;
   {
     static_vector<unsigned, MAX_NOF_SEARCH_SPACE_PER_BWP> ss_periods;
-    for (const search_space_config_ptr& ss : bwp_cfg.search_spaces) {
+    for (const search_space_configuration* ss : bwp_cfg.search_spaces) {
       ss_periods.push_back(ss->get_monitoring_slot_periodicity());
     }
     max_slot_periodicity = lcm<unsigned>(ss_periods.begin(), ss_periods.end());
@@ -553,13 +553,13 @@ static void generate_crnti_monitored_pdcch_candidates(slotted_array<search_space
   frame_pdcch_candidate_list candidates;
 
   // Compute PDCCH candidates for each Search Space, without accounting for special monitoring rules.
-  for (const search_space_config_ptr& ss : bwp_cfg.search_spaces) {
+  for (const search_space_configuration* ss : bwp_cfg.search_spaces) {
     candidates.emplace(ss->get_id());
     auto& ss_candidates = candidates[ss->get_id()];
     ss_candidates.resize(max_slot_periodicity);
 
     for (unsigned slot_count = 0, slot_count_end = ss_candidates.size(); slot_count != slot_count_end; ++slot_count) {
-      const slot_point slot_mod{bwp_cfg.dl_common->value().generic_params.scs, slot_count};
+      const slot_point slot_mod{bwp_cfg.dl_common->generic_params.scs, slot_count};
 
       // If the SearchSpace is not monitored in this slot, skip its candidate generation.
       if (not pdcch_helper::is_pdcch_monitoring_active(slot_mod, *ss)) {
@@ -572,14 +572,14 @@ static void generate_crnti_monitored_pdcch_candidates(slotted_array<search_space
         if (ss->is_common_search_space()) {
           ss_candidates[slot_count][i] =
               pdcch_candidates_common_ss_get_lowest_cce(pdcch_candidates_common_ss_configuration{
-                  aggr_lvl, ss->get_nof_candidates()[i], bwp_cfg.coresets[ss->get_coreset_id()]->get_nof_cces()});
+                  aggr_lvl, ss->get_nof_candidates()[i], bwp_cfg.coresets[ss->get_coreset_id()]->cfg().get_nof_cces()});
           continue;
         }
 
         ss_candidates[slot_count][i] = pdcch_candidates_ue_ss_get_lowest_cce(
             pdcch_candidates_ue_ss_configuration{aggr_lvl,
                                                  ss->get_nof_candidates()[i],
-                                                 bwp_cfg.coresets[ss->get_coreset_id()]->get_nof_cces(),
+                                                 bwp_cfg.coresets[ss->get_coreset_id()]->cfg().get_nof_cces(),
                                                  ss->get_coreset_id(),
                                                  crnti,
                                                  slot_mod.slot_index()});
@@ -594,7 +594,7 @@ static void generate_crnti_monitored_pdcch_candidates(slotted_array<search_space
   apply_pdcch_candidate_monitoring_limits(ss_list, candidates, bwp_cfg);
 
   // Save resulting candidates for this slot.
-  for (const search_space_config_ptr& ss : bwp_cfg.search_spaces) {
+  for (const search_space_configuration* ss : bwp_cfg.search_spaces) {
     ss_list[ss->get_id()].update_pdcch_candidates(candidates[ss->get_id()]);
   }
 }
@@ -657,8 +657,8 @@ void ue_cell_configuration::reconfigure(const ue_cell_config_ptr&             ue
   configure_bwp_common_cfg(to_bwp_id(0), cell_cfg_common.params.dl_cfg_common.init_dl_bwp);
   configure_bwp_ded_cfg(to_bwp_id(0), *cell_ded->bwps[to_bwp_id(0)]->dl_ded.value());
   for (const bwp_config_ptr& bwp : cell_ded->bwps) {
-    if (bwp->dl_common.has_value()) {
-      configure_bwp_common_cfg(bwp->bwp_id, *bwp->dl_common.value());
+    if (bwp->dl_common != nullptr) {
+      configure_bwp_common_cfg(bwp->bwp_id, *bwp->dl_common);
     }
     if (bwp->dl_ded.has_value()) {
       configure_bwp_ded_cfg(bwp->bwp_id, *bwp->dl_ded.value());
@@ -702,12 +702,12 @@ void ue_cell_configuration::configure_bwp_common_cfg(bwp_id_t bwpid, const bwp_d
     search_space_info& ss = search_spaces[ss_cfg.get_id()];
 
     ss.cfg     = &ss_cfg;
-    ss.coreset = &cell_cfg_common.ded_bwp_res[bwpid].coresets()[ss_cfg.get_coreset_id()];
+    ss.coreset = &cell_cfg_common.bwp_res[bwpid].coresets()[ss_cfg.get_coreset_id()];
     ss.bwp     = cell_ded->bwps[bwpid];
     ss.update_pdsch_time_domain_list(*this);
     ss.dl_crb_lims = pdsch_helper::get_ra_crb_limits(ss.get_dl_dci_format(),
                                                      cell_cfg_common.params.dl_cfg_common.init_dl_bwp,
-                                                     *ss.bwp->dl_common.value(),
+                                                     *ss.bwp->dl_common,
                                                      *ss.cfg,
                                                      ss.coreset->cfg());
     ss.update_pdsch_mappings(cell_cfg_common.expert_cfg.ue.pdsch_interleaving_bundle_size);
@@ -716,8 +716,7 @@ void ue_cell_configuration::configure_bwp_common_cfg(bwp_id_t bwpid, const bwp_d
 
 void ue_cell_configuration::configure_bwp_common_cfg(bwp_id_t bwpid, const bwp_uplink_common& bwp_ul_common)
 {
-  for (const search_space_configuration& ss_cfg :
-       cell_ded->bwps[bwpid]->dl_common->value().pdcch_common.search_spaces) {
+  for (const search_space_configuration& ss_cfg : cell_ded->bwps[bwpid]->dl_common->pdcch_common.search_spaces) {
     search_space_info& ss = search_spaces[ss_cfg.get_id()];
     ss.pusch_time_domain_list =
         get_c_rnti_pusch_time_domain_list(ss_cfg, *cell_ded->bwps[bwpid]->ul_common.value(), nullptr);
@@ -744,12 +743,12 @@ void ue_cell_configuration::configure_bwp_ded_cfg(bwp_id_t bwpid, const bwp_down
     search_space_info& ss = search_spaces[ss_cfg.get_id()];
 
     ss.cfg     = &ss_cfg;
-    ss.coreset = &cell_cfg_common.ded_bwp_res[bwpid].coresets()[ss_cfg.get_coreset_id()];
+    ss.coreset = &cell_cfg_common.bwp_res[bwpid].coresets()[ss_cfg.get_coreset_id()];
     ss.bwp     = cell_ded->bwps[bwpid];
     ss.update_pdsch_time_domain_list(*this);
     ss.dl_crb_lims = pdsch_helper::get_ra_crb_limits(ss.get_dl_dci_format(),
                                                      cell_cfg_common.params.dl_cfg_common.init_dl_bwp,
-                                                     *ss.bwp->dl_common.value(),
+                                                     *ss.bwp->dl_common,
                                                      *ss.cfg,
                                                      ss.coreset->cfg());
     ss.update_pdsch_mappings(cell_cfg_common.expert_cfg.ue.pdsch_interleaving_bundle_size);
@@ -758,6 +757,9 @@ void ue_cell_configuration::configure_bwp_ded_cfg(bwp_id_t bwpid, const bwp_down
 
 void ue_cell_configuration::configure_bwp_ded_cfg(bwp_id_t bwpid, const bwp_uplink_dedicated& bwp_ul_ded)
 {
+  if (not cell_ded->bwps[bwpid]->dl_ded.value()->pdcch_cfg.has_value()) {
+    return;
+  }
   for (const search_space_configuration& ss_cfg : cell_ded->bwps[bwpid]->dl_ded.value()->pdcch_cfg->search_spaces) {
     search_space_info& ss     = search_spaces[ss_cfg.get_id()];
     ss.bwp                    = cell_ded->bwps[bwpid];

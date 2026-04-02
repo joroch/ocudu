@@ -6,7 +6,7 @@
 #include "ocudu/ran/du_types.h"
 #include "ocudu/ran/ssb/ssb_mapping.h"
 #include "ocudu/scheduler/config/bwp_builder_params.h"
-#include "ocudu/scheduler/config/cell_bwp_config.h"
+#include "ocudu/scheduler/config/cell_bwp_res_config.h"
 #include "ocudu/scheduler/config/csi_helper.h"
 #include "ocudu/scheduler/config/pucch_resource_builder_params.h"
 #include "ocudu/scheduler/config/pucch_resource_generator.h"
@@ -189,7 +189,7 @@ static pusch_serving_cell_config make_default_pusch_serving_cell_config(const pu
         *pusch_params.cbg_tx);
   }
   cfg.x_ov_head     = pusch_params.x_ov_head;
-  cfg.nof_harq_proc = static_cast<pusch_serving_cell_config::nof_harq_proc_for_pusch>(pusch_params.nof_harq_procs);
+  cfg.nof_harq_proc = static_cast<pusch_serving_cell_config::nof_harq_proc_for_pusch>(pusch_params.max_harq_procs);
   cfg.ul_harq_mode  = pusch_params.ul_harq_mode;
   return cfg;
 }
@@ -253,9 +253,9 @@ static srs_config make_default_srs_config(const ran_cell_config& cell_cfg, const
   return cfg;
 }
 
-static uplink_config make_default_ue_uplink_config(const ran_cell_config& cell_cfg,
-                                                   const cell_bwp_config& cell_bwp_cfg,
-                                                   const ue_bwp_config&   ue_bwp_cfg)
+static uplink_config make_default_ue_uplink_config(const ran_cell_config&     cell_cfg,
+                                                   const cell_bwp_res_config& cell_bwp_cfg,
+                                                   const ue_bwp_config&       ue_bwp_cfg)
 {
   // > UL Config.
   uplink_config ul_config{};
@@ -278,7 +278,7 @@ static uplink_config make_default_ue_uplink_config(const ran_cell_config& cell_c
 static pdsch_serving_cell_config make_default_pdsch_serving_cell_config(const pdsch_builder_params& pdsch_params)
 {
   pdsch_serving_cell_config cfg;
-  cfg.nof_harq_proc   = static_cast<pdsch_serving_cell_config::nof_harq_proc_for_pdsch>(pdsch_params.nof_harq_procs);
+  cfg.nof_harq_proc   = static_cast<pdsch_serving_cell_config::nof_harq_proc_for_pdsch>(pdsch_params.max_harq_procs);
   cfg.max_mimo_layers = 1;
   cfg.dl_harq_feedback_disabled = pdsch_params.dl_harq_feedback_disabled;
 
@@ -301,7 +301,7 @@ static serving_cell_config make_default_serving_cell_config(const ran_cell_confi
   // > RadioLinkMonitoringConfig.
   serv_cell.init_dl_bwp.rlm_cfg = make_default_rlm_config(cell_cfg);
 
-  const auto cell_bwp_cfg = make_cell_bwp_config(cell_cfg);
+  const auto cell_bwp_cfg = make_cell_bwp_res_config(cell_cfg);
 
   // > UL Config.
   serv_cell.ul_config.emplace(make_default_ue_uplink_config(cell_cfg, cell_bwp_cfg, ue_bwp_cfg));
