@@ -14,6 +14,7 @@
 #include "ocudu/ran/band_helper.h"
 #include "ocudu/ran/pdcch/dci_packing.h"
 #include "ocudu/ran/prach/prach_configuration.h"
+#include "ocudu/ran/prach/prach_cyclic_shifts.h"
 #include "ocudu/ran/prach/ra_helper.h"
 #include "ocudu/ran/pucch/pucch_constants.h"
 #include "ocudu/ran/resource_allocation/ofdm_symbol_range.h"
@@ -32,7 +33,7 @@ void ocudu::assert_tdd_pattern_consistency(const cell_configuration& cell_cfg,
     return;
   }
   ofdm_symbol_range dl_symbols = get_active_tdd_dl_symbols(
-      *cell_cfg.params.tdd_cfg, sl_tx.to_uint(), cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params.cp);
+      *cell_cfg.params.tdd_cfg, sl_tx.slot_index(), cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params.cp);
   ASSERT_EQ(dl_symbols.length(), result.dl.nof_dl_symbols);
 
   if (dl_symbols.empty()) {
@@ -106,15 +107,18 @@ void ocudu::assert_pdcch_pdsch_common_consistency(const cell_configuration&   ce
   }
   const crb_interval cs_zero_crbs = get_coreset0_crbs(cell_cfg.params.dl_cfg_common.init_dl_bwp.pdcch_common);
 
-  unsigned time_assignment = 0;
-  unsigned freq_assignment = 0;
-  unsigned N_rb_dl_bwp     = 0;
+  unsigned                                          time_assignment = 0;
+  unsigned                                          freq_assignment = 0;
+  unsigned                                          N_rb_dl_bwp     = 0;
+  span<const pdsch_time_domain_resource_allocation> td_list;
   switch (pdcch.dci.type) {
     case dci_dl_rnti_config_type::si_f1_0: {
       ASSERT_EQ(pdcch.ctx.rnti, rnti_t::SI_RNTI);
       time_assignment = pdcch.dci.si_f1_0.time_resource;
       freq_assignment = pdcch.dci.si_f1_0.frequency_resource;
       N_rb_dl_bwp     = pdcch.dci.si_f1_0.N_rb_dl_bwp;
+      td_list         = get_si_rnti_pdsch_time_domain_list(cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params.cp,
+                                                   cell_cfg.params.dmrs_typeA_pos);
       ASSERT_EQ(N_rb_dl_bwp, cs_zero_crbs.length());
       break;
     }
@@ -123,30 +127,36 @@ void ocudu::assert_pdcch_pdsch_common_consistency(const cell_configuration&   ce
       ASSERT_TRUE(time_assignment < cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common.pdsch_td_alloc_list.size());
       freq_assignment = pdcch.dci.ra_f1_0.frequency_resource;
       N_rb_dl_bwp     = pdcch.dci.ra_f1_0.N_rb_dl_bwp;
+      td_list         = get_ra_rnti_pdsch_time_domain_list(cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common,
+                                                   cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params.cp,
+                                                   cell_cfg.params.dmrs_typeA_pos);
       ASSERT_EQ(N_rb_dl_bwp, bwp_cfg.crbs.length());
     } break;
     case dci_dl_rnti_config_type::tc_rnti_f1_0: {
       time_assignment = pdcch.dci.tc_rnti_f1_0.time_resource;
       freq_assignment = pdcch.dci.tc_rnti_f1_0.frequency_resource;
       N_rb_dl_bwp     = pdcch.dci.tc_rnti_f1_0.N_rb_dl_bwp;
+      td_list         = cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common.pdsch_td_alloc_list;
       ASSERT_EQ(N_rb_dl_bwp, cs_zero_crbs.length());
     } break;
     case dci_dl_rnti_config_type::c_rnti_f1_0: {
       time_assignment = pdcch.dci.c_rnti_f1_0.time_resource;
       freq_assignment = pdcch.dci.c_rnti_f1_0.frequency_resource;
       N_rb_dl_bwp     = cs_zero_crbs.length();
+      td_list         = cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common.pdsch_td_alloc_list;
     } break;
     case dci_dl_rnti_config_type::p_rnti_f1_0: {
       time_assignment = pdcch.dci.p_rnti_f1_0.time_resource;
       freq_assignment = pdcch.dci.p_rnti_f1_0.frequency_resource;
       N_rb_dl_bwp     = pdcch.dci.p_rnti_f1_0.N_rb_dl_bwp;
+      td_list         = cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common.pdsch_td_alloc_list;
       ASSERT_EQ(N_rb_dl_bwp, cs_zero_crbs.length());
     } break;
     default:
       ocudu_terminate("DCI type not supported");
   }
-  ofdm_symbol_range symbols =
-      cell_cfg.params.dl_cfg_common.init_dl_bwp.pdsch_common.pdsch_td_alloc_list[time_assignment].symbols;
+  ASSERT_LT(time_assignment, td_list.size());
+  ofdm_symbol_range symbols = td_list[time_assignment].symbols;
   ASSERT_EQ(symbols, pdsch.symbols) << "Mismatch of time-domain resource assignment and PDSCH symbols";
 
   unsigned pdsch_freq_resource = ra_frequency_type1_get_riv(
@@ -537,26 +547,46 @@ void ocudu::test_dl_resource_grid_collisions(const cell_configuration& cell_cfg,
   }
 }
 
-void ocudu::test_prach_opportunity_validity(const cell_configuration& cell_cfg, span<const prach_occasion_info> prachs)
+void ocudu::test_prach_opportunity_validity(const cell_configuration&       cell_cfg,
+                                            slot_point                      sl_tx,
+                                            span<const prach_occasion_info> prachs)
 {
   if (prachs.empty()) {
     return;
   }
+
   const rach_config_common& rach_cfg_common = *cell_cfg.params.ul_cfg_common.init_ul_bwp.rach_cfg_common;
-  const prach_configuration prach_cfg =
-      prach_configuration_get(band_helper::get_freq_range(cell_cfg.band()),
-                              cell_cfg.paired_spectrum() ? duplex_mode::FDD : duplex_mode::TDD,
-                              rach_cfg_common.rach_cfg_generic.prach_config_index);
+  const prach_configuration prach_cfg       = prach_configuration_get(band_helper::get_freq_range(cell_cfg.band()),
+                                                                cell_cfg.is_tdd() ? duplex_mode::TDD : duplex_mode::FDD,
+                                                                rach_cfg_common.rach_cfg_generic.prach_config_index);
+
+  // PRACH can only occur on SFNs where n_SFN mod x == y. On all other SFNs no occasion may be allocated.
+  const bool valid_sfn =
+      std::any_of(prach_cfg.y.begin(), prach_cfg.y.end(), [&](uint8_t y) { return sl_tx.sfn() % prach_cfg.x == y; });
+  ASSERT_TRUE(valid_sfn) << fmt::format(
+      "PRACH occasions allocated on SFN={} which is not a valid PRACH SFN (x={}, y={})",
+      sl_tx.sfn(),
+      prach_cfg.x,
+      fmt::join(prach_cfg.y, ","));
+
+  const uint16_t expected_nof_cs =
+      prach_cyclic_shifts_get(to_ra_subcarrier_spacing(rach_cfg_common.msg1_scs),
+                              rach_cfg_common.restricted_set,
+                              rach_cfg_common.rach_cfg_generic.zero_correlation_zone_config);
 
   for (const prach_occasion_info& prach : prachs) {
     // Check if the PRACH matches cell configuration.
+    ASSERT_EQ(cell_cfg.params.pci, prach.pci);
     ASSERT_EQ(prach_cfg.format, prach.format);
+    ASSERT_EQ(prach_cfg.starting_symbol, prach.start_symbol);
+    ASSERT_EQ(prach_cfg.nof_occasions_within_slot, prach.nof_prach_occasions);
+    ASSERT_EQ(rach_cfg_common.rach_cfg_generic.msg1_fdm, prach.nof_fd_ra);
+    ASSERT_LT(prach.index_fd_ra, prach.nof_fd_ra);
+    ASSERT_EQ(expected_nof_cs, prach.nof_cs);
+    ASSERT_EQ(rach_cfg_common.total_nof_ra_preambles, prach.nof_preamble_indexes);
     if (prach.start_preamble_index != 255) {
       ASSERT_EQ(0, prach.start_preamble_index);
     }
-    ASSERT_EQ(rach_cfg_common.total_nof_ra_preambles, prach.nof_preamble_indexes);
-    ASSERT_EQ(prach_cfg.nof_occasions_within_slot, prach.nof_prach_occasions);
-    ASSERT_EQ(prach_cfg.starting_symbol, prach.start_symbol);
   }
 }
 
@@ -591,12 +621,12 @@ void ocudu::test_ul_resource_grid_collisions(const cell_configuration& cell_cfg,
   }
 }
 
-void ocudu::test_ul_consistency(const cell_configuration& cell_cfg, const ul_sched_result& result)
+void ocudu::test_ul_consistency(const cell_configuration& cell_cfg, slot_point sl_tx, const ul_sched_result& result)
 {
   // Check that UL grant limits are respected.
   ASSERT_LE(result.pucchs.size() + result.puschs.size(), cell_cfg.expert_cfg.ue.max_ul_grants_per_slot);
 
-  ASSERT_NO_FATAL_FAILURE(test_prach_opportunity_validity(cell_cfg, result.prachs));
+  ASSERT_NO_FATAL_FAILURE(test_prach_opportunity_validity(cell_cfg, sl_tx, result.prachs));
   ASSERT_NO_FATAL_FAILURE(test_pusch_ue_consistency(cell_cfg, result.puschs));
   ASSERT_NO_FATAL_FAILURE(test_pucch_consistency(cell_cfg, result.pucchs));
   ASSERT_NO_FATAL_FAILURE(test_ul_resource_grid_collisions(cell_cfg, result));
@@ -618,7 +648,7 @@ void ocudu::test_scheduler_result_consistency(const cell_configuration& cell_cfg
   ASSERT_TRUE(result.success);
   ASSERT_NO_FATAL_FAILURE(assert_tdd_pattern_consistency(cell_cfg, sl_tx, result));
   ASSERT_NO_FATAL_FAILURE(test_dl_consistency(cell_cfg, sl_tx, result.dl));
-  ASSERT_NO_FATAL_FAILURE(test_ul_consistency(cell_cfg, result.ul));
+  ASSERT_NO_FATAL_FAILURE(test_ul_consistency(cell_cfg, sl_tx, result.ul));
 }
 
 /// \brief Verifies that the cell resource grid PRBs and symbols was filled with the allocated PDSCHs.
