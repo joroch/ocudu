@@ -3,8 +3,10 @@
 // Portions of this file may implement 3GPP specifications, which may be subject to additional licensing requirements.
 
 #include "apps/cu/cu_appconfig_cli11_schema.h"
+#include "apps/helpers/e2/e2_config_translators.h"
 #include "apps/helpers/f1u/f1u_appconfig.h"
 #include "apps/helpers/metrics/metrics_helpers.h"
+#include "apps/helpers/network/sctp_config_translators.h"
 #include "apps/services/app_execution_metrics/executor_metrics_manager.h"
 #include "apps/services/app_resource_usage/app_resource_usage.h"
 #include "apps/services/application_message_banners.h"
@@ -29,7 +31,6 @@
 #include "ocudu/cu_cp/cu_cp_operation_controller.h"
 #include "ocudu/cu_up/o_cu_up.h"
 #include "ocudu/e1ap/gateways/e1_local_connector_factory.h"
-#include "ocudu/e2/e2ap_config_translators.h"
 #include "ocudu/f1ap/gateways/f1c_network_server_factory.h"
 #include "ocudu/f1u/cu_up/f1u_gateway.h"
 #include "ocudu/f1u/cu_up/split_connector/f1u_split_connector_factory.h"
@@ -350,15 +351,10 @@ int main(int argc, char** argv)
       xnc_sctp_cfg.bind_addresses.insert(
           xnc_sctp_cfg.bind_addresses.end(), xnap_cfg.bind_addrs.begin(), xnap_cfg.bind_addrs.end());
     }
-    xnc_sctp_cfg.rto_initial       = std::chrono::milliseconds(cp_unit_cfg.xnap_config.sctp_rto_initial_ms);
-    xnc_sctp_cfg.rto_min           = std::chrono::milliseconds(cp_unit_cfg.xnap_config.sctp_rto_min_ms);
-    xnc_sctp_cfg.rto_max           = std::chrono::milliseconds(cp_unit_cfg.xnap_config.sctp_rto_max_ms);
-    xnc_sctp_cfg.init_max_attempts = cp_unit_cfg.xnap_config.sctp_init_max_attempts;
-    xnc_sctp_cfg.max_init_timeo    = std::chrono::milliseconds(cp_unit_cfg.xnap_config.sctp_rto_max_ms);
-    xnc_sctp_cfg.hb_interval       = std::chrono::milliseconds(cp_unit_cfg.xnap_config.sctp_hb_interval_ms);
-    xnc_sctp_cfg.assoc_max_rxt     = cp_unit_cfg.xnap_config.sctp_assoc_max_retx;
-    xnc_sctp_cfg.bind_port         = XNAP_PORT;
-    xnc_sctp_cfg.ppid              = XNAP_PPID;
+
+    fill_sctp_network_gateway_config_socket_params(xnc_sctp_cfg, cp_unit_cfg.xnap_config.sctp);
+    xnc_sctp_cfg.bind_port = XNAP_PORT;
+    xnc_sctp_cfg.ppid      = XNAP_PPID;
     xnc_sctp_gateway_config xnc_server_cfg({xnc_sctp_cfg,
                                             *epoll_broker,
                                             workers.get_cu_cp_executor_mapper().xnc_rx_executor(),
