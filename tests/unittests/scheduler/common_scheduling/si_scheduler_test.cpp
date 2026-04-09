@@ -6,7 +6,6 @@
 #include "lib/scheduler/pdcch_scheduling/pdcch_resource_allocator_impl.h"
 #include "lib/scheduler/support/paging_helpers.h"
 #include "sub_scheduler_test_environment.h"
-#include "tests/test_doubles/scheduler/cell_config_builder_profiles.h"
 #include "tests/test_doubles/scheduler/scheduler_config_helper.h"
 #include "ocudu/adt/bounded_bitset.h"
 #include "ocudu/ran/pdcch/dci_packing.h"
@@ -16,8 +15,9 @@
 
 using namespace ocudu;
 
-static sched_cell_configuration_request_message
-make_sched_configuration_request(const si_scheduling_config& si_sched_cfg)
+namespace {
+
+sched_cell_configuration_request_message make_sched_configuration_request(const si_scheduling_config& si_sched_cfg)
 {
   sched_cell_configuration_request_message msg = sched_config_helper::make_default_sched_cell_configuration_request();
   msg.si_scheduling                            = si_sched_cfg;
@@ -28,9 +28,7 @@ class si_scheduler_test_environment : public sub_scheduler_test_environment
 {
 public:
   si_scheduler_test_environment(const sched_cell_configuration_request_message& msg) :
-    sub_scheduler_test_environment(sched_config_helper::make_default_sched_cell_configuration_request(
-        cell_config_builder_profiles::create(duplex_mode::TDD))),
-    si_sched(cell_cfg, *pdcch_alloc, msg)
+    sub_scheduler_test_environment(msg), si_sched(cell_cfg, *pdcch_alloc, msg)
   {
     run_slot();
   }
@@ -68,6 +66,8 @@ const si_scheduling_config si_scheduler_test::DEFAULT_SI_SCHED_CFG{
     DEFAULT_SIB1_PAYLOAD_SIZE,
     {{si_message_scheduling_config{units::bytes{64}, 16}}},
     10};
+
+} // namespace
 
 TEST_F(si_scheduler_test, when_sib1_is_cfg_then_sib1_gets_scheduled)
 {
