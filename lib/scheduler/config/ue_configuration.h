@@ -129,11 +129,11 @@ public:
   bool is_cfg_dedicated_complete() const;
 
   /// Get BWP information given a BWP-Id.
-  bool                   has_bwp_id(bwp_id_t bwp_id) const { return cell_ded->bwps.contains(bwp_id); }
-  const bwp_config*      find_bwp(bwp_id_t bwp_id) const { return has_bwp_id(bwp_id) ? &bwp(bwp_id) : nullptr; }
-  const bwp_config&      bwp(bwp_id_t bwp_id) const { return cell_ded->bwps[bwp_id].value(); }
-  const bwp_config&      init_bwp() const { return cell_ded->bwps[to_bwp_id(0)].value(); }
-  const bwp_config_list& bwps() const { return cell_ded->bwps; }
+  bool                    has_bwp_id(bwp_id_t bwp_id) const { return cell_ded->bwps.contains(bwp_id); }
+  const sched_bwp_config* find_bwp(bwp_id_t bwp_id) const { return has_bwp_id(bwp_id) ? &bwp(bwp_id) : nullptr; }
+  const sched_bwp_config& bwp(bwp_id_t bwp_id) const { return cell_ded->bwps[bwp_id].value(); }
+  const sched_bwp_config& init_bwp() const { return cell_ded->bwps[to_bwp_id(0)].value(); }
+  const bwp_config_list&  bwps() const { return cell_ded->bwps; }
 
   /// Fetches CORESET configuration based on Coreset-Id.
   const sched_coreset_config* find_coreset(coreset_id cs_id) const
@@ -195,28 +195,25 @@ public:
   {
     // If the UE is not configured with the higher layer parameter transformPrecoder in pusch-Config, determine the
     // transform precoder use according to parameter msg3-transformPrecoder.
-    if (not init_bwp().ul_ded.has_value() or not init_bwp().ul_ded->pusch_cfg.has_value() or
-        init_bwp().ul_ded->pusch_cfg->trans_precoder == pusch_config::transform_precoder::not_set) {
+    if (init_bwp().ul.pusch_ded() == nullptr or
+        init_bwp().ul.pusch_ded()->trans_precoder == pusch_config::transform_precoder::not_set) {
       return cell_cfg_common.use_msg3_transform_precoder();
     }
 
     // Otherwise, determine the use of transform pecoding according to transformPrecoder in pusch-Config.
-    return init_bwp().ul_ded->pusch_cfg->trans_precoder == pusch_config::transform_precoder::enabled;
+    return init_bwp().ul.pusch_ded()->trans_precoder == pusch_config::transform_precoder::enabled;
   }
 
   /// \brief Gets the PUSCH transmit scheme codebook configuration.
   ///
   /// The codebook subset selection procedure is described in TS 38.214 Section 6.1.1.1.
-  const tx_scheme_codebook& get_pusch_codebook_config() const { return init_bwp().bwp.ul.pusch.tx_cfg; }
+  const tx_scheme_codebook& get_pusch_codebook_config() const { return init_bwp().ul.ue_cfg()->pusch.tx_cfg; }
 
   /// \brief Gets the SRS transmit number of ports.
-  const auto& get_srs_nof_ports() const { return init_bwp().bwp.ul.srs.nof_ports; }
+  const auto& get_srs_nof_ports() const { return init_bwp().ul.ue_cfg()->srs.nof_ports; }
 
 private:
-  void configure_bwp_common_cfg(bwp_id_t bwpid, const bwp_downlink_common& bwp_dl_common);
-  void configure_bwp_common_cfg(bwp_id_t bwpid, const bwp_uplink_common& bwp_ul_common);
-  void configure_bwp_ded_cfg(bwp_id_t bwpid, const bwp_downlink_dedicated& bwp_dl_ded);
-  void configure_bwp_ded_cfg(bwp_id_t bwpid, const bwp_uplink_dedicated& bwp_ul_ded);
+  void configure_bwp_cfg(bwp_id_t bwpid, const sched_bwp_config& bwp);
 
   /// Dedicated cell configuration.
   ue_cell_config_ptr             cell_ded;

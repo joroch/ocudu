@@ -14,13 +14,11 @@
 using namespace ocudu;
 
 // See TS 38.211, 7.3.1.1. - Scrambling.
-static unsigned
-get_pdsch_n_id(pci_t pci, const bwp_downlink_dedicated* bwp_dl_ded, dci_dl_format dci_fmt, bool is_common_ss)
+static unsigned get_pdsch_n_id(pci_t pci, const sched_bwp_config& bwp, dci_dl_format dci_fmt, bool is_common_ss)
 {
-  if (bwp_dl_ded != nullptr and bwp_dl_ded->pdsch_cfg.has_value() and
-      bwp_dl_ded->pdsch_cfg->data_scrambling_id_pdsch.has_value() and
+  if (bwp.dl.pdsch().ded() != nullptr and bwp.dl.pdsch().ded()->data_scrambling_id_pdsch.has_value() and
       (dci_fmt != dci_dl_format::f1_0 or not is_common_ss)) {
-    return *bwp_dl_ded->pdsch_cfg->data_scrambling_id_pdsch;
+    return *bwp.dl.pdsch().ded()->data_scrambling_id_pdsch;
   }
   return pci;
 }
@@ -119,7 +117,7 @@ pusch_config_params ocudu::get_pusch_config_f0_1_c_rnti(const ue_cell_configurat
                                                         const unsigned                               nof_harq_ack_bits,
                                                         bool                                         is_csi_report_slot)
 {
-  const pusch_mcs_table mcs_table = ue_cell_cfg.init_bwp().ul_ded->pusch_cfg->mcs_table;
+  const pusch_mcs_table mcs_table = ue_cell_cfg.init_bwp().ul.ded()->pusch_cfg->mcs_table;
   // As per TS 38.214, Section 5.1.3.2 and 6.1.4.2, and TS 38.212, Section 7.3.1.1 and 7.3.1.2, TB scaling filed is only
   // used for DCI Format 1-0 (in the DL). Therefore, for the PUSCH this is set to 0.
   constexpr unsigned tb_scaling_field = 0;
@@ -131,12 +129,12 @@ pusch_config_params ocudu::get_pusch_config_f0_1_c_rnti(const ue_cell_configurat
   pusch_config_params pusch;
 
   // TODO: Consider DMRS configured in PUSCH-Config. Need helpers from Phy.
-  ocudu_assert(ue_cell_cfg.init_bwp().ul_ded->pusch_cfg->pusch_mapping_type_a_dmrs.has_value(),
+  ocudu_assert(ue_cell_cfg.init_bwp().ul.ded()->pusch_cfg->pusch_mapping_type_a_dmrs.has_value(),
                "No DMRS configured in PUSCH configuration");
   pusch.dmrs = make_dmrs_info_dedicated(pusch_td_cfg,
                                         ue_cell_cfg.cell_cfg_common.params.pci,
                                         ue_cell_cfg.cell_cfg_common.params.dmrs_typeA_pos,
-                                        ue_cell_cfg.init_bwp().ul_ded->pusch_cfg->pusch_mapping_type_a_dmrs.value(),
+                                        ue_cell_cfg.init_bwp().ul.ded()->pusch_cfg->pusch_mapping_type_a_dmrs.value(),
                                         nof_layers,
                                         ue_cell_cfg.cell_cfg_common.params.ul_carrier.nof_ant,
                                         are_both_cws_enabled);
@@ -382,11 +380,10 @@ void ocudu::build_pdsch_f1_0_c_rnti(pdsch_information&                  pdsch,
                                     bool                                is_new_data)
 {
   const coreset_configuration& cs_cfg     = ss_info.coreset->cfg();
-  const bwp_config&            active_bwp = *ss_info.bwp;
-  const bwp_downlink_common&   bwp_dl     = *active_bwp.dl_common;
+  const sched_bwp_config&      active_bwp = *ss_info.bwp;
 
   pdsch.rnti        = rnti;
-  pdsch.bwp_cfg     = &bwp_dl.generic_params;
+  pdsch.bwp_cfg     = &active_bwp.dl.cfg();
   pdsch.coreset_cfg = &cs_cfg;
 
   pdsch.rbs             = vrbs;
@@ -399,9 +396,8 @@ void ocudu::build_pdsch_f1_0_c_rnti(pdsch_information&                  pdsch,
   pdsch.dci_fmt = dci_dl_format::f1_0;
   pdsch.harq_id = to_harq_id(dci_cfg.harq_process_number);
   // See TS 38.211, 7.3.1.1. - Scrambling.
-  const bwp_downlink_dedicated* bwp_dl_ded = active_bwp.dl_ded.has_value() ? &*active_bwp.dl_ded.value() : nullptr;
   pdsch.n_id =
-      get_pdsch_n_id(cell_cfg.params.pci, bwp_dl_ded, dci_dl_format::f1_0, ss_info.cfg->is_common_search_space());
+      get_pdsch_n_id(cell_cfg.params.pci, active_bwp, dci_dl_format::f1_0, ss_info.cfg->is_common_search_space());
   pdsch.nof_layers = 1;
 
   // Populate power offsets.
@@ -438,8 +434,8 @@ void ocudu::build_pdsch_f1_1_c_rnti(pdsch_information&              pdsch,
   const cell_configuration&    cell_cfg       = ue_cell_cfg.cell_cfg_common;
   const search_space_info&     ss_info        = ue_cell_cfg.search_space(ss_id);
   const coreset_configuration& cs_cfg         = ss_info.coreset->cfg();
-  const bwp_config&            active_bwp     = *ss_info.bwp;
-  const bwp_configuration&     active_bwp_cfg = active_bwp.dl_common->generic_params;
+  const sched_bwp_config&      active_bwp     = *ss_info.bwp;
+  const bwp_configuration&     active_bwp_cfg = active_bwp.dl.cfg();
 
   pdsch.rnti        = rnti;
   pdsch.bwp_cfg     = &active_bwp_cfg;
@@ -449,17 +445,15 @@ void ocudu::build_pdsch_f1_1_c_rnti(pdsch_information&              pdsch,
   pdsch.symbols         = pdsch_cfg.symbols;
   pdsch.dmrs            = pdsch_cfg.dmrs;
   pdsch.vrb_prb_mapping = dci_cfg.vrb_prb_mapping.has_value() and dci_cfg.vrb_prb_mapping.value()
-                              ? ue_cell_cfg.init_bwp().dl_ded.value()->pdsch_cfg->vrb_to_prb_interleaving
+                              ? ue_cell_cfg.init_bwp().dl.pdsch().ded()->vrb_to_prb_interleaving
                               : vrb_to_prb::mapping_type::non_interleaved;
   // See TS38.213, 10.1.
   pdsch.ss_set_type = search_space_set_type::ue_specific;
   pdsch.dci_fmt     = dci_dl_format::f1_1;
   pdsch.harq_id     = to_harq_id(dci_cfg.harq_process_number);
   // See TS 38.211, 7.3.1.1. - Scrambling.
-  pdsch.n_id       = get_pdsch_n_id(cell_cfg.params.pci,
-                              active_bwp.dl_ded.has_value() ? &*active_bwp.dl_ded.value() : nullptr,
-                              dci_dl_format::f1_1,
-                              ss_info.cfg->is_common_search_space());
+  pdsch.n_id =
+      get_pdsch_n_id(cell_cfg.params.pci, active_bwp, dci_dl_format::f1_1, ss_info.cfg->is_common_search_space());
   pdsch.nof_layers = pdsch_cfg.nof_layers;
 
   // TODO: Add second Codeword when supported.
@@ -595,11 +589,11 @@ void ocudu::build_pusch_f0_1_c_rnti(pusch_information&           pusch,
                                     const vrb_interval&          vrbs,
                                     bool                         is_new_data)
 {
-  const cell_configuration&   cell_cfg   = ue_cell_cfg.cell_cfg_common;
-  const search_space_info&    ss_info    = ue_cell_cfg.search_space(ss_id);
-  const bwp_config&           bwp_info   = *ss_info.bwp;
-  const bwp_uplink_dedicated* bwp_ul_ded = bwp_info.ul_ded.has_value() ? &bwp_info.ul_ded.value() : nullptr;
-  const bwp_uplink_common&    bwp_ul_cmn = *bwp_info.ul_common.value();
+  const cell_configuration&                cell_cfg      = ue_cell_cfg.cell_cfg_common;
+  const search_space_info&                 ss_info       = ue_cell_cfg.search_space(ss_id);
+  const sched_bwp_config&                  bwp_info      = *ss_info.bwp;
+  const bwp_uplink_dedicated*              bwp_ul_ded    = bwp_info.ul.ded();
+  const bwp_uplink_common&                 bwp_ul_cmn    = bwp_info.ul.common();
   const std::optional<rach_config_common>& opt_rach_cfg  = bwp_ul_cmn.rach_cfg_common;
   const std::optional<pusch_config>&       pusch_cfg_ded = bwp_ul_ded->pusch_cfg;
 
@@ -614,7 +608,7 @@ void ocudu::build_pusch_f0_1_c_rnti(pusch_information&           pusch,
   pusch.rnti = rnti;
 
   // PUSCH resources.
-  pusch.bwp_cfg = &bwp_info.ul_common->value().generic_params;
+  pusch.bwp_cfg = &bwp_info.ul.cfg();
   pusch.rbs     = vrbs;
   pusch.symbols = pusch_cfg.symbols;
 

@@ -33,7 +33,8 @@ static std::vector<nzp_csi_rs_resource> make_nzp_csi_rs_list(const ran_cell_conf
 }
 
 cell_configuration::cell_configuration(const scheduler_expert_config&                  expert_cfg_,
-                                       const sched_cell_configuration_request_message& msg) :
+                                       const sched_cell_configuration_request_message& msg,
+                                       const sched_bwp_config&                         init_bwp_) :
   expert_cfg(expert_cfg_),
   params(msg.ran),
   cell_index(msg.cell_index),
@@ -48,13 +49,14 @@ cell_configuration::cell_configuration(const scheduler_expert_config&           
   zp_csi_rs_list(make_zp_csi_rs_list(params)),
   nzp_csi_rs_list(make_nzp_csi_rs_list(params)),
   dl_data_to_ul_ack(time_domain_resource_helper::generate_k1_candidates(params.tdd_cfg, params.init_bwp.pucch.min_k1)),
+  init_bwp(init_bwp_),
   // NTN parameters.
   ntn_cs_koffset(params.ntn_params.has_value()
                      ? params.ntn_params->ntn_cfg.cell_specific_koffset.value_or(std::chrono::milliseconds{0}).count() *
                            get_nof_slots_per_subframe(scs_common())
                      : 0)
 {
-  // Initiate dedicated sched BWP configs.
+  // Initialize BWP resources.
   bwp_res.emplace(to_bwp_id(0), params, to_bwp_id(0));
 
   if (is_tdd()) {

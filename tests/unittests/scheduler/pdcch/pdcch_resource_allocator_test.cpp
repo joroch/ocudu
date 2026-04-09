@@ -226,24 +226,27 @@ protected:
     fmt::format_to(std::back_inserter(fmtbuf),
                    "\n- initial BWP: RBs={}",
                    cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params.crbs);
-    const auto&                  bwp_res = cell_cfg.bwp_res[to_bwp_id(0)];
-    const coreset_configuration& cs0_cfg = bwp_res.coresets()[to_coreset_id(0)].cfg();
+    const sched_bwp_config&      init_bwp = cell_cfg.init_bwp;
+    const coreset_configuration& cs0_cfg  = init_bwp.dl.pdcch().coresets()[to_coreset_id(0)]->cfg();
     fmt::format_to(
         std::back_inserter(fmtbuf), "\n- CORESET#0: RBs={}, duration={}", cs0_cfg.coreset0_crbs(), cs0_cfg.duration());
-    const auto& cs1_cfg = bwp_res.coresets()[to_coreset_id(1)].cfg();
+    const auto& ue_ded_pdcch = *default_ue_cell_req.serv_cell_cfg.init_dl_bwp.pdcch_cfg;
+    const auto& cs1_cfg      = ue_ded_pdcch.coresets.front();
     fmt::format_to(std::back_inserter(fmtbuf),
                    "\n- CORESET#1: RBs={}, duration={}",
                    get_coreset_crbs(cs1_cfg),
                    cs1_cfg.duration());
-    fmt::format_to(std::back_inserter(fmtbuf),
-                   "\n- SearchSpace#0: nof_candidates={}",
-                   fmt::join(bwp_res.dl_common().pdcch_common.search_spaces[0].get_nof_candidates(), ", "));
-    fmt::format_to(std::back_inserter(fmtbuf),
-                   "\n- SearchSpace#1: nof_candidates={}",
-                   fmt::join(bwp_res.dl_common().pdcch_common.search_spaces[1].get_nof_candidates(), ", "));
+    fmt::format_to(
+        std::back_inserter(fmtbuf),
+        "\n- SearchSpace#0: nof_candidates={}",
+        fmt::join(init_bwp.dl.pdcch().search_spaces()[to_search_space_id(0)]->cfg().get_nof_candidates(), ", "));
+    fmt::format_to(
+        std::back_inserter(fmtbuf),
+        "\n- SearchSpace#1: nof_candidates={}",
+        fmt::join(init_bwp.dl.pdcch().search_spaces()[to_search_space_id(1)]->cfg().get_nof_candidates(), ", "));
     fmt::format_to(std::back_inserter(fmtbuf),
                    "\n- SearchSpace#2: nof_candidates={}",
-                   fmt::join(bwp_res.dl().ded_pdcchs[0].search_spaces[0].get_nof_candidates(), ", "));
+                   fmt::join(ue_ded_pdcch.search_spaces[0].get_nof_candidates(), ", "));
     test_logger.info("{}", to_string(fmtbuf));
   }
 
@@ -305,7 +308,7 @@ TEST_F(common_pdcch_allocator_tester, single_pdcch_sib1_allocation)
   ASSERT_EQ(res_grid[0].result.dl.dl_pdcchs.size(), 1);
   ASSERT_EQ(pdcch, &res_grid[0].result.dl.dl_pdcchs[0]) << "Returned PDCCH ptr does not match allocated ptr";
   ASSERT_EQ(rnti_t::SI_RNTI, pdcch->ctx.rnti);
-  ASSERT_EQ(pdcch->ctx.bwp_cfg, &cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params);
+  ASSERT_EQ(pdcch->ctx.bwp_cfg, &cell_cfg.init_bwp.dl.cfg());
   ASSERT_EQ(*pdcch->ctx.coreset_cfg, *cell_cfg.params.dl_cfg_common.init_dl_bwp.pdcch_common.coreset0);
   ASSERT_EQ(pdcch->ctx.n_id_pdcch_dmrs, cell_cfg.params.pci) << "Invalid N_{ID} (see TS38.211, 7.4.1.3.1)";
   ASSERT_EQ(pdcch->ctx.n_rnti_pdcch_data, 0) << "Invalid n_{RNTI} (see TS38.211, 7.3.2.3)";
@@ -325,7 +328,7 @@ TEST_F(common_pdcch_allocator_tester, single_pdcch_rar_allocation)
   ASSERT_EQ(res_grid[0].result.dl.dl_pdcchs.size(), 1);
   ASSERT_EQ(pdcch, &res_grid[0].result.dl.dl_pdcchs[0]) << "Returned PDCCH ptr does not match allocated ptr";
   ASSERT_EQ(ra_rnti, pdcch->ctx.rnti);
-  ASSERT_EQ(pdcch->ctx.bwp_cfg, &cell_cfg.params.dl_cfg_common.init_dl_bwp.generic_params);
+  ASSERT_EQ(pdcch->ctx.bwp_cfg, &cell_cfg.init_bwp.dl.cfg());
   ASSERT_EQ(*pdcch->ctx.coreset_cfg, *cell_cfg.params.dl_cfg_common.init_dl_bwp.pdcch_common.coreset0);
   ASSERT_EQ(pdcch->ctx.n_id_pdcch_dmrs, cell_cfg.params.pci) << "Invalid N_{ID} (see TS38.211, 7.4.1.3.1)";
   ASSERT_EQ(pdcch->ctx.n_rnti_pdcch_data, 0) << "Invalid n_{RNTI} (see TS38.211, 7.3.2.3)";
@@ -482,8 +485,9 @@ TEST(pdcch_resource_allocator_test, monitoring_period)
             offset, msg.ran.dl_cfg_common.init_dl_bwp.generic_params.scs);
         msg.ran.dl_cfg_common.init_dl_bwp.pdcch_common.search_spaces[1].set_non_ss0_duration(duration);
 
-        cell_configuration      cfg{sched_cfg, msg};
-        cell_resource_allocator res_grid{cfg};
+        test_helpers::test_sched_config_manager cfg_mng{sched_cfg};
+        const cell_configuration&               cfg = *cfg_mng.add_cell(msg);
+        cell_resource_allocator                 res_grid{cfg};
 
         pdcch_resource_allocator_impl pdcch_sch(cfg);
 
