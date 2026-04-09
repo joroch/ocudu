@@ -11,6 +11,8 @@
 #pragma once
 
 #include "lib/scheduler/cell/resource_grid.h"
+#include "ocudu/scheduler/scheduler_rach_handler.h"
+#include <deque>
 
 namespace ocudu {
 
@@ -18,7 +20,7 @@ class cell_configuration;
 struct cell_resource_allocator;
 
 /// \brief Current checks:
-/// - PDCCHs and PDSCHs are only allocated in DL slots.
+/// - CSI-RS, SSBs, PDCCHs and PDSCHs are only allocated in DL slots.
 /// - PUCCHs, PUSCHs and PRACHs are only allocated in UL slots.
 /// - In partial DL/UL slots, verifies that allocations are within the respective DL/UL symbols.
 void assert_tdd_pattern_consistency(const cell_configuration& cell_cfg, slot_point sl_tx, const sched_result& result);
@@ -111,5 +113,71 @@ bool assert_ul_resource_grid_filled(const cell_configuration&      cell_cfg,
                                     bool                           expect_grants = false);
 
 bool test_res_grid_has_re_set(const cell_resource_allocator& cell_res_grid, grant_info grant, unsigned tx_delay);
+
+struct ul_crc_indication;
+
+namespace test_helper {
+
+/// Helper test class to track the allocations of different RACH preambles.
+class ra_scheduler_tracker
+{
+public:
+  ra_scheduler_tracker(const cell_configuration& cell_cfg_);
+
+  void on_new_rach_ind(const rach_indication_message& ind);
+  void on_crc_indication(const ul_crc_indication& crc);
+
+  void on_new_result(slot_point sl_tx, const sched_result& result);
+
+  unsigned nof_ra_dl_pdcchs() const { return ra_dl_pdcch_ack_counter; }
+  unsigned nof_rars() const { return rar_counter; }
+  unsigned nof_msg3_newtxs() const { return msg3_newtx_counter; }
+  unsigned nof_msg3_retxs() const { return msg3_retx_counter; }
+  unsigned nof_msg3_acked() const { return msg3_ack_counter; }
+
+  bool has_pending_ra() const
+  {
+    return not pending_rars.empty() or not pending_preambles.empty() or not pending_msg3_retxs.empty();
+  }
+
+private:
+  struct rar_context {
+    pdcch_dl_information pdcch;
+    slot_point           pdcch_slot;
+    slot_point           rar_slot;
+    bool                 scheduled = false;
+  };
+  struct preamble_context {
+    rnti_t                            ra_rnti;
+    rach_indication_message::preamble preamble;
+    slot_interval                     rar_win;
+    slot_point                        rar_slot;
+    slot_point                        first_msg3_slot;
+    slot_point                        last_msg3_slot;
+    rar_ul_grant                      first_grant;
+    bool                              acked = false;
+  };
+  struct msg3_retx_context {
+    pdcch_ul_information pdcch;
+    slot_point           pdcch_slot;
+    slot_point           pusch_slot;
+  };
+
+  bool is_expired(const preamble_context& ctxt, slot_point sl_tx) const;
+
+  const cell_configuration& cell_cfg;
+
+  unsigned ra_dl_pdcch_ack_counter = 0;
+  unsigned rar_counter             = 0;
+  unsigned msg3_newtx_counter      = 0;
+  unsigned msg3_retx_counter       = 0;
+  unsigned msg3_ack_counter        = 0;
+
+  std::deque<rar_context>       pending_rars;
+  std::deque<preamble_context>  pending_preambles;
+  std::deque<msg3_retx_context> pending_msg3_retxs;
+};
+
+} // namespace test_helper
 
 } // namespace ocudu
