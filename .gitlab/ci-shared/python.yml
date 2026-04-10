@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
 # SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 
-
 .parallel-python-versions:
   parallel: &matrix-python-version
     matrix:
-      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+      - PYTHON_VERSION: ["3.9", "3.14"] # Minimum supported and latest
 
 .python_base:
   image: python:${PYTHON_VERSION}-alpine # sh entrypoint
@@ -34,7 +33,14 @@
       export PIP_EXTRA_INDEX_URL="https://${TWINE_USERNAME}:${TWINE_PASSWORD}@${TWINE_REPO#https://}/simple"
     - pip install 'tox<5'
     - cd $PY_DIR
-    - tox -r
+    - tox -p auto
+  variables:
+    PIP_CACHE_DIR: $CI_PROJECT_DIR/.pip-cache
+  cache:
+    key: tox-${PYTHON_VERSION}
+    paths:
+      - "**/.tox/"
+      - .pip-cache/
   parallel: *matrix-python-version
 
 .publish deps:
