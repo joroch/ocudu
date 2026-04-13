@@ -1331,7 +1331,8 @@ cu_cp_impl::handle_intra_cu_cho_request(const cu_cp_intra_cu_cho_request& reques
       CORO_RETURN(cu_cp_intra_cu_cho_response{});
     });
   }
-  return launch_async<conditional_handover_coordinator_routine>(request, du_db, *this, ue_mng, mobility_mng, logger);
+  return launch_async<conditional_handover_coordinator_routine>(
+      request, du_db, *this, ue_mng, mobility_mng, ngap_db, &xnap_db, logger);
 }
 
 void cu_cp_impl::handle_intra_cell_handover_required(ue_index_t ue_index)
@@ -1518,7 +1519,7 @@ void cu_cp_impl::initialize_cho_execution_timer(ue_index_t ue_index, std::chrono
       return;
     }
     ue2->get_task_sched().schedule_async_task(
-        launch_async<conditional_handover_cancellation_routine>(ue_index, *this, ue_mng, logger));
+        launch_async<conditional_handover_cancellation_routine>(ue_index, *this, ue_mng, &xnap_db, logger));
   });
   ue->get_cho_context()->cho_execution_timer.run();
   logger.debug("ue={}: CHO execution timer started ({}ms)", ue_index, timeout.count());
