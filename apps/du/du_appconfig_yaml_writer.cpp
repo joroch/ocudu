@@ -5,6 +5,7 @@
 #include "du_appconfig_yaml_writer.h"
 #include "apps/helpers/f1u/f1u_config_yaml_writer.h"
 #include "apps/helpers/logger/logger_appconfig_yaml_writer.h"
+#include "apps/helpers/network/sctp_config_yaml_writer.h"
 #include "apps/helpers/tracing/tracer_appconfig_yaml_writer.h"
 #include "apps/services/app_execution_metrics/executor_metrics_config_yaml_writer.h"
 #include "apps/services/app_resource_usage/app_resource_usage_config_yaml_writer.h"
@@ -65,6 +66,7 @@ static void fill_du_appconfig_f1ap_section(YAML::Node node, const odu::f1ap_appc
 {
   node["addrs"]      = config.cu_cp_addresses;
   node["bind_addrs"] = config.bind_addresses;
+  fill_sctp_config_in_yaml_schema(node, config.sctp);
 }
 
 void ocudu::fill_du_appconfig_in_yaml_schema(YAML::Node& node, const du_appconfig& config)
@@ -77,6 +79,7 @@ void ocudu::fill_du_appconfig_in_yaml_schema(YAML::Node& node, const du_appconfi
   fill_logger_appconfig_in_yaml_schema(node, config.log_cfg);
   fill_tracer_appconfig_in_yaml_schema(node, config.trace_cfg);
   fill_du_appconfig_hal_section(node, config.hal_config);
+  // TODO: move duplicated cu/cu_cp/cu_up/du YAML writers to helpers/app_services
   fill_du_appconfig_expert_execution_section(node["expert_execution"], config.expert_execution_cfg);
   fill_du_appconfig_remote_control_section(node["remote_control"], config.remote_control_config);
   fill_du_appconfig_f1u_section(node["f1u"], config.f1u_cfg);

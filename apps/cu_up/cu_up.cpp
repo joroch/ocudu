@@ -7,6 +7,7 @@
 #include "apps/helpers/e2/e2_config_translators.h"
 #include "apps/helpers/f1u/f1u_appconfig.h"
 #include "apps/helpers/metrics/metrics_helpers.h"
+#include "apps/helpers/network/sctp_config_translators.h"
 #include "apps/services/app_execution_metrics/executor_metrics_manager.h"
 #include "apps/services/app_resource_usage/app_resource_usage.h"
 #include "apps/services/application_message_banners.h"
@@ -22,6 +23,7 @@
 #include "apps/units/o_cu_up/o_cu_up_unit_config.h"
 #include "apps/units/o_cu_up/pcap_factory.h"
 #include "cu_up_appconfig.h"
+#include "cu_up_appconfig_yaml_writer.h"
 #include "ocudu/adt/scope_exit.h"
 #include "ocudu/e1ap/gateways/e1_network_client_factory.h"
 #include "ocudu/f1u/cu_up/f1u_gateway.h"
@@ -233,7 +235,16 @@ int main(int argc, char** argv)
     fmt::println("Logger or JSON metrics output enabled but no metrics will be reported as no layer was enabled");
   }
 
-  // TODO: Log input configuration.
+  // Log input configuration.
+  ocudulog::basic_logger& config_logger = ocudulog::fetch_basic_logger("CONFIG");
+  if (config_logger.debug.enabled()) {
+    YAML::Node node;
+    fill_cu_up_appconfig_in_yaml_schema(node, cu_up_cfg);
+    o_cu_up_app_unit->dump_config(node);
+    config_logger.debug("Input configuration (all values): \n{}", YAML::Dump(node));
+  } else {
+    config_logger.info("Input configuration (only non-default values): \n{}", app.config_to_str(false, false));
+  }
 
   app_services::application_tracer app_tracer;
   if (not cu_up_cfg.trace_cfg.filename.empty()) {
@@ -344,6 +355,7 @@ int main(int argc, char** argv)
   e1_sctp.connect_port      = E1AP_PORT;
   e1_sctp.ppid              = E1AP_PPID;
   e1_sctp.bind_addresses    = cu_up_cfg.e1ap_cfg.bind_addresses;
+  fill_sctp_network_gateway_config_socket_params(e1_sctp, cu_up_cfg.e1ap_cfg.sctp);
   // > Create E1 gateway
   std::unique_ptr<ocuup::e1_connection_client> e1_gw = create_e1_gateway_client(e1_cu_up_sctp_gateway_config{
       e1_sctp, *epoll_broker, workers.get_cu_up_executor_mapper().e1_rx_executor(), *cu_up_dlt_pcaps.e1ap});

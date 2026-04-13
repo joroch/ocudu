@@ -21,6 +21,7 @@
 #include "apps/units/o_cu_cp/o_cu_cp_unit_config.h"
 #include "apps/units/o_cu_cp/pcap_factory.h"
 #include "cu_cp_appconfig.h"
+#include "cu_cp_appconfig_yaml_writer.h"
 #include "ocudu/adt/scope_exit.h"
 #include "ocudu/cu_cp/cu_cp_operation_controller.h"
 #include "ocudu/e1ap/gateways/e1_network_server_factory.h"
@@ -208,7 +209,16 @@ int main(int argc, char** argv)
     fmt::println("Logger or JSON metrics output enabled but no metrics will be reported as no layer was enabled");
   }
 
-  // TODO: Log input configuration.
+  // Log input configuration.
+  ocudulog::basic_logger& config_logger = ocudulog::fetch_basic_logger("CONFIG");
+  if (config_logger.debug.enabled()) {
+    YAML::Node node;
+    fill_cu_cp_appconfig_in_yaml_schema(node, cu_cp_cfg);
+    o_cu_cp_app_unit->dump_config(node);
+    config_logger.debug("Input configuration (all values): \n{}", YAML::Dump(node));
+  } else {
+    config_logger.info("Input configuration (only non-default values): \n{}", app.config_to_str(false, false));
+  }
 
   app_services::application_tracer app_tracer;
   if (not cu_cp_cfg.trace_cfg.filename.empty()) {
@@ -312,6 +322,7 @@ int main(int argc, char** argv)
   f1c_sctp_cfg.bind_addresses              = cu_cp_cfg.f1ap_cfg.bind_addrs;
   f1c_sctp_cfg.bind_port                   = F1AP_PORT;
   f1c_sctp_cfg.ppid                        = F1AP_PPID;
+  fill_sctp_network_gateway_config_socket_params(f1c_sctp_cfg, cu_cp_cfg.f1ap_cfg.sctp);
   f1c_cu_sctp_gateway_config                    f1c_server_cfg({f1c_sctp_cfg,
                                                                 *epoll_broker,
                                                                 workers.get_cu_cp_executor_mapper().f1c_rx_executor(),
@@ -326,6 +337,7 @@ int main(int argc, char** argv)
   e1_sctp_cfg.bind_addresses = cu_cp_cfg.e1ap_cfg.bind_addrs;
   e1_sctp_cfg.bind_port      = E1AP_PORT;
   e1_sctp_cfg.ppid           = E1AP_PPID;
+  fill_sctp_network_gateway_config_socket_params(e1_sctp_cfg, cu_cp_cfg.e1ap_cfg.sctp);
   // > Create E1 gateway
   std::unique_ptr<ocucp::e1_connection_server> e1_gw =
       create_e1_gateway_server(e1_cu_cp_sctp_gateway_config{e1_sctp_cfg,
