@@ -13,6 +13,8 @@ struct sockaddr_storage;
 namespace ocudu {
 
 struct udp_network_gateway_config : common_network_gateway_config {
+  /// Name provided to the interface node.
+  std::string if_name;
   /// Bind address to use for the socket. If left empty, the socket can only be used with an implicit `bind()` using
   /// `connect()`.
   std::string            bind_address;
@@ -67,6 +69,11 @@ public:
 
   /// \brief Register the UDP gateway in the IO broker for automatic handling of notifications.
   virtual bool subscribe_to(io_broker& broker) = 0;
+
+  /// \brief Stop the UDP gateway.
+  ///
+  /// This will make sure that no more packets will be enqueued for transmission to ensure safe destruction.
+  virtual void stop() = 0;
 };
 
 class udp_network_gateway : public udp_network_gateway_data_handler, public udp_network_gateway_controller
