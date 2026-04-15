@@ -15,24 +15,29 @@ class split6_plugin_dummy : public split6_plugin
 {
 public:
   // See interface for documentation.
-  void on_parsing_configuration_registration(CLI::App& app) override {}
+  void on_parsing_configuration_registration(CLI::App& app) override;
 
   // See interface for documentation.
-  bool on_configuration_validation() const override { return false; }
+  bool on_configuration_validation() const override;
 
   // See interface for documentation.
-  bool is_ran_config_supported(const odu::du_high_ran_config& configuration) const override { return false; }
+  bool is_ran_config_supported(const odu::du_high_ran_config& configuration) const override;
 
   // See interface for documentation.
   void on_loggers_registration() override {}
 
   // See interface for documentation.
-  void fill_worker_manager_config(worker_manager_config& config) override {}
+  void fill_worker_manager_config(worker_manager_config& config) override;
 
   // See interface for documentation.
   std::unique_ptr<fapi_adaptor::phy_fapi_adaptor>
   create_fapi_adaptor(const fapi_adaptor::split6_o_du_low_fapi_adaptor_configuration& fapi_cfg,
                       const o_du_unit_dependencies&                                   dependencies) override;
+
+private:
+  bool     dummy_enabled       = false;
+  unsigned dummy_nof_ues       = 0;
+  unsigned dummy_stagger_slots = 10;
 };
 
 } // namespace ocudu

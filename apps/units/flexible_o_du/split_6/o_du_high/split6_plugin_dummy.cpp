@@ -3,6 +3,10 @@
 // Portions of this file may implement 3GPP specifications, which may be subject to additional licensing requirements.
 
 #include "split6_plugin_dummy.h"
+#include "apps/services/worker_manager/worker_manager.h"
+#include "apps/units/flexible_o_du/o_du_unit.h"
+#include "apps/units/flexible_o_du/split_6/o_du_high/split6_o_du_low_fapi_adaptor_configuration.h"
+#include "lib/fapi_adaptor/dummy/fapi_dummy_factory.h"
 #include "ocudu/du/du_high/du_high_configuration.h"
 #include "ocudu/fapi/p5/p5_requests_gateway.h"
 #include "ocudu/fapi/p7/p7_last_request_notifier.h"
@@ -10,6 +14,8 @@
 #include "ocudu/fapi_adaptor/phy/p5/phy_fapi_p5_sector_adaptor.h"
 #include "ocudu/fapi_adaptor/phy/p7/phy_fapi_p7_sector_adaptor.h"
 #include "ocudu/fapi_adaptor/phy/phy_fapi_adaptor.h"
+#include "ocudu/support/cli11_utils.h"
+#include "ocudu/support/ocudu_assert.h"
 
 using namespace ocudu;
 
@@ -104,11 +110,57 @@ public:
 
 } // namespace
 
+void split6_plugin_dummy::on_parsing_configuration_registration(CLI::App& app)
+{
+  CLI::App* subcmd = add_subcommand(app, "fapi_dummy", "Dummy FAPI PHY configuration");
+  add_option(*subcmd, "--enabled", dummy_enabled, "Enable the dummy FAPI PHY adaptor")->capture_default_str();
+  add_option(*subcmd, "--nof_ues", dummy_nof_ues, "Number of UEs to simulate per cell (0 = slot timing only)")
+      ->capture_default_str();
+  add_option(*subcmd,
+             "--ue_creation_stagger_slots",
+             dummy_stagger_slots,
+             "Slots between successive RACH indications for each simulated UE")
+      ->capture_default_str();
+}
+
+bool split6_plugin_dummy::on_configuration_validation() const
+{
+  return dummy_enabled;
+}
+
+bool split6_plugin_dummy::is_ran_config_supported(const odu::du_high_ran_config& /*configuration*/) const
+{
+  return dummy_enabled;
+}
+
+void split6_plugin_dummy::fill_worker_manager_config(worker_manager_config& config)
+{
+  if (dummy_enabled) {
+    config.is_split6_enabled = true;
+  }
+}
+
 std::unique_ptr<fapi_adaptor::phy_fapi_adaptor>
 split6_plugin_dummy::create_fapi_adaptor(const fapi_adaptor::split6_o_du_low_fapi_adaptor_configuration& fapi_cfg,
                                          const o_du_unit_dependencies&                                   dependencies)
 {
-  return std::make_unique<fapi_adaptor_dummy>();
+  if (!dummy_enabled) {
+    return std::make_unique<fapi_adaptor_dummy>();
+  }
+
+  fapi_adaptor::fapi_dummy_config cfg;
+  cfg.enabled = true;
+  cfg.ue      = {dummy_nof_ues, dummy_stagger_slots};
+  for (const auto& cell : fapi_cfg.cells) {
+    fapi_adaptor::fapi_dummy_cell_config cell_cfg;
+    cell_cfg.scs = cell.scs_common;
+    cell_cfg.ue  = cfg.ue;
+    cfg.cells.push_back(cell_cfg);
+  }
+
+  ocudu_assert(dependencies.workers, "Worker manager is null");
+  ocudu_assert(dependencies.workers->split6_exec, "split6_exec is null — is_split6_enabled not set?");
+  return fapi_adaptor::create_fapi_dummy_phy_adaptor(cfg, *dependencies.workers->split6_exec);
 }
 
 #ifndef OCUDU_HAS_ENTERPRISE
