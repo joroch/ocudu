@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 
 
+add_subdirectory(dummy)
 add_subdirectory(mac)
 add_subdirectory(phy)
 

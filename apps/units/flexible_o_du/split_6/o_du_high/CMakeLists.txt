@@ -12,6 +12,7 @@ set(SOURCES
         split6_o_du_unit_config_validator.cpp)
 
 add_library(ocudu_split6_plugin STATIC split6_plugin_dummy.cpp)
+target_link_libraries(ocudu_split6_plugin PRIVATE ocudu_fapi_adaptor_dummy)
 
 add_library(ocudu_flexible_o_du_split_6 STATIC ${SOURCES})
 target_include_directories(ocudu_flexible_o_du_split_6 PRIVATE ${CMAKE_SOURCE_DIR})
