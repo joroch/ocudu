@@ -7,7 +7,7 @@
 using namespace ocudu;
 using namespace ocudu::fapi_adaptor;
 
-fapi_dummy_sector::fapi_dummy_sector(const fapi_dummy_cell_config& cfg_) : cfg(cfg_)
+fapi_dummy_sector::fapi_dummy_sector(const fapi_dummy_cell_config& cfg_) : cfg(cfg_), ue_sim(cfg_.ue)
 {
   p7_gw.set_ue_simulator(ue_sim);
 }

@@ -72,7 +72,7 @@ private:
   fapi_dummy_cell_config          cfg;
   fapi_dummy_p5_gateway           p5_gw;
   fapi_dummy_p7_gateway           p7_gw;
-  fapi_dummy_ue_simulator         ue_sim;
+  fapi_dummy_ue_simulator         ue_sim; // constructed with cfg.ue in the .cpp initialiser list
   p7_last_request_notifier_stub   p7_last_req;
 };
 

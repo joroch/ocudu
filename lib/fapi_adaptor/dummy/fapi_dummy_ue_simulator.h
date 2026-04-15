@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include "fapi_dummy_config.h"
 #include "ocudu/fapi/p7/messages/ul_pucch_pdu.h"
 #include "ocudu/fapi/p7/messages/ul_pusch_pdu.h"
 #include "ocudu/ran/slot_point.h"
 #include <array>
+#include <limits>
 #include <vector>
 
 namespace ocudu {
@@ -21,28 +23,33 @@ namespace fapi_adaptor {
 
 /// \brief Simulates UE uplink behaviour at the FAPI boundary.
 ///
-/// Buffers UL_TTI.request PDUs per slot and, when on_new_slot() fires, generates:
-///  - CRC.indication          (tb_crc_status_ok = true)  for every PUSCH PDU with data
-///  - Rx_Data.indication      (zero-filled transport block) for every PUSCH PDU with data
-///  - UCI.indication           (all HARQ bits = ACK)       for every PUCCH PDU
+/// On each slot this class:
+///  1. Fires a rach_indication for the next simulated UE if the stagger interval has elapsed.
+///  2. Pops any buffered UL_TTI.request PDUs for this slot and generates:
+///       - CRC.indication          (tb_crc_status_ok = true)     for every PUSCH PDU with data
+///       - Rx_Data.indication      (zero-filled transport block)  for every PUSCH PDU with data
+///       - UCI.indication           (all HARQ bits = ACK)          for every PUCCH/PUSCH-UCI PDU
 ///
-/// PUSCH UCI multiplexed on a PUSCH PDU also generates a UCI.indication.
+/// The number of simulated UEs and the per-UE creation stagger interval are configured via
+/// fapi_dummy_ue_config (passed at construction, defaults to nof_ues=0 / no RACH).
 class fapi_dummy_ue_simulator
 {
 public:
-  /// Wires the indications notifier that receives the generated ACK messages.
+  explicit fapi_dummy_ue_simulator(const fapi_dummy_ue_config& cfg = {});
+
+  /// Wires the indications notifier that receives the generated messages.
   void set_notifier(fapi::p7_indications_notifier& n) { notifier = &n; }
 
   /// Stores UL PDUs from a UL_TTI.request for later processing.
   void store_ul_tti(const fapi::ul_tti_request& msg);
 
-  /// Generates ACK responses for all buffered UL PDUs matching \p slot.
+  /// Fires any pending RACH indication and generates UL ACK responses for \p slot.
   void on_new_slot(slot_point slot);
 
 private:
   /// Per-slot storage for buffered UL PDUs.
   struct slot_data {
-    bool                         valid = false;
+    bool                            valid = false;
     std::vector<fapi::ul_pusch_pdu> pusch_pdus;
     std::vector<fapi::ul_pucch_pdu> pucch_pdus;
   };
@@ -50,11 +57,18 @@ private:
   /// Buffer size — enough for a full radio frame at SCS 30 kHz (20 slots).
   static constexpr unsigned BUFFER_SIZE = 32;
 
+  /// Sentinel meaning "no RACH has been scheduled yet" — set to the first slot seen.
+  static constexpr uint32_t RACH_SLOT_UNSET = std::numeric_limits<uint32_t>::max();
+
+  void maybe_fire_rach(slot_point slot);
   void process_pusch(slot_point slot, const fapi::ul_pusch_pdu& pdu);
   void process_pucch(slot_point slot, const fapi::ul_pucch_pdu& pdu);
 
-  fapi::p7_indications_notifier*          notifier = nullptr;
-  std::array<slot_data, BUFFER_SIZE>      buffer{};
+  fapi_dummy_ue_config                     cfg;
+  fapi::p7_indications_notifier*           notifier      = nullptr;
+  unsigned                                 next_ue_index = 0;
+  uint32_t                                 next_rach_slot = RACH_SLOT_UNSET;
+  std::array<slot_data, BUFFER_SIZE>       buffer{};
 };
 
 } // namespace fapi_adaptor

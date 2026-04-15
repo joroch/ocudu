@@ -5,6 +5,7 @@
 #include "fapi_dummy_ue_simulator.h"
 #include "ocudu/adt/span.h"
 #include "ocudu/fapi/p7/messages/crc_indication.h"
+#include "ocudu/fapi/p7/messages/rach_indication.h"
 #include "ocudu/fapi/p7/messages/rx_data_indication.h"
 #include "ocudu/fapi/p7/messages/uci_indication.h"
 #include "ocudu/fapi/p7/messages/ul_tti_request.h"
@@ -21,6 +22,13 @@ using namespace ocudu::fapi_adaptor;
 static constexpr int16_t  DUMMY_SINR = 15000;
 // Disabled RSSI/RSRP sentinel per SCF-222.
 static constexpr uint16_t DISABLED_METRIC = std::numeric_limits<uint16_t>::max();
+
+// RACH power/SNR encoded per SCF-222: rssi_dBm = (fapi_rssi - 140000) * 0.001
+//                                      snr_dB   = (fapi_snr  - 128)    * 0.5
+static constexpr uint32_t RACH_RSSI = 130'000U; // -10 dBm
+static constexpr uint8_t  RACH_SNR  = 188U;     // 30 dB: (30 / 0.5) + 128
+
+fapi_dummy_ue_simulator::fapi_dummy_ue_simulator(const fapi_dummy_ue_config& cfg_) : cfg(cfg_) {}
 
 void fapi_dummy_ue_simulator::store_ul_tti(const fapi::ul_tti_request& msg)
 {
@@ -41,6 +49,8 @@ void fapi_dummy_ue_simulator::store_ul_tti(const fapi::ul_tti_request& msg)
 
 void fapi_dummy_ue_simulator::on_new_slot(slot_point slot)
 {
+  maybe_fire_rach(slot);
+
   slot_data& entry = buffer[slot.system_slot() % BUFFER_SIZE];
   if (!entry.valid) {
     return;
@@ -56,6 +66,42 @@ void fapi_dummy_ue_simulator::on_new_slot(slot_point slot)
   for (const auto& pdu : local_data.pucch_pdus) {
     process_pucch(slot, pdu);
   }
+}
+
+void fapi_dummy_ue_simulator::maybe_fire_rach(slot_point slot)
+{
+  if (notifier == nullptr || cfg.nof_ues == 0 || next_ue_index >= cfg.nof_ues) {
+    return;
+  }
+
+  // Initialise the first RACH slot to the first slot seen.
+  if (next_rach_slot == RACH_SLOT_UNSET) {
+    next_rach_slot = slot.system_slot();
+  }
+
+  if (slot.system_slot() < next_rach_slot) {
+    return;
+  }
+
+  fapi::rach_indication_pdu_preamble preamble{};
+  preamble.preamble_index        = static_cast<uint8_t>(next_ue_index % 64U);
+  preamble.timing_advance_offset = std::nullopt;
+  preamble.preamble_pwr          = RACH_RSSI;
+  preamble.preamble_snr          = RACH_SNR;
+
+  fapi::rach_indication ind{};
+  ind.slot             = slot;
+  ind.pdu.avg_rssi     = RACH_RSSI;
+  ind.pdu.avg_snr      = RACH_SNR;
+  ind.pdu.symbol_index = 0;
+  ind.pdu.slot_index   = 0;
+  ind.pdu.ra_index     = 0;
+  ind.pdu.preambles.push_back(preamble);
+
+  notifier->on_rach_indication(ind);
+
+  ++next_ue_index;
+  next_rach_slot = slot.system_slot() + cfg.ue_creation_stagger_slots;
 }
 
 void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusch_pdu& pdu)
