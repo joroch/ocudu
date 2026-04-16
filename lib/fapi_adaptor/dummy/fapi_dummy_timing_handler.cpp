@@ -74,17 +74,32 @@ void fapi_dummy_timing_handler::loop()
 
   uint64_t slot_count = get_current_slot_fn();
 
-  // If the wall clock has not advanced to the next slot yet, yield briefly.
   if (slot_count == current_slot.system_slot()) {
+    // Wall clock has not advanced yet — yield briefly.
     OCUDU_RTSAN_SCOPED_DISABLER(scoped_disabler);
     std::this_thread::sleep_for(minimum_loop_time);
-  }
+  } else {
+    // Advance by exactly ONE slot per iteration and fire it via try_on_new_slot().
+    // Firing one slot at a time prevents burst-flooding the MAC's SPSC slot_ind queue
+    // (capacity 4) when catching up after a slow slot (e.g. during RA procedures).
+    // try_on_new_slot() returns false when the MAC's in-flight credit is exhausted;
+    // in that case we back off without advancing current_slot so we retry next loop.
+    slot_point_extended next_slot = current_slot;
+    ++next_slot;
 
-  // Advance current_slot up to slot_count, firing slot indications along the way.
-  while (slot_count != current_slot.system_slot()) {
-    ++current_slot;
+    bool all_accepted = true;
     for (auto* sector : sectors) {
-      sector->on_new_slot(current_slot);
+      if (!sector->try_on_new_slot(next_slot)) {
+        all_accepted = false;
+        break;
+      }
+    }
+
+    if (all_accepted) {
+      current_slot = next_slot;
+    } else {
+      OCUDU_RTSAN_SCOPED_DISABLER(scoped_disabler);
+      std::this_thread::sleep_for(minimum_loop_time);
     }
   }
 

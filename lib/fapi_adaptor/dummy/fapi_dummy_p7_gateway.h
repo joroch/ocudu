@@ -34,6 +34,9 @@ public:
   /// Called by the timing handler each new slot. Fires the slot indication if a notifier is set.
   void on_new_slot(slot_point_extended slot);
 
+  /// Returns true once a slot_indication notifier has been wired via set_slot_indication_notifier().
+  bool has_slot_notifier() const { return slot_notifier != nullptr; }
+
   // fapi::p7_requests_gateway
   void send_dl_tti_request(const fapi::dl_tti_request&) override {}
   void send_ul_tti_request(const fapi::ul_tti_request& msg) override;

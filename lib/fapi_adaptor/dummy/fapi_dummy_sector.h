@@ -63,6 +63,14 @@ public:
   /// Fires the slot indication and processes any buffered UL PDUs for this slot.
   void on_new_slot(slot_point_extended slot);
 
+  /// Credit-checked variant for the real-time timing handler.
+  ///
+  /// Increments the in-flight counter and calls on_new_slot() only when the number of
+  /// outstanding slot indications is below max_in_flight (one less than the MAC's SPSC
+  /// slot_ind queue capacity of 4).  Returns false without firing if the MAC is congested;
+  /// the caller should back off before retrying.
+  bool try_on_new_slot(slot_point_extended slot);
+
   /// Fires UL ACK responses (CRC/Rx_Data/UCI) for any UL_TTI stored at \p slot.
   ///
   /// Call this after the spin-wait confirms slot completion so that PUSCH/PUCCH PDUs
@@ -77,18 +85,36 @@ public:
   }
 
 private:
-  /// P7 last-request notifier that records the most recently completed slot atomically.
-  /// The MAC calls on_last_message() from its cell worker thread after every slot; the test
-  /// main thread can poll is_slot_completed() to know when it is safe to advance.
+  /// P7 last-request notifier that records the most recently completed slot atomically
+  /// and maintains the in-flight credit counter used by try_on_new_slot().
+  ///
+  /// on_last_message() is called from the MAC cell worker thread; last_slot_val,
+  /// slots_in_flight, and mac_started are polled/modified from the test or timer executor thread.
   class p7_last_request_notifier_impl : public fapi::p7_last_request_notifier
   {
   public:
     void on_last_message(slot_point slot) override
     {
+      // mac_started must be stored BEFORE last_slot_val so that callers spinning on
+      // last_slot_val (via is_slot_completed()) are guaranteed to observe mac_started=true
+      // via acquire-release ordering.
+      mac_started.store(true, std::memory_order_release);
       last_slot_val.store(slot.to_uint(), std::memory_order_release);
+      // Saturating decrement: only decrement if a credit was taken (try_on_new_slot path).
+      // When on_new_slot() is called directly (test path), slots_in_flight stays at 0.
+      uint32_t prev = slots_in_flight.load(std::memory_order_relaxed);
+      if (prev > 0) {
+        slots_in_flight.fetch_sub(1, std::memory_order_release);
+      }
     }
 
+    // Maximum number of slot indications that may be outstanding simultaneously.
+    // Chosen as one less than the MAC's SPSC slot_ind queue capacity (4) for safety margin.
+    static constexpr uint32_t max_in_flight = 3;
+
     std::atomic<uint32_t> last_slot_val{std::numeric_limits<uint32_t>::max()};
+    std::atomic<uint32_t> slots_in_flight{0};
+    std::atomic<bool>     mac_started{false};
   };
 
   fapi_dummy_cell_config          cfg;
