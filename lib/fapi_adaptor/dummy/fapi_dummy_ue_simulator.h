@@ -46,10 +46,17 @@ public:
   /// Fires any pending RACH indication and generates UL ACK responses for \p slot.
   void on_new_slot(slot_point slot);
 
+  /// Fires UL ACK responses for any UL_TTI stored at the given slot index.
+  ///
+  /// Called after the MAC has finished processing a slot so that the UL_TTI stored
+  /// during that slot's processing can be ACK'd with the correct UL transmission slot.
+  void flush_ul(slot_point slot);
+
 private:
   /// Per-slot storage for buffered UL PDUs.
   struct slot_data {
     bool                            valid = false;
+    slot_point                      ul_slot;   ///< original UL TTI transmission slot (from UL_TTI.request)
     std::vector<fapi::ul_pusch_pdu> pusch_pdus;
     std::vector<fapi::ul_pucch_pdu> pucch_pdus;
   };

@@ -13,6 +13,8 @@
 #include "ocudu/fapi_adaptor/phy/p7/phy_fapi_p7_sector_adaptor.h"
 #include "ocudu/fapi_adaptor/phy/phy_fapi_adaptor.h"
 #include "ocudu/ran/slot_point_extended.h"
+#include <atomic>
+#include <limits>
 
 namespace ocudu {
 
@@ -61,19 +63,39 @@ public:
   /// Fires the slot indication and processes any buffered UL PDUs for this slot.
   void on_new_slot(slot_point_extended slot);
 
+  /// Fires UL ACK responses (CRC/Rx_Data/UCI) for any UL_TTI stored at \p slot.
+  ///
+  /// Call this after the spin-wait confirms slot completion so that PUSCH/PUCCH PDUs
+  /// sent by the MAC during slot processing are ACK'd with the correct UL slot.
+  void flush_ul(slot_point slot) { ue_sim.flush_ul(slot); }
+
+  /// Returns true if the MAC has signalled slot-completion for the given slot.
+  /// Thread-safe: may be polled from the test main thread while the MAC runs on worker threads.
+  bool is_slot_completed(slot_point slot) const
+  {
+    return p7_last_req.last_slot_val.load(std::memory_order_acquire) == slot.to_uint();
+  }
+
 private:
-  /// Stub P7 last-request notifier — no-op.
-  class p7_last_request_notifier_stub : public fapi::p7_last_request_notifier
+  /// P7 last-request notifier that records the most recently completed slot atomically.
+  /// The MAC calls on_last_message() from its cell worker thread after every slot; the test
+  /// main thread can poll is_slot_completed() to know when it is safe to advance.
+  class p7_last_request_notifier_impl : public fapi::p7_last_request_notifier
   {
   public:
-    void on_last_message(slot_point) override {}
+    void on_last_message(slot_point slot) override
+    {
+      last_slot_val.store(slot.to_uint(), std::memory_order_release);
+    }
+
+    std::atomic<uint32_t> last_slot_val{std::numeric_limits<uint32_t>::max()};
   };
 
   fapi_dummy_cell_config          cfg;
   fapi_dummy_p5_gateway           p5_gw;
   fapi_dummy_p7_gateway           p7_gw;
   fapi_dummy_ue_simulator         ue_sim; // constructed with cfg.ue in the .cpp initialiser list
-  p7_last_request_notifier_stub   p7_last_req;
+  p7_last_request_notifier_impl   p7_last_req;
 };
 
 } // namespace fapi_adaptor

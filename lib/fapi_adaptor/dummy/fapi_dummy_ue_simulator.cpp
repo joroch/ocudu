@@ -4,6 +4,7 @@
 
 #include "fapi_dummy_ue_simulator.h"
 #include "ocudu/adt/span.h"
+#include "ocudu/ran/phy_time_unit.h"
 #include "ocudu/fapi/p7/messages/crc_indication.h"
 #include "ocudu/fapi/p7/messages/rach_indication.h"
 #include "ocudu/fapi/p7/messages/rx_data_indication.h"
@@ -33,7 +34,8 @@ fapi_dummy_ue_simulator::fapi_dummy_ue_simulator(const fapi_dummy_ue_config& cfg
 void fapi_dummy_ue_simulator::store_ul_tti(const fapi::ul_tti_request& msg)
 {
   slot_data& entry = buffer[msg.slot.system_slot() % BUFFER_SIZE];
-  entry.valid      = true;
+  entry.valid    = true;
+  entry.ul_slot  = msg.slot;
   entry.pusch_pdus.clear();
   entry.pucch_pdus.clear();
 
@@ -61,10 +63,28 @@ void fapi_dummy_ue_simulator::on_new_slot(slot_point slot)
   std::swap(local_data, entry);
 
   for (const auto& pdu : local_data.pusch_pdus) {
-    process_pusch(slot, pdu);
+    process_pusch(local_data.ul_slot, pdu);
   }
   for (const auto& pdu : local_data.pucch_pdus) {
-    process_pucch(slot, pdu);
+    process_pucch(local_data.ul_slot, pdu);
+  }
+}
+
+void fapi_dummy_ue_simulator::flush_ul(slot_point slot)
+{
+  slot_data& entry = buffer[slot.system_slot() % BUFFER_SIZE];
+  if (!entry.valid) {
+    return;
+  }
+
+  slot_data local_data;
+  std::swap(local_data, entry);
+
+  for (const auto& pdu : local_data.pusch_pdus) {
+    process_pusch(local_data.ul_slot, pdu);
+  }
+  for (const auto& pdu : local_data.pucch_pdus) {
+    process_pucch(local_data.ul_slot, pdu);
   }
 }
 
@@ -85,7 +105,7 @@ void fapi_dummy_ue_simulator::maybe_fire_rach(slot_point slot)
 
   fapi::rach_indication_pdu_preamble preamble{};
   preamble.preamble_index        = static_cast<uint8_t>(next_ue_index % 64U);
-  preamble.timing_advance_offset = std::nullopt;
+  preamble.timing_advance_offset = phy_time_unit::from_units_of_Tc(0);
   preamble.preamble_pwr          = RACH_RSSI;
   preamble.preamble_snr          = RACH_SNR;
 
@@ -125,14 +145,38 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
     crc.pdu.rsrp                = DISABLED_METRIC;
     notifier->on_crc_indication(crc);
 
-    // Zero-filled transport block — the span is valid during the callback.
-    std::vector<uint8_t> zeros(data.tb_size.value(), 0);
+    // Build a minimal valid MAC UL PDU.
+    //
+    // A zero-filled buffer cannot be decoded: after a CCCH_SIZE_64 subPDU (9 B) the
+    // remaining bytes look like a second CCCH_SIZE_64 header lacking payload → decode
+    // error → CCCH message never delivered → F1AP Initial UL RRC never sent.
+    //
+    // Structure (if tbs >= 9):
+    //   Byte 0      : 0x00  — CCCH_SIZE_64 subheader (LCID=0, R=0, F=0)
+    //   Bytes 1-8   : 0x00  — 8-byte CCCH payload (RRCSetupRequest placeholder)
+    //   Byte 9      : 0x3F  — PADDING LCID (if tbs > 9)
+    //   Bytes 10..  : 0x00  — padding data
+    //
+    // If tbs < 9 just use PADDING throughout (no CCCH, harmless for non-Msg3 grants).
+    const uint32_t tbs = data.tb_size.value();
+    std::vector<uint8_t> tb_pdu(tbs, 0U);
+    if (tbs >= 9) {
+      tb_pdu[0] = 0x00U; // CCCH_SIZE_64 subheader
+      // bytes 1-8 remain 0 (CCCH payload)
+      if (tbs > 9) {
+        tb_pdu[9] = 0x3FU; // PADDING LCID — consumes the rest
+        // bytes 10.. remain 0 (padding data)
+      }
+    } else {
+      tb_pdu[0] = 0x3FU; // PADDING LCID — consumes the entire PDU
+    }
+
     fapi::rx_data_indication rx{};
-    rx.slot               = slot;
-    rx.pdu.handle         = pdu.handle;
-    rx.pdu.rnti           = pdu.rnti;
-    rx.pdu.harq_id        = data.harq_process_id;
-    rx.pdu.transport_block = span<const uint8_t>(zeros.data(), zeros.size());
+    rx.slot                = slot;
+    rx.pdu.handle          = pdu.handle;
+    rx.pdu.rnti            = pdu.rnti;
+    rx.pdu.harq_id         = data.harq_process_id;
+    rx.pdu.transport_block = span<const uint8_t>(tb_pdu.data(), tb_pdu.size());
     notifier->on_rx_data_indication(rx);
   }
 

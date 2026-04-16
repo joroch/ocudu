@@ -35,6 +35,17 @@ target_link_libraries(du_high_test
 target_include_directories(du_high_test PRIVATE ${CMAKE_SOURCE_DIR})
 gtest_discover_tests(du_high_test PROPERTIES LABELS "tsan")
 
+add_executable(fapi_dummy_du_integration_test fapi_dummy_du_integration_test.cpp)
+target_include_directories(fapi_dummy_du_integration_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(fapi_dummy_du_integration_test
+        ocudu_o_du_high
+        ocudu_fapi_adaptor_dummy
+        du_high_worker_manager
+        f1ap_test_doubles
+        gtest
+        ocudu_gtest_main)
+gtest_discover_tests(fapi_dummy_du_integration_test PROPERTIES LABELS "integrationtest")
+
 add_executable(mac_test_mode_adapter_test mac_test_mode_adapter_test.cpp)
 target_link_libraries(mac_test_mode_adapter_test ocudu_du_high gtest ocudu_gtest_main)
 target_include_directories(mac_test_mode_adapter_test PRIVATE ${CMAKE_SOURCE_DIR})
