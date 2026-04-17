@@ -7,9 +7,11 @@
 #include "fapi_dummy_config.h"
 #include "ocudu/fapi/p7/messages/ul_pucch_pdu.h"
 #include "ocudu/fapi/p7/messages/ul_pusch_pdu.h"
+#include "ocudu/ran/rnti.h"
 #include "ocudu/ran/slot_point.h"
 #include <array>
 #include <limits>
+#include <map>
 #include <vector>
 
 namespace ocudu {
@@ -53,6 +55,13 @@ public:
   void flush_ul(slot_point slot);
 
 private:
+  /// Attach phase for a single UE, tracked per C-RNTI.
+  enum class ue_ul_state : uint8_t {
+    ccch_pending, ///< First PUSCH → Msg3 (RRCSetupRequest) on CCCH (LCID=0).
+    srb1_pending, ///< Msg3 sent; next sufficiently large PUSCH → rrcSetupComplete on SRB1 (LCID=1).
+    srb1_sent,    ///< rrcSetupComplete sent; all subsequent PUSCH responses are padding.
+  };
+
   /// Per-slot storage for buffered UL PDUs.
   struct slot_data {
     bool                            valid = false;
@@ -71,11 +80,12 @@ private:
   void process_pusch(slot_point slot, const fapi::ul_pusch_pdu& pdu);
   void process_pucch(slot_point slot, const fapi::ul_pucch_pdu& pdu);
 
-  fapi_dummy_ue_config                     cfg;
-  fapi::p7_indications_notifier*           notifier      = nullptr;
-  unsigned                                 next_ue_index = 0;
-  uint32_t                                 next_rach_slot = RACH_SLOT_UNSET;
-  std::array<slot_data, BUFFER_SIZE>       buffer{};
+  fapi_dummy_ue_config               cfg;
+  fapi::p7_indications_notifier*     notifier       = nullptr;
+  unsigned                           next_ue_index  = 0;
+  uint32_t                           next_rach_slot = RACH_SLOT_UNSET;
+  std::array<slot_data, BUFFER_SIZE> buffer{};
+  std::map<rnti_t, ue_ul_state>      rnti_states;
 };
 
 } // namespace fapi_adaptor

@@ -38,3 +38,12 @@ target_link_libraries(fapi_dummy_rach_test PRIVATE
     gtest
     gtest_main)
 gtest_discover_tests(fapi_dummy_rach_test)
+
+add_executable(fapi_dummy_srb1_test fapi_dummy_srb1_test.cpp)
+target_include_directories(fapi_dummy_srb1_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(fapi_dummy_srb1_test PRIVATE
+    ocudu_fapi_adaptor_dummy
+    ocudu_support
+    gtest
+    gtest_main)
+gtest_discover_tests(fapi_dummy_srb1_test)

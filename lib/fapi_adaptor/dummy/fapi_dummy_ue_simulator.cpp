@@ -13,11 +13,19 @@
 #include "ocudu/fapi/p7/p7_indications_notifier.h"
 #include "ocudu/ran/uci/uci_mapping.h"
 #include "ocudu/ran/uci/uci_payload_type.h"
+#include <algorithm>
 #include <limits>
 #include <vector>
 
 using namespace ocudu;
 using namespace ocudu::fapi_adaptor;
+
+// Full 37-byte MAC PDU: [LCID=1 subheader | len=35 | 35B RLC AM PDU with rrcSetupComplete + NAS RegistrationRequest]
+// Reused verbatim from mac_test_mode_helpers.cpp — same hardcoded PDU used by DU test mode.
+static constexpr std::array<uint8_t, 37> RRC_SETUP_COMPLETE_MAC_PDU = {
+    0x01, 0x23, 0xc0, 0x00, 0x00, 0x00, 0x10, 0x00, 0x05, 0xdf, 0x80, 0x10, 0x5e,
+    0x40, 0x03, 0x40, 0x40, 0x3c, 0x44, 0x3c, 0x3f, 0xc0, 0x00, 0x04, 0x0c, 0x95,
+    0x1d, 0xa6, 0x0b, 0x80, 0xb8, 0x38, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // SINR representative of a strong signal (~30 dB). Encoded as int16_t at 0.002 dB/LSB.
 static constexpr int16_t  DUMMY_SINR = 15000;
@@ -145,30 +153,56 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
     crc.pdu.rsrp                = DISABLED_METRIC;
     notifier->on_crc_indication(crc);
 
-    // Build a minimal valid MAC UL PDU.
+    // Build a MAC UL PDU whose content depends on the UE's current attach state.
     //
-    // A zero-filled buffer cannot be decoded: after a CCCH_SIZE_64 subPDU (9 B) the
-    // remaining bytes look like a second CCCH_SIZE_64 header lacking payload → decode
-    // error → CCCH message never delivered → F1AP Initial UL RRC never sent.
-    //
-    // Structure (if tbs >= 9):
-    //   Byte 0      : 0x00  — CCCH_SIZE_64 subheader (LCID=0, R=0, F=0)
-    //   Bytes 1-8   : 0x00  — 8-byte CCCH payload (RRCSetupRequest placeholder)
-    //   Byte 9      : 0x3F  — PADDING LCID (if tbs > 9)
-    //   Bytes 10..  : 0x00  — padding data
-    //
-    // If tbs < 9 just use PADDING throughout (no CCCH, harmless for non-Msg3 grants).
+    // State machine per C-RNTI (first seen → ccch_pending):
+    //   ccch_pending  → Msg3 (RRCSetupRequest on CCCH, LCID=0); advance to srb1_pending.
+    //   srb1_pending  → rrcSetupComplete on SRB1 (LCID=1) if TBS is large enough;
+    //                   otherwise padding (retry on next grant).
+    //   srb1_sent     → padding only.
     const uint32_t tbs = data.tb_size.value();
     std::vector<uint8_t> tb_pdu(tbs, 0U);
-    if (tbs >= 9) {
-      tb_pdu[0] = 0x00U; // CCCH_SIZE_64 subheader
-      // bytes 1-8 remain 0 (CCCH payload)
-      if (tbs > 9) {
-        tb_pdu[9] = 0x3FU; // PADDING LCID — consumes the rest
-        // bytes 10.. remain 0 (padding data)
-      }
-    } else {
-      tb_pdu[0] = 0x3FU; // PADDING LCID — consumes the entire PDU
+
+    auto& state = rnti_states[pdu.rnti]; // default-constructs to ccch_pending (value 0)
+    switch (state) {
+      case ue_ul_state::ccch_pending:
+        // Msg3: RRCSetupRequest on CCCH (LCID=0, fixed 8-byte payload) followed by a
+        // Short BSR CE (2 bytes) to signal pending SRB1 data to the scheduler.
+        // Without a BSR the scheduler has no reason to grant another UL PUSCH after
+        // Msg3, so rrcSetupComplete could never be sent.
+        if (tbs >= 9) {
+          tb_pdu[0] = 0x00U; // CCCH_SIZE_64 subheader (LCID=0, 8-byte fixed payload)
+          // bytes 1-8: zero CCCH payload (RRCSetupRequest placeholder)
+          if (tbs >= 11) {
+            // Short BSR: LCG=0, BufferSizeLevel=31 (~350 bytes) — TS 38.321 §6.1.3.1.
+            tb_pdu[9]  = 0x3DU; // Short BSR subheader (LCID=0x3D)
+            tb_pdu[10] = 0x1FU; // LCG=0 (bits 7-5), level=31 (bits 4-0)
+            if (tbs > 11) {
+              tb_pdu[11] = 0x3FU; // PADDING LCID — consumes remainder
+            }
+          } else if (tbs == 10) {
+            tb_pdu[9] = 0x3FU; // 1 byte left — only padding fits
+          }
+        } else {
+          tb_pdu[0] = 0x3FU; // too small for CCCH — padding only
+        }
+        state = ue_ul_state::srb1_pending;
+        break;
+      case ue_ul_state::srb1_pending:
+        if (tbs >= RRC_SETUP_COMPLETE_MAC_PDU.size()) {
+          std::copy(RRC_SETUP_COMPLETE_MAC_PDU.begin(), RRC_SETUP_COMPLETE_MAC_PDU.end(), tb_pdu.begin());
+          if (tbs > RRC_SETUP_COMPLETE_MAC_PDU.size()) {
+            tb_pdu[RRC_SETUP_COMPLETE_MAC_PDU.size()] = 0x3FU; // trailing PADDING LCID
+          }
+          state = ue_ul_state::srb1_sent;
+        } else {
+          // TBS too small to carry rrcSetupComplete — send padding and retry next grant.
+          tb_pdu[0] = 0x3FU;
+        }
+        break;
+      case ue_ul_state::srb1_sent:
+        tb_pdu[0] = 0x3FU; // padding — RRC attach complete, no more data to send
+        break;
     }
 
     fapi::rx_data_indication rx{};
@@ -211,9 +245,13 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     return;
   }
 
-  // Helper: build a format-0/1 UCI indication with positive HARQ.
+  // Helper: build a format-0/1 UCI indication with positive HARQ and optional SR.
+  // sr_bits > 0 means the scheduler allocated SR resources in this PUCCH.
+  // We signal SR=detected when the UE is waiting to send rrcSetupComplete (srb1_pending),
+  // which causes the scheduler to grant a follow-up PUSCH for the rrcSetupComplete PDU.
   auto make_f0_f1 = [&](fapi::uci_pucch_pdu_format_0_1::format_type fmt,
-                         unsigned                                    n_harq) -> fapi::uci_indication {
+                         unsigned                                    n_harq,
+                         bool                                        sr_present) -> fapi::uci_indication {
     fapi::uci_pucch_pdu_format_0_1 uci{};
     uci.handle         = pdu.handle;
     uci.rnti           = pdu.rnti;
@@ -221,6 +259,11 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     uci.ul_sinr_metric = DUMMY_SINR;
     uci.rssi           = DISABLED_METRIC;
     uci.rsrp           = DISABLED_METRIC;
+    if (sr_present) {
+      auto it = rnti_states.find(pdu.rnti);
+      bool pending = (it != rnti_states.end() && it->second == ue_ul_state::srb1_pending);
+      uci.sr = fapi::sr_pdu_format_0_1{.sr_detected = pending};
+    }
     if (n_harq > 0) {
       fapi::uci_harq_format_0_1 harq{};
       for (unsigned i = 0; i < n_harq && i < fapi::uci_harq_format_0_1::MAX_NUM_HARQ; ++i) {
@@ -262,9 +305,9 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
   using F234 = fapi::uci_pucch_pdu_format_2_3_4::format_type;
 
   if (const auto* f0 = std::get_if<fapi::ul_pucch_pdu_format_0>(&pdu.format)) {
-    notifier->on_uci_indication(make_f0_f1(F01::format_0, f0->bit_len_harq.value()));
+    notifier->on_uci_indication(make_f0_f1(F01::format_0, f0->bit_len_harq.value(), f0->sr_present));
   } else if (const auto* f1 = std::get_if<fapi::ul_pucch_pdu_format_1>(&pdu.format)) {
-    notifier->on_uci_indication(make_f0_f1(F01::format_1, f1->bit_len_harq.value()));
+    notifier->on_uci_indication(make_f0_f1(F01::format_1, f1->bit_len_harq.value(), f1->sr_present));
   } else if (const auto* f2 = std::get_if<fapi::ul_pucch_pdu_format_2>(&pdu.format)) {
     notifier->on_uci_indication(make_f234(F234::format_2, f2->bit_len_harq.value()));
   } else if (const auto* f3 = std::get_if<fapi::ul_pucch_pdu_format_3>(&pdu.format)) {
