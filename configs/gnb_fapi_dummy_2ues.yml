@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
+
+# Dummy FAPI PHY — slot timing + 2 simulated UEs with 10-slot RACH stagger.
+# UE 0 RACH fires at slot 0, UE 1 at slot 10.
+# No real hardware required.
+
+cu_cp:
+  request_pdu_session_timeout: 86400
+  amf:
+    no_core: true
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+
+cell_cfg:
+  dl_arfcn: 632628
+  band: 78
+  channel_bandwidth_MHz: 20
+  common_scs: 30
+  plmn: "00101"
+  tac: 7
+  pci: 1
+
+fapi_dummy:
+  enabled: true
+  nof_ues: 2
+  ue_creation_stagger_slots: 10
+
+log:
+  filename: /tmp/gnb_dummy_2ues.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  ngap_enable: false

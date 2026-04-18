@@ -247,24 +247,9 @@ private:
       send_rx_pdu_to_cu_cp(ics);
 
     } else if (msg_type == ngap_elem_procs_o::init_msg_c::types_opts::ue_context_release_request) {
-      // CU-CP is requesting UE release. Respond with UEContextReleaseCommand.
-
-      const auto& req       = msg.pdu.init_msg().value.ue_context_release_request();
-      const auto  ran_ue_id = req->ran_ue_ngap_id;
-      const auto  amf_ue_id = req->amf_ue_ngap_id;
-
-      ngap_message cmd;
-      cmd.pdu.set_init_msg().load_info_obj(ASN1_NGAP_ID_UE_CONTEXT_RELEASE);
-      auto& r                                   = cmd.pdu.init_msg().value.ue_context_release_cmd();
-      auto& id_pair                             = r->ue_ngap_ids.set_ue_ngap_id_pair();
-      id_pair.amf_ue_ngap_id                    = amf_ue_id;
-      id_pair.ran_ue_ngap_id                    = ran_ue_id;
-      r->cause.set_radio_network()              = cause_radio_network_opts::options::unspecified;
-
-      // Clean up mapping.
-      ran_to_amf_map.erase(ran_ue_id);
-
-      send_rx_pdu_to_cu_cp(cmd);
+      // Absorb silently — no_core mode keeps UEs connected indefinitely.
+      // Responding with UEContextReleaseCommand would tear down the UE, defeating the
+      // purpose of a long-running simulation.  The CU-CP will retry after its own timer.
     }
   }
 
