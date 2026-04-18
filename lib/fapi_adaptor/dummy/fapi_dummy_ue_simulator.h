@@ -14,6 +14,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 namespace ocudu {
@@ -97,6 +98,7 @@ public:
   uint32_t                                         next_rach_slot = RACH_SLOT_UNSET;
   std::array<slot_data, BUFFER_SIZE>               buffer{};
   std::map<rnti_t, ue_ul_state>                    rnti_states;
+  std::set<rnti_t>                                 srb1_status_needed; ///< RNTIs that must send RLC STATUS PDU next UL.
   std::unique_ptr<security::security_engine_tx>    rrc_sec_engine;
 };
 

@@ -272,9 +272,26 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
         }
         break;
       }
-      case ue_ul_state::registered:
-        tb_pdu[0] = 0x3FU;
+      case ue_ul_state::registered: {
+        // Send one RLC AM STATUS PDU on SRB1 to ACK the DL TX window (prevents RLF).
+        // ACK_SN=2 clears SecurityModeCommand (DL RLC SN=0) and NAS DLInformationTransfer (SN=1).
+        // Format: MAC subhdr(LCID=1,len=3) + RLC STATUS PDU (D/C=0,CPT=000,ACK_SN=2,E1=0).
+        static constexpr unsigned STATUS_PDU_SIZE = 5U;
+        if (srb1_status_needed.count(pdu.rnti) && tbs >= STATUS_PDU_SIZE) {
+          tb_pdu[0] = 0x01U; // MAC: LCID=1
+          tb_pdu[1] = 0x03U; // MAC: length=3
+          tb_pdu[2] = 0x00U; // RLC: D/C=0, CPT=000, ACK_SN[11:8]=0
+          tb_pdu[3] = 0x02U; // RLC: ACK_SN[7:0]=2
+          tb_pdu[4] = 0x00U; // RLC: E1=0 (no NACKs)
+          if (tbs > STATUS_PDU_SIZE) {
+            tb_pdu[STATUS_PDU_SIZE] = 0x3FU;
+          }
+          srb1_status_needed.erase(pdu.rnti);
+        } else {
+          tb_pdu[0] = 0x3FU;
+        }
         break;
+      }
     }
 
     fapi::rx_data_indication rx{};
@@ -333,8 +350,9 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     uci.rsrp           = DISABLED_METRIC;
     if (sr_present) {
       auto it = rnti_states.find(pdu.rnti);
-      bool pending = it != rnti_states.end() &&
-                     (it->second == ue_ul_state::srb1_pending || it->second == ue_ul_state::smc_pending);
+      bool pending = (it != rnti_states.end() &&
+                      (it->second == ue_ul_state::srb1_pending || it->second == ue_ul_state::smc_pending)) ||
+                     srb1_status_needed.count(pdu.rnti) > 0;
       uci.sr = fapi::sr_pdu_format_0_1{.sr_detected = pending};
     }
     if (n_harq > 0) {
@@ -394,7 +412,14 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
 void fapi_dummy_ue_simulator::on_dl_pdsch_for_rnti(rnti_t rnti)
 {
   auto it = rnti_states.find(rnti);
-  if (it != rnti_states.end() && it->second == ue_ul_state::srb1_sent) {
+  if (it == rnti_states.end()) {
+    return;
+  }
+  if (it->second == ue_ul_state::srb1_sent) {
     it->second = ue_ul_state::smc_pending;
+  } else if (it->second == ue_ul_state::registered) {
+    // DL PDSCH in registered state = NAS DL (e.g. RegistrationAccept).
+    // Queue an RLC AM STATUS PDU to ACK the DL SRB1 TX window.
+    srb1_status_needed.insert(rnti);
   }
 }
