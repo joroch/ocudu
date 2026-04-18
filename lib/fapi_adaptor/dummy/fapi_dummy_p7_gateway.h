@@ -38,7 +38,7 @@ public:
   bool has_slot_notifier() const { return slot_notifier != nullptr; }
 
   // fapi::p7_requests_gateway
-  void send_dl_tti_request(const fapi::dl_tti_request&) override {}
+  void send_dl_tti_request(const fapi::dl_tti_request& msg) override;
   void send_ul_tti_request(const fapi::ul_tti_request& msg) override;
   void send_ul_dci_request(const fapi::ul_dci_request&) override {}
   void send_tx_data_request(const fapi::tx_data_request&) override {}

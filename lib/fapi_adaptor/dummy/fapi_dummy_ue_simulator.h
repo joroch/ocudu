@@ -9,9 +9,11 @@
 #include "ocudu/fapi/p7/messages/ul_pusch_pdu.h"
 #include "ocudu/ran/rnti.h"
 #include "ocudu/ran/slot_point.h"
+#include "ocudu/security/security_engine.h"
 #include <array>
 #include <limits>
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace ocudu {
@@ -59,7 +61,9 @@ private:
   enum class ue_ul_state : uint8_t {
     ccch_pending, ///< First PUSCH → Msg3 (RRCSetupRequest) on CCCH (LCID=0).
     srb1_pending, ///< Msg3 sent; next sufficiently large PUSCH → rrcSetupComplete on SRB1 (LCID=1).
-    srb1_sent,    ///< rrcSetupComplete sent; all subsequent PUSCH responses are padding.
+    srb1_sent,    ///< rrcSetupComplete sent; waiting for first DL PDSCH (SecurityModeCommand) before sending SMC.
+    smc_pending,  ///< DL PDSCH seen; next PUSCH → SecurityModeComplete on SRB1 (LCID=1).
+    registered,   ///< SecurityModeComplete sent; all subsequent PUSCH responses are padding.
   };
 
   /// Per-slot storage for buffered UL PDUs.
@@ -80,12 +84,20 @@ private:
   void process_pusch(slot_point slot, const fapi::ul_pusch_pdu& pdu);
   void process_pucch(slot_point slot, const fapi::ul_pucch_pdu& pdu);
 
-  fapi_dummy_ue_config               cfg;
-  fapi::p7_indications_notifier*     notifier       = nullptr;
-  unsigned                           next_ue_index  = 0;
-  uint32_t                           next_rach_slot = RACH_SLOT_UNSET;
-  std::array<slot_data, BUFFER_SIZE> buffer{};
-  std::map<rnti_t, ue_ul_state>      rnti_states;
+public:
+  /// Notifies the UE simulator that a DL PDSCH was scheduled for \p rnti.
+  /// Used to detect SecurityModeCommand and transition srb1_sent → smc_pending.
+  void on_dl_pdsch_for_rnti(rnti_t rnti);
+
+  void init_rrc_security();
+
+  fapi_dummy_ue_config                             cfg;
+  fapi::p7_indications_notifier*                   notifier       = nullptr;
+  unsigned                                         next_ue_index  = 0;
+  uint32_t                                         next_rach_slot = RACH_SLOT_UNSET;
+  std::array<slot_data, BUFFER_SIZE>               buffer{};
+  std::map<rnti_t, ue_ul_state>                    rnti_states;
+  std::unique_ptr<security::security_engine_tx>    rrc_sec_engine;
 };
 
 } // namespace fapi_adaptor

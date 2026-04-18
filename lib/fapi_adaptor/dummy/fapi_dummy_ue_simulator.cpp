@@ -3,6 +3,7 @@
 // Portions of this file may implement 3GPP specifications, which may be subject to additional licensing requirements.
 
 #include "fapi_dummy_ue_simulator.h"
+#include "ocudu/adt/byte_buffer.h"
 #include "ocudu/adt/span.h"
 #include "ocudu/ran/phy_time_unit.h"
 #include "ocudu/fapi/p7/messages/crc_indication.h"
@@ -13,6 +14,8 @@
 #include "ocudu/fapi/p7/p7_indications_notifier.h"
 #include "ocudu/ran/uci/uci_mapping.h"
 #include "ocudu/ran/uci/uci_payload_type.h"
+#include "ocudu/security/security.h"
+#include "ocudu/security/security_engine_factory.h"
 #include <algorithm>
 #include <limits>
 #include <vector>
@@ -27,6 +30,12 @@ static constexpr std::array<uint8_t, 37> RRC_SETUP_COMPLETE_MAC_PDU = {
     0x40, 0x03, 0x40, 0x40, 0x3c, 0x44, 0x3c, 0x3f, 0xc0, 0x00, 0x04, 0x0c, 0x95,
     0x1d, 0xa6, 0x0b, 0x80, 0xb8, 0x38, 0x00, 0x00, 0x00, 0x00, 0x00};
 
+// SecurityModeComplete PDCP payload (header + RRC, before integrity protection):
+//   PDCP: [0x00=D/C|R|R|R|SN[11:8]=0, 0x01=SN[7:0]=1]  (SN=1, second SRB1 UL PDCP PDU)
+//   RRC:  [0x2A=UL-DCCH c1=smc choice5 txId=1, 0x00=empty IEs]
+// NIA2 MAC-I (4 bytes) is appended at runtime by the security engine.
+static constexpr std::array<uint8_t, 4> SMC_PDCP_PAYLOAD = {0x00, 0x01, 0x2A, 0x00};
+
 // SINR representative of a strong signal (~30 dB). Encoded as int16_t at 0.002 dB/LSB.
 static constexpr int16_t  DUMMY_SINR = 15000;
 // Disabled RSSI/RSRP sentinel per SCF-222.
@@ -37,7 +46,37 @@ static constexpr uint16_t DISABLED_METRIC = std::numeric_limits<uint16_t>::max()
 static constexpr uint32_t RACH_RSSI = 130'000U; // -10 dBm
 static constexpr uint8_t  RACH_SNR  = 188U;     // 30 dB: (30 / 0.5) + 128
 
-fapi_dummy_ue_simulator::fapi_dummy_ue_simulator(const fapi_dummy_ue_config& cfg_) : cfg(cfg_) {}
+fapi_dummy_ue_simulator::fapi_dummy_ue_simulator(const fapi_dummy_ue_config& cfg_) : cfg(cfg_)
+{
+  init_rrc_security();
+}
+
+void fapi_dummy_ue_simulator::init_rrc_security()
+{
+  // Mirror the security context the CU-CP will establish for each simulated UE.
+  // K_gNB = all-ones (matches the stub's security_key). NIA2 is selected by the gNB
+  // preference list given ue_security_cap supports NIA1+NIA2. NEA0 = null cipher.
+  security::security_context ctx;
+  ctx.k.fill(0xFFU);
+  ctx.sel_algos.algos_selected = true;
+  ctx.sel_algos.integ_algo     = security::integrity_algorithm::nia2;
+  ctx.sel_algos.cipher_algo    = security::ciphering_algorithm::nea0;
+  ctx.generate_as_keys();
+
+  security::sec_128_as_config rrc_cfg = ctx.get_128_as_config(security::sec_domain::rrc);
+
+  // SecurityModeComplete is sent with integrity ON but ciphering OFF (NEA0 not yet activated).
+  // This matches the CU-CP RX engine state at the time it processes the SecurityModeComplete.
+  // SRB1 bearer_id = srb_id_to_uint(srb1) - 1 = 0 (matches pdcp_entity_tx_rx_base.h:66).
+  security_engine_creation_message msg{
+      .sec_cfg           = rrc_cfg,
+      .bearer_id         = 0U,
+      .direction         = security::security_direction::uplink,
+      .integrity_enabled = security::integrity_enabled::on,
+      .ciphering_enabled = security::ciphering_enabled::off,
+  };
+  rrc_sec_engine = create_security_engine_tx(msg);
+}
 
 void fapi_dummy_ue_simulator::store_ul_tti(const fapi::ul_tti_request& msg)
 {
@@ -159,7 +198,9 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
     //   ccch_pending  → Msg3 (RRCSetupRequest on CCCH, LCID=0); advance to srb1_pending.
     //   srb1_pending  → rrcSetupComplete on SRB1 (LCID=1) if TBS is large enough;
     //                   otherwise padding (retry on next grant).
-    //   srb1_sent     → padding only.
+    //   srb1_sent     → padding; waiting for DL PDSCH (SecurityModeCommand signal).
+    //   smc_pending   → SecurityModeComplete on SRB1 (LCID=1); advance to registered.
+    //   registered    → padding only.
     const uint32_t tbs = data.tb_size.value();
     std::vector<uint8_t> tb_pdu(tbs, 0U);
 
@@ -201,7 +242,38 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
         }
         break;
       case ue_ul_state::srb1_sent:
-        tb_pdu[0] = 0x3FU; // padding — RRC attach complete, no more data to send
+        tb_pdu[0] = 0x3FU; // waiting for DL SecurityModeCommand detection
+        break;
+      case ue_ul_state::smc_pending: {
+        // MAC TB: 2B MAC subhdr + 2B RLC AM hdr + 4B PDCP payload + 4B NIA2 MAC-I = 12 bytes.
+        static constexpr unsigned SMC_MAC_PDU_SIZE = 12U;
+        if (rrc_sec_engine != nullptr && tbs >= SMC_MAC_PDU_SIZE) {
+          byte_buffer pdcp_buf;
+          (void)pdcp_buf.append(span<const uint8_t>(SMC_PDCP_PAYLOAD.data(), SMC_PDCP_PAYLOAD.size()));
+          auto sec_result = rrc_sec_engine->encrypt_and_protect_integrity(std::move(pdcp_buf), 2U, 1U);
+          if (sec_result.buf.has_value()) {
+            tb_pdu[0] = 0x01U; // MAC: LCID=1
+            tb_pdu[1] = 0x0AU; // MAC: len=10 (2 RLC + 8 PDCP+MAC-I)
+            tb_pdu[2] = 0x80U; // RLC AM: D/C=1, P=0, SI=00, SN[11:8]=0
+            tb_pdu[3] = 0x01U; // RLC AM: SN[7:0]=1
+            unsigned off = 4U;
+            for (uint8_t byte : sec_result.buf.value()) {
+              tb_pdu[off++] = byte;
+            }
+            if (tbs > SMC_MAC_PDU_SIZE) {
+              tb_pdu[SMC_MAC_PDU_SIZE] = 0x3FU;
+            }
+            state = ue_ul_state::registered;
+          } else {
+            tb_pdu[0] = 0x3FU;
+          }
+        } else {
+          tb_pdu[0] = 0x3FU;
+        }
+        break;
+      }
+      case ue_ul_state::registered:
+        tb_pdu[0] = 0x3FU;
         break;
     }
 
@@ -261,7 +333,8 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     uci.rsrp           = DISABLED_METRIC;
     if (sr_present) {
       auto it = rnti_states.find(pdu.rnti);
-      bool pending = (it != rnti_states.end() && it->second == ue_ul_state::srb1_pending);
+      bool pending = it != rnti_states.end() &&
+                     (it->second == ue_ul_state::srb1_pending || it->second == ue_ul_state::smc_pending);
       uci.sr = fapi::sr_pdu_format_0_1{.sr_detected = pending};
     }
     if (n_harq > 0) {
@@ -316,4 +389,12 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     notifier->on_uci_indication(make_f234(F234::format_4, f4->bit_len_harq.value()));
   }
   // std::monostate (no format set) — ignore.
+}
+
+void fapi_dummy_ue_simulator::on_dl_pdsch_for_rnti(rnti_t rnti)
+{
+  auto it = rnti_states.find(rnti);
+  if (it != rnti_states.end() && it->second == ue_ul_state::srb1_sent) {
+    it->second = ue_ul_state::smc_pending;
+  }
 }

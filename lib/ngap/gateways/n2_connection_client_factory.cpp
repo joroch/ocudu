@@ -8,6 +8,7 @@
 #include "ocudu/gateways/sctp_network_client_factory.h"
 #include "ocudu/ngap/ngap_message.h"
 #include "ocudu/pcap/dlt_pcap.h"
+#include <map>
 
 using namespace ocudu;
 using namespace ocucp;
@@ -95,7 +96,7 @@ private:
 class ngap_gateway_local_stub final : public n2_connection_client
 {
 public:
-  ngap_gateway_local_stub(dlt_pcap& pcap_) : pcap_writer(pcap_) {}
+  explicit ngap_gateway_local_stub(dlt_pcap& pcap_) : pcap_writer(pcap_) {}
 
   std::unique_ptr<ngap_message_notifier>
   handle_cu_cp_connection_request(std::unique_ptr<ngap_rx_message_notifier> cu_cp_rx_pdu_notifier) override
@@ -141,13 +142,24 @@ private:
       }
     }
 
-    if (msg.pdu.type().value == ngap_pdu_c::types_opts::init_msg and
-        msg.pdu.init_msg().value.type().value == ngap_elem_procs_o::init_msg_c::types_opts::ng_setup_request) {
+    if (msg.pdu.type().value != ngap_pdu_c::types_opts::init_msg) {
+      return;
+    }
+
+    const auto msg_type = msg.pdu.init_msg().value.type().value;
+
+    if (msg_type == ngap_elem_procs_o::init_msg_c::types_opts::ng_setup_request) {
       // CU-CP is requesting an NG Setup. Automatically reply with NG Setup Response.
 
       const auto& req = msg.pdu.init_msg().value.ng_setup_request();
       ocudu_assert(req->supported_ta_list.size() > 0, "NG Setup Request has no supported TA list");
       const auto& broadcast_plmns = req->supported_ta_list[0].broadcast_plmn_list;
+
+      // Save PLMN and slice info for use in subsequent InitialContextSetupRequest messages.
+      if (broadcast_plmns.size() > 0) {
+        saved_plmn       = broadcast_plmns[0].plmn_id;
+        saved_slice_list = broadcast_plmns[0].tai_slice_support_list;
+      }
 
       // Generate fake NG Setup Response.
       ngap_message resp;
@@ -156,7 +168,7 @@ private:
       ng_resp->amf_name.from_string("localamf");
       ng_resp->served_guami_list.resize(broadcast_plmns.size());
       for (unsigned i = 0; i != ng_resp->served_guami_list.size(); ++i) {
-        ng_resp->served_guami_list[i].guami.plmn_id = req->supported_ta_list[0].broadcast_plmn_list[i].plmn_id;
+        ng_resp->served_guami_list[i].guami.plmn_id = broadcast_plmns[i].plmn_id;
         ng_resp->served_guami_list[i].guami.amf_region_id.from_number(0x2);
         ng_resp->served_guami_list[i].guami.amf_set_id.from_number(0x40);
         ng_resp->served_guami_list[i].guami.amf_pointer.from_number(0x0);
@@ -173,6 +185,86 @@ private:
 
       // Send NG Setup Response back to CU-CP.
       send_rx_pdu_to_cu_cp(resp);
+
+    } else if (msg_type == ngap_elem_procs_o::init_msg_c::types_opts::init_ue_msg) {
+      // UE sends RRCSetupComplete (InitialUEMessage). Respond with InitialContextSetupRequest
+      // to trigger SecurityModeCommand exchange and register the UE.
+
+      const auto& req          = msg.pdu.init_msg().value.init_ue_msg();
+      const auto  ran_ue_id    = req->ran_ue_ngap_id;
+      const auto  amf_ue_id    = next_amf_ue_id++;
+      ran_to_amf_map[ran_ue_id] = amf_ue_id;
+
+      ngap_message ics;
+      ics.pdu.set_init_msg().load_info_obj(ASN1_NGAP_ID_INIT_CONTEXT_SETUP);
+      auto& r               = ics.pdu.init_msg().value.init_context_setup_request();
+      r->amf_ue_ngap_id     = amf_ue_id;
+      r->ran_ue_ngap_id     = ran_ue_id;
+
+      // GUAMI: reuse the PLMN saved from NG Setup, fixed AMF identity.
+      r->guami.plmn_id = saved_plmn;
+      r->guami.amf_region_id.from_number(0x2);
+      r->guami.amf_set_id.from_number(0x40);
+      r->guami.amf_pointer.from_number(0x0);
+
+      // NAS RegistrationAccept embedded in the ICS request (forwarded to UE via DL RRC).
+      r->nas_pdu_present = true;
+      r->nas_pdu.from_string(
+          "7e02c4f6c22f017e0042010177000bf202f8998000410000001054070002f8990000011500210201005e01b6");
+
+      // NIA2+NIA1 integrity support — gNB selects NIA2; NEA0 cipher (null) selected by gNB preference.
+      r->ue_security_cap.nr_encryption_algorithms.from_number(0);
+      r->ue_security_cap.nr_integrity_protection_algorithms.from_number(49152);
+      r->ue_security_cap.eutr_aencryption_algorithms.from_number(0);
+      r->ue_security_cap.eutr_aintegrity_protection_algorithms.from_number(0);
+
+      // Deterministic 256-bit key (all ones) — not used for ciphering with NEA0/NIA0.
+      r->security_key.from_string(
+          "1111111111111111111111111111111111111111111111111111111111111111"
+          "1111111111111111111111111111111111111111111111111111111111111111"
+          "1111111111111111111111111111111111111111111111111111111111111111"
+          "1111111111111111111111111111111111111111111111111111111111111111");
+
+      // Allowed NSSAI: mirror the first slice from NG Setup (typically SST=1).
+      if (saved_slice_list.size() > 0) {
+        allowed_nssai_item_s item{};
+        item.s_nssai.sst = saved_slice_list[0].s_nssai.sst;
+        item.s_nssai.sd_present = saved_slice_list[0].s_nssai.sd_present;
+        item.s_nssai.sd         = saved_slice_list[0].s_nssai.sd;
+        r->allowed_nssai.push_back(item);
+      } else {
+        allowed_nssai_item_s item{};
+        item.s_nssai.sst.from_number(1);
+        r->allowed_nssai.push_back(item);
+      }
+
+      // Provide pre-built UE radio capabilities to skip the UECapabilityEnquiry round-trip.
+      r->ue_radio_cap_present = true;
+      r->ue_radio_cap.from_string(
+          "02c0856c18033a047465a025f800082a00241260e000307838031bff001300098a00d00000001c058d006007a071e439f0000240400e"
+          "03000000001001be00000000000002074000000000005038a12007000f00000004008010");
+
+      send_rx_pdu_to_cu_cp(ics);
+
+    } else if (msg_type == ngap_elem_procs_o::init_msg_c::types_opts::ue_context_release_request) {
+      // CU-CP is requesting UE release. Respond with UEContextReleaseCommand.
+
+      const auto& req       = msg.pdu.init_msg().value.ue_context_release_request();
+      const auto  ran_ue_id = req->ran_ue_ngap_id;
+      const auto  amf_ue_id = req->amf_ue_ngap_id;
+
+      ngap_message cmd;
+      cmd.pdu.set_init_msg().load_info_obj(ASN1_NGAP_ID_UE_CONTEXT_RELEASE);
+      auto& r                                   = cmd.pdu.init_msg().value.ue_context_release_cmd();
+      auto& id_pair                             = r->ue_ngap_ids.set_ue_ngap_id_pair();
+      id_pair.amf_ue_ngap_id                    = amf_ue_id;
+      id_pair.ran_ue_ngap_id                    = ran_ue_id;
+      r->cause.set_radio_network()              = cause_radio_network_opts::options::unspecified;
+
+      // Clean up mapping.
+      ran_to_amf_map.erase(ran_ue_id);
+
+      send_rx_pdu_to_cu_cp(cmd);
     }
   }
 
@@ -201,6 +293,11 @@ private:
   ocudulog::basic_logger& logger = ocudulog::fetch_basic_logger("CU-CP");
 
   std::unique_ptr<ngap_rx_message_notifier> cu_cp_rx_notifier;
+
+  uint64_t                             next_amf_ue_id = 1;
+  std::map<uint64_t, uint64_t>         ran_to_amf_map;
+  asn1::fixed_octstring<3, true>       saved_plmn;
+  asn1::ngap::slice_support_list_l     saved_slice_list;
 };
 
 /// \brief NGAP bridge that uses the IO broker to handle the SCTP connection

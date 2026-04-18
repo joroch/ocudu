@@ -10,4 +10,4 @@ add_library(ocudu_fapi_adaptor_dummy STATIC
     fapi_dummy_timing_handler.cpp
     fapi_dummy_ue_simulator.cpp)
 
-target_link_libraries(ocudu_fapi_adaptor_dummy PRIVATE ocudu_support)
+target_link_libraries(ocudu_fapi_adaptor_dummy PRIVATE ocudu_support ocudu_security)
