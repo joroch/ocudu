@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
+
+# Dummy FAPI PHY — slot timing only, no simulated UEs.
+# Useful for verifying the DU-High stack brings up cleanly without any hardware.
+
+cu_cp:
+  amf:
+    addrs: 127.0.1.100
+    port: 38412
+    bind_addrs: 127.0.0.1
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+
+cell_cfg:
+  dl_arfcn: 632628
+  band: 78
+  channel_bandwidth_MHz: 20
+  common_scs: 30
+  plmn: "00101"
+  tac: 7
+  pci: 1
+
+fapi_dummy:
+  enabled: true
+  nof_ues: 0
+
+log:
+  filename: /tmp/gnb_dummy_no_ues.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  ngap_enable: false

@@ -6,9 +6,12 @@
 
 #include "apps/units/application_unit.h"
 #include "apps/units/flexible_o_du/o_du_unit.h"
+#include "ocudu/ngap/gateways/n2_connection_client.h"
 #include <yaml-cpp/node/node.h>
 
 namespace ocudu {
+
+class dlt_pcap;
 struct o_du_high_unit_config;
 struct worker_manager_config;
 
@@ -27,6 +30,12 @@ public:
   /// Returns the O-RAN DU high unit configuration of this flexible DU.
   virtual o_du_high_unit_config&       get_o_du_high_unit_config()       = 0;
   virtual const o_du_high_unit_config& get_o_du_high_unit_config() const = 0;
+
+  /// Creates an N2 connection client override for no_core mode, or nullptr if none is needed.
+  virtual std::unique_ptr<ocucp::n2_connection_client> create_no_core_n2_client(dlt_pcap& pcap)
+  {
+    return nullptr;
+  }
 };
 
 /// \brief Creates a flexible O-RAN DU application unit.

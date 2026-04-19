@@ -31,10 +31,16 @@ static constexpr std::array<uint8_t, 37> RRC_SETUP_COMPLETE_MAC_PDU = {
     0x1d, 0xa6, 0x0b, 0x80, 0xb8, 0x38, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // SecurityModeComplete PDCP payload (header + RRC, before integrity protection):
-//   PDCP: [0x00=D/C|R|R|R|SN[11:8]=0, 0x01=SN[7:0]=1]  (SN=1, second SRB1 UL PDCP PDU)
+//   PDCP: [0x00=R|R|R|R|SN[11:8]=0, 0x01=SN[7:0]=1]  (SRB1, SN=1)
 //   RRC:  [0x2A=UL-DCCH c1=smc choice5 txId=1, 0x00=empty IEs]
 // NIA2 MAC-I (4 bytes) is appended at runtime by the security engine.
 static constexpr std::array<uint8_t, 4> SMC_PDCP_PAYLOAD = {0x00, 0x01, 0x2A, 0x00};
+
+// RRCReconfigurationComplete PDCP payload (header + RRC, before integrity protection):
+//   PDCP: [0x00=R|R|R|R|SN[11:8]=0, 0x02=SN[7:0]=2]  (SRB1, SN=2)
+//   RRC:  [0x0C=UL-DCCH c1=rrcRecfgComplete choice1 txId=2, 0x00=empty IEs]
+// NIA2 MAC-I (4 bytes) is appended at runtime by the security engine (count=2).
+static constexpr std::array<uint8_t, 4> RRC_RECONFIG_COMPLETE_PDCP_PAYLOAD = {0x00, 0x02, 0x0C, 0x00};
 
 // SINR representative of a strong signal (~30 dB). Encoded as int16_t at 0.002 dB/LSB.
 static constexpr int16_t  DUMMY_SINR = 15000;
@@ -272,21 +278,79 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
         }
         break;
       }
-      case ue_ul_state::registered: {
-        // Send one RLC AM STATUS PDU on SRB1 to ACK the DL TX window (prevents RLF).
-        // ACK_SN=2 clears SecurityModeCommand (DL RLC SN=0) and NAS DLInformationTransfer (SN=1).
-        // Format: MAC subhdr(LCID=1,len=3) + RLC STATUS PDU (D/C=0,CPT=000,ACK_SN=2,E1=0).
-        static constexpr unsigned STATUS_PDU_SIZE = 5U;
-        if (srb1_status_needed.count(pdu.rnti) && tbs >= STATUS_PDU_SIZE) {
+      case ue_ul_state::registered:
+        tb_pdu[0] = 0x3FU; // waiting for DL RRCReconfiguration detection
+        break;
+      case ue_ul_state::rrc_reconfig_pending: {
+        // STATUS PDU (5B, ACK_SN=2) + RRCReconfigurationComplete (12B, NIA2 count=2) = 17B.
+        // STATUS PDU ACKs the DL SRB1 window to prevent RLF during DRB setup.
+        static constexpr unsigned RECONFIG_MAC_PDU_SIZE = 17U;
+        if (rrc_sec_engine != nullptr && tbs >= RECONFIG_MAC_PDU_SIZE) {
           tb_pdu[0] = 0x01U; // MAC: LCID=1
           tb_pdu[1] = 0x03U; // MAC: length=3
-          tb_pdu[2] = 0x00U; // RLC: D/C=0, CPT=000, ACK_SN[11:8]=0
-          tb_pdu[3] = 0x02U; // RLC: ACK_SN[7:0]=2
-          tb_pdu[4] = 0x00U; // RLC: E1=0 (no NACKs)
-          if (tbs > STATUS_PDU_SIZE) {
-            tb_pdu[STATUS_PDU_SIZE] = 0x3FU;
+          tb_pdu[2] = 0x00U; // RLC STATUS: D/C=0, CPT=000, ACK_SN[11:8]=0
+          tb_pdu[3] = 0x02U; // RLC STATUS: ACK_SN[7:0]=2
+          tb_pdu[4] = 0x00U; // RLC STATUS: E1=0
+          byte_buffer pdcp_buf;
+          (void)pdcp_buf.append(
+              span<const uint8_t>(RRC_RECONFIG_COMPLETE_PDCP_PAYLOAD.data(), RRC_RECONFIG_COMPLETE_PDCP_PAYLOAD.size()));
+          auto sec_result = rrc_sec_engine->encrypt_and_protect_integrity(std::move(pdcp_buf), 2U, 2U);
+          if (sec_result.buf.has_value()) {
+            tb_pdu[5] = 0x01U; // MAC: LCID=1
+            tb_pdu[6] = 0x0AU; // MAC: length=10 (2 RLC + 8 PDCP+MAC-I)
+            tb_pdu[7] = 0x80U; // RLC AM: D/C=1, P=0, SI=00, SN[11:8]=0
+            tb_pdu[8] = 0x02U; // RLC AM: SN[7:0]=2
+            unsigned off = 9U;
+            for (uint8_t byte : sec_result.buf.value()) {
+              tb_pdu[off++] = byte;
+            }
+            if (tbs > RECONFIG_MAC_PDU_SIZE) {
+              tb_pdu[RECONFIG_MAC_PDU_SIZE] = 0x3FU;
+            }
+            state = ue_ul_state::drb_active;
+          } else {
+            tb_pdu[0] = 0x3FU;
           }
-          srb1_status_needed.erase(pdu.rnti);
+        } else {
+          tb_pdu[0] = 0x3FU;
+        }
+        break;
+      }
+      case ue_ul_state::drb_active: {
+        // Sustained UL data on DRB (LCID=4): Long BSR + RLC AM + PDCP + zero payload.
+        // Long BSR: all 8 LCGs at max buffer level to keep scheduler granting UL.
+        // RLC AM and PDCP DRB both use 18-bit SN (3-byte headers each, NEA0 = no cipher).
+        // MAC subheader uses F=1 (2-byte L field) to support any TBS size.
+        static constexpr unsigned LONG_BSR_SIZE = 11U; // 1B subhdr + 1B len + 1B bitmap + 8B levels
+        static constexpr unsigned MAC_SUBHDR_SIZE = 3U; // F=1: LCID byte + 2-byte L field
+        static constexpr unsigned RLC_HDR_SIZE  = 3U;  // 18-bit AM SN header
+        static constexpr unsigned PDCP_HDR_SIZE = 3U;  // 18-bit DRB SN header
+        static constexpr unsigned DRB_MIN_TB = LONG_BSR_SIZE + MAC_SUBHDR_SIZE + RLC_HDR_SIZE + PDCP_HDR_SIZE;
+        if (tbs >= DRB_MIN_TB) {
+          // Long BSR: LCID=0x3E, F=0, len=9 (1B bitmap + 8B levels for all LCGs)
+          tb_pdu[0]  = 0x3EU; // MAC: Long BSR subheader (LCID=0x3E)
+          tb_pdu[1]  = 0x09U; // MAC: BSR payload length=9
+          tb_pdu[2]  = 0xFFU; // LCG bitmap: LCGs 7-0 all present
+          tb_pdu[3]  = 0xFEU; // LCG 0: max valid level (255 is reserved/invalid per TS 38.321)
+          tb_pdu[4]  = 0xFEU; // LCG 1
+          tb_pdu[5]  = 0xFEU; // LCG 2
+          tb_pdu[6]  = 0xFEU; // LCG 3
+          tb_pdu[7]  = 0xFEU; // LCG 4
+          tb_pdu[8]  = 0xFEU; // LCG 5
+          tb_pdu[9]  = 0xFEU; // LCG 6
+          tb_pdu[10] = 0xFEU; // LCG 7
+          uint32_t sn  = drb_ul_sn[pdu.rnti]++ & 0x3FFFFU; // 18-bit SN
+          unsigned rlc_pdu_len = tbs - LONG_BSR_SIZE - MAC_SUBHDR_SIZE; // RLC PDU = everything after BSR+subhdr
+          tb_pdu[11] = 0x44U;                                              // MAC: R=0, F=1, LCID=4
+          tb_pdu[12] = static_cast<uint8_t>((rlc_pdu_len >> 8U) & 0x7FU); // MAC: L[14:8]
+          tb_pdu[13] = static_cast<uint8_t>(rlc_pdu_len & 0xFFU);          // MAC: L[7:0]
+          tb_pdu[14] = static_cast<uint8_t>(0x80U | ((sn >> 16U) & 0x03U)); // RLC AM: D/C=1,P=0,SI=00,SN[17:16]
+          tb_pdu[15] = static_cast<uint8_t>((sn >> 8U) & 0xFFU);            // RLC AM: SN[15:8]
+          tb_pdu[16] = static_cast<uint8_t>(sn & 0xFFU);                    // RLC AM: SN[7:0]
+          tb_pdu[17] = static_cast<uint8_t>(0x80U | ((sn >> 16U) & 0x03U)); // PDCP: D/C=1,R(5)=0,SN[17:16]
+          tb_pdu[18] = static_cast<uint8_t>((sn >> 8U) & 0xFFU);            // PDCP: SN[15:8]
+          tb_pdu[19] = static_cast<uint8_t>(sn & 0xFFU);                    // PDCP: SN[7:0]
+          // Payload bytes 20..tbs-1 remain zero (NEA0 null cipher = plaintext zeros).
         } else {
           tb_pdu[0] = 0x3FU;
         }
@@ -350,9 +414,11 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     uci.rsrp           = DISABLED_METRIC;
     if (sr_present) {
       auto it = rnti_states.find(pdu.rnti);
-      bool pending = (it != rnti_states.end() &&
-                      (it->second == ue_ul_state::srb1_pending || it->second == ue_ul_state::smc_pending)) ||
-                     srb1_status_needed.count(pdu.rnti) > 0;
+      bool pending = it != rnti_states.end() &&
+                     (it->second == ue_ul_state::srb1_pending ||
+                      it->second == ue_ul_state::smc_pending   ||
+                      it->second == ue_ul_state::rrc_reconfig_pending ||
+                      it->second == ue_ul_state::drb_active);
       uci.sr = fapi::sr_pdu_format_0_1{.sr_detected = pending};
     }
     if (n_harq > 0) {
@@ -418,8 +484,7 @@ void fapi_dummy_ue_simulator::on_dl_pdsch_for_rnti(rnti_t rnti)
   if (it->second == ue_ul_state::srb1_sent) {
     it->second = ue_ul_state::smc_pending;
   } else if (it->second == ue_ul_state::registered) {
-    // DL PDSCH in registered state = NAS DL (e.g. RegistrationAccept).
-    // Queue an RLC AM STATUS PDU to ACK the DL SRB1 TX window.
-    srb1_status_needed.insert(rnti);
+    // DL PDSCH in registered = RRCReconfiguration (DRB setup). Trigger response.
+    it->second = ue_ul_state::rrc_reconfig_pending;
   }
 }

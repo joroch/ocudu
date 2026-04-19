@@ -3,6 +3,7 @@
 
 add_library(ocudu_fapi_adaptor_dummy STATIC
     fapi_dummy_factory.cpp
+    fapi_dummy_n2_connection_client.cpp
     fapi_dummy_p5_gateway.cpp
     fapi_dummy_p7_gateway.cpp
     fapi_dummy_phy_adaptor.cpp
@@ -10,4 +11,4 @@ add_library(ocudu_fapi_adaptor_dummy STATIC
     fapi_dummy_timing_handler.cpp
     fapi_dummy_ue_simulator.cpp)
 
-target_link_libraries(ocudu_fapi_adaptor_dummy PRIVATE ocudu_support ocudu_security)
+target_link_libraries(ocudu_fapi_adaptor_dummy PRIVATE ocudu_support ocudu_security ngap_asn1)

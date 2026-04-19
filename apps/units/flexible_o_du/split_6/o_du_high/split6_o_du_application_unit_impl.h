@@ -39,6 +39,9 @@ public:
   const o_du_high_unit_config& get_o_du_high_unit_config() const override { return unit_cfg.odu_high_cfg; }
 
   // See interface for documentation.
+  std::unique_ptr<ocucp::n2_connection_client> create_no_core_n2_client(dlt_pcap& pcap) override;
+
+  // See interface for documentation.
   void dump_config(YAML::Node& node) const override;
 
   // See interface for documentation.

@@ -84,12 +84,16 @@ o_cu_cp_unit ocudu::build_o_cu_cp(const o_cu_cp_unit_config& unit_cfg, o_cu_cp_u
   // Create N2 Client Gateways.
   std::vector<std::unique_ptr<ocucp::n2_connection_client>> n2_clients;
 
-  n2_clients.push_back(
-      ocucp::create_n2_connection_client(generate_n2_client_config(cucp_unit_cfg.amf_config.no_core,
-                                                                   cucp_unit_cfg.amf_config.amf,
-                                                                   *dependencies.ngap_pcap,
-                                                                   *dependencies.broker,
-                                                                   dependencies.executor_mapper->n2_rx_executor())));
+  if (cucp_unit_cfg.amf_config.no_core && dependencies.no_core_n2_client) {
+    n2_clients.push_back(std::move(dependencies.no_core_n2_client));
+  } else {
+    n2_clients.push_back(
+        ocucp::create_n2_connection_client(generate_n2_client_config(cucp_unit_cfg.amf_config.no_core,
+                                                                     cucp_unit_cfg.amf_config.amf,
+                                                                     *dependencies.ngap_pcap,
+                                                                     *dependencies.broker,
+                                                                     dependencies.executor_mapper->n2_rx_executor())));
+  }
 
   for (const auto& amf : cucp_unit_cfg.extra_amfs) {
     n2_clients.push_back(

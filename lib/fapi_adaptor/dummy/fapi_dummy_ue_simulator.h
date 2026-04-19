@@ -14,7 +14,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <set>
 #include <vector>
 
 namespace ocudu {
@@ -62,9 +61,11 @@ private:
   enum class ue_ul_state : uint8_t {
     ccch_pending, ///< First PUSCH → Msg3 (RRCSetupRequest) on CCCH (LCID=0).
     srb1_pending, ///< Msg3 sent; next sufficiently large PUSCH → rrcSetupComplete on SRB1 (LCID=1).
-    srb1_sent,    ///< rrcSetupComplete sent; waiting for first DL PDSCH (SecurityModeCommand) before sending SMC.
-    smc_pending,  ///< DL PDSCH seen; next PUSCH → SecurityModeComplete on SRB1 (LCID=1).
-    registered,   ///< SecurityModeComplete sent; all subsequent PUSCH responses are padding.
+    srb1_sent,           ///< rrcSetupComplete sent; waiting for first DL PDSCH (SecurityModeCommand) before sending SMC.
+    smc_pending,         ///< DL PDSCH seen; next PUSCH → SecurityModeComplete on SRB1 (LCID=1).
+    registered,          ///< SMC sent; waiting for DL RRCReconfiguration (DRB setup).
+    rrc_reconfig_pending, ///< DL RRCReconfiguration seen; next PUSCH → RRCReconfigurationComplete + STATUS PDU.
+    drb_active,          ///< DRBs established; send sustained UL data on DRB (LCID=4).
   };
 
   /// Per-slot storage for buffered UL PDUs.
@@ -98,7 +99,7 @@ public:
   uint32_t                                         next_rach_slot = RACH_SLOT_UNSET;
   std::array<slot_data, BUFFER_SIZE>               buffer{};
   std::map<rnti_t, ue_ul_state>                    rnti_states;
-  std::set<rnti_t>                                 srb1_status_needed; ///< RNTIs that must send RLC STATUS PDU next UL.
+  std::map<rnti_t, uint32_t>                       drb_ul_sn; ///< Per-RNTI 18-bit DRB UL PDCP/RLC SN counter.
   std::unique_ptr<security::security_engine_tx>    rrc_sec_engine;
 };
 

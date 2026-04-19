@@ -16,6 +16,12 @@
 
 using namespace ocudu;
 
+std::unique_ptr<ocucp::n2_connection_client>
+split6_o_du_application_unit_impl::create_no_core_n2_client(dlt_pcap& pcap)
+{
+  return plugin->create_no_core_n2_client(pcap);
+}
+
 split6_o_du_application_unit_impl::split6_o_du_application_unit_impl(std::string_view               app_name,
                                                                      std::unique_ptr<split6_plugin> plugin_) :
   plugin(std::move(plugin_))

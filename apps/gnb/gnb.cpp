@@ -467,6 +467,9 @@ int main(int argc, char** argv)
   o_cucp_deps.ngap_pcap              = cu_cp_dlt_pcaps.ngap.get();
   o_cucp_deps.broker                 = epoll_broker.get();
   o_cucp_deps.xnc_gw                 = xnc_gw.get();
+  if (o_cu_cp_app_unit->get_o_cu_cp_unit_config().cucp_cfg.amf_config.no_core) {
+    o_cucp_deps.no_core_n2_client = o_du_app_unit->create_no_core_n2_client(*cu_cp_dlt_pcaps.ngap);
+  }
   o_cucp_deps.metrics_notifier       = &metrics_notifier_forwarder;
   o_cucp_deps.e2_gw                  = e2_gw_cu_cp.get();
   o_cucp_deps.remote_metrics_gateway = remote_server_gateway;

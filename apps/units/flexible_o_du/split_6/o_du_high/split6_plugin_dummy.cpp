@@ -7,6 +7,7 @@
 #include "apps/units/flexible_o_du/o_du_unit.h"
 #include "apps/units/flexible_o_du/split_6/o_du_high/split6_o_du_low_fapi_adaptor_configuration.h"
 #include "lib/fapi_adaptor/dummy/fapi_dummy_factory.h"
+#include "lib/fapi_adaptor/dummy/fapi_dummy_n2_connection_client.h"
 #include "ocudu/du/du_high/du_high_configuration.h"
 #include "ocudu/fapi/p5/p5_requests_gateway.h"
 #include "ocudu/fapi/p7/p7_last_request_notifier.h"
@@ -161,6 +162,14 @@ split6_plugin_dummy::create_fapi_adaptor(const fapi_adaptor::split6_o_du_low_fap
   ocudu_assert(dependencies.workers, "Worker manager is null");
   ocudu_assert(dependencies.workers->split6_exec, "split6_exec is null — is_split6_enabled not set?");
   return fapi_adaptor::create_fapi_dummy_phy_adaptor(cfg, *dependencies.workers->split6_exec);
+}
+
+std::unique_ptr<ocucp::n2_connection_client> split6_plugin_dummy::create_no_core_n2_client(dlt_pcap& pcap)
+{
+  if (!dummy_enabled) {
+    return nullptr;
+  }
+  return fapi_adaptor::create_fapi_dummy_n2_connection_client(pcap);
 }
 
 #ifndef OCUDU_HAS_ENTERPRISE

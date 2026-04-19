@@ -34,6 +34,9 @@ public:
   create_fapi_adaptor(const fapi_adaptor::split6_o_du_low_fapi_adaptor_configuration& fapi_cfg,
                       const o_du_unit_dependencies&                                   dependencies) override;
 
+  // See interface for documentation.
+  std::unique_ptr<ocucp::n2_connection_client> create_no_core_n2_client(dlt_pcap& pcap) override;
+
 private:
   bool     dummy_enabled       = false;
   unsigned dummy_nof_ues       = 0;

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "ocudu/fapi_adaptor/phy/phy_fapi_adaptor.h"
+#include "ocudu/ngap/gateways/n2_connection_client.h"
 #include <memory>
 #include <string_view>
 
@@ -14,6 +15,7 @@ class App;
 
 namespace ocudu {
 
+class dlt_pcap;
 struct o_du_unit_dependencies;
 struct worker_manager_config;
 
@@ -52,6 +54,12 @@ public:
 
   /// Fills the given worker manager split 6 configuration.
   virtual void fill_worker_manager_config(worker_manager_config& config) = 0;
+
+  /// Creates an N2 connection client override for no_core mode, or nullptr if none is needed.
+  virtual std::unique_ptr<ocucp::n2_connection_client> create_no_core_n2_client(dlt_pcap& pcap)
+  {
+    return nullptr;
+  }
 };
 
 /// Creates the split 6 plugin.
