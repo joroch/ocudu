@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
+
+# Dummy FAPI PHY — 5 cells, 5 simulated UEs per cell (25 UEs total).
+# UEs within each cell stagger by 10 slots (UE 0 at slot 0, UE 4 at slot 40).
+# No real hardware required.
+
+cu_cp:
+  request_pdu_session_timeout: 86400
+  amf:
+    no_core: true
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+
+# Base cell config — inherited by all cells unless overridden below.
+cell_cfg:
+  dl_arfcn: 632628
+  band: 78
+  channel_bandwidth_MHz: 20
+  common_scs: 30
+  plmn: "00101"
+  tac: 7
+  pci: 1
+
+cells:
+  - pci: 1
+  - pci: 2
+  - pci: 3
+  - pci: 4
+  - pci: 5
+
+fapi_dummy:
+  enabled: true
+  nof_ues: 5
+  ue_creation_stagger_slots: 10
+
+log:
+  filename: /tmp/gnb_dummy_5cells_5ues.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  ngap_enable: false

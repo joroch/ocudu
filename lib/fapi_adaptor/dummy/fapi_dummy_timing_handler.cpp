@@ -82,21 +82,23 @@ void fapi_dummy_timing_handler::loop()
     // Advance by exactly ONE slot per iteration and fire it via try_on_new_slot().
     // Firing one slot at a time prevents burst-flooding the MAC's SPSC slot_ind queue
     // (capacity 4) when catching up after a slow slot (e.g. during RA procedures).
-    // try_on_new_slot() returns false when the MAC's in-flight credit is exhausted;
-    // in that case we back off without advancing current_slot so we retry next loop.
+    // try_on_new_slot() returns false when the MAC's in-flight credit is exhausted for a
+    // sector.  In that case we back off, but we must NOT re-notify sectors that have
+    // already accepted this slot — sectors_notified tracks the resume point across retries.
     slot_point_extended next_slot = current_slot;
     ++next_slot;
 
-    bool all_accepted = true;
-    for (auto* sector : sectors) {
-      if (!sector->try_on_new_slot(next_slot)) {
-        all_accepted = false;
+    bool credit_exhausted = false;
+    for (; sectors_notified < sectors.size(); ++sectors_notified) {
+      if (!sectors[sectors_notified]->try_on_new_slot(next_slot)) {
+        credit_exhausted = true;
         break;
       }
     }
 
-    if (all_accepted) {
-      current_slot = next_slot;
+    if (!credit_exhausted) {
+      current_slot      = next_slot;
+      sectors_notified  = 0;
     } else {
       OCUDU_RTSAN_SCOPED_DISABLER(scoped_disabler);
       std::this_thread::sleep_for(minimum_loop_time);

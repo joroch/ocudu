@@ -69,6 +69,8 @@ private:
   std::atomic<bool>               stopped{true};
   std::chrono::microseconds       slot_duration;
   slot_point_extended             current_slot;
+  /// How many sectors have already accepted the current next_slot during a multi-sector retry.
+  size_t                          sectors_notified = 0;
 };
 
 } // namespace fapi_adaptor
