@@ -99,7 +99,8 @@ public:
   uint32_t                                         next_rach_slot = RACH_SLOT_UNSET;
   std::array<slot_data, BUFFER_SIZE>               buffer{};
   std::map<rnti_t, ue_ul_state>                    rnti_states;
-  std::map<rnti_t, uint32_t>                       drb_ul_sn; ///< Per-RNTI 18-bit DRB UL PDCP/RLC SN counter.
+  std::map<rnti_t, uint32_t>                       drb_ul_sn;               ///< Per-RNTI 18-bit DRB UL PDCP/RLC SN counter.
+  std::map<rnti_t, uint32_t>                       registered_entry_slot;   ///< system_slot when UE entered registered state.
   std::unique_ptr<security::security_engine_tx>    rrc_sec_engine;
 };
 

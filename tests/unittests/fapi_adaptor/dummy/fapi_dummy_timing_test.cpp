@@ -69,9 +69,12 @@ TEST_F(fapi_dummy_timing_test, fires_one_indication_per_slot_advanced)
   fapi_dummy_timing_handler handler(subcarrier_spacing::kHz15, executor, {&sector}, clock_fn);
   handler.start();
 
-  // Advance clock by 5 slots, then run the loop.
+  // The handler fires exactly ONE slot per loop iteration (one task per slot).
+  // Advance clock by 5 slots and drain all 5 tasks.
   simulated_slot = 5;
-  ASSERT_TRUE(executor.try_run_next());
+  for (unsigned i = 0; i < 5; ++i) {
+    ASSERT_TRUE(executor.try_run_next());
+  }
 
   ASSERT_EQ(spy.indications.size(), 5U);
 
@@ -92,14 +95,18 @@ TEST_F(fapi_dummy_timing_test, accumulates_indications_across_multiple_loop_iter
   fapi_dummy_timing_handler handler(subcarrier_spacing::kHz15, executor, {&sector}, clock_fn);
   handler.start();
 
-  // First iteration: advance 3 slots.
+  // First batch: advance 3 slots, drain 3 tasks (one per slot).
   simulated_slot = 3;
-  ASSERT_TRUE(executor.try_run_next());
+  for (unsigned i = 0; i < 3; ++i) {
+    ASSERT_TRUE(executor.try_run_next());
+  }
   EXPECT_EQ(spy.indications.size(), 3U);
 
-  // Second iteration: advance 2 more slots.
+  // Second batch: advance 2 more slots, drain 2 tasks.
   simulated_slot = 5;
-  ASSERT_TRUE(executor.try_run_next());
+  for (unsigned i = 0; i < 2; ++i) {
+    ASSERT_TRUE(executor.try_run_next());
+  }
   EXPECT_EQ(spy.indications.size(), 5U);
 
   // Slot numbers should be 1, 2, 3, 4, 5.

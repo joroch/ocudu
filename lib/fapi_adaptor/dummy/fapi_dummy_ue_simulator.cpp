@@ -102,8 +102,26 @@ void fapi_dummy_ue_simulator::store_ul_tti(const fapi::ul_tti_request& msg)
   }
 }
 
+// Minimum slots in `registered` state before sending RRCReconfigurationComplete.
+// At 30 kHz SCS (2 slots/ms), 750 slots = 375 ms.  The gNB can take up to ~300 ms to
+// issue RRCReconfiguration when 25 UEs are attaching simultaneously; 375 ms gives a
+// comfortable 75 ms margin without approaching the 4-second RRC procedure timeout.
+static constexpr uint32_t REGISTERED_WAIT_SLOTS = 750U;
+
 void fapi_dummy_ue_simulator::on_new_slot(slot_point slot)
 {
+  // Advance registered-state timer; transition to rrc_reconfig_pending after the wait.
+  for (auto& [rnti, state] : rnti_states) {
+    if (state == ue_ul_state::registered) {
+      auto it = registered_entry_slot.find(rnti);
+      if (it != registered_entry_slot.end() &&
+          slot.system_slot() - it->second >= REGISTERED_WAIT_SLOTS) {
+        registered_entry_slot.erase(it);
+        state = ue_ul_state::rrc_reconfig_pending;
+      }
+    }
+  }
+
   maybe_fire_rach(slot);
 
   slot_data& entry = buffer[slot.system_slot() % BUFFER_SIZE];
@@ -270,6 +288,7 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
               tb_pdu[SMC_MAC_PDU_SIZE] = 0x3FU;
             }
             state = ue_ul_state::registered;
+            registered_entry_slot[pdu.rnti] = slot.system_slot();
           } else {
             tb_pdu[0] = 0x3FU;
           }
@@ -278,18 +297,38 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
         }
         break;
       }
-      case ue_ul_state::registered:
-        tb_pdu[0] = 0x3FU; // waiting for DL RRCReconfiguration detection
+      case ue_ul_state::registered: {
+        // Send a STATUS PDU for SRB1 DL (ACK_SN=1) on every PUSCH while waiting for
+        // the gNB to send RRCReconfiguration.  Without this, the gNB's RLC AM layer
+        // exhausts retransmissions on the SMC poll before our rrc_reconfig_pending
+        // STATUS PDU (ACK_SN=2) is ever sent.
+        static constexpr unsigned SRB1_STATUS_SIZE = 5U; // 2B MAC subhdr + 3B RLC STATUS
+        if (tbs >= SRB1_STATUS_SIZE) {
+          tb_pdu[0] = 0x01U; // MAC: LCID=1, F=0
+          tb_pdu[1] = 0x03U; // MAC: L=3
+          tb_pdu[2] = 0x00U; // RLC STATUS: D/C=0, CPT=000, ACK_SN[11:8]=0
+          tb_pdu[3] = 0x01U; // RLC STATUS: ACK_SN[7:0]=1  (ACKs SN=0 = SMC)
+          tb_pdu[4] = 0x00U; // RLC STATUS: E1=0
+          if (tbs > SRB1_STATUS_SIZE) {
+            tb_pdu[SRB1_STATUS_SIZE] = 0x3FU; // padding
+          }
+        } else {
+          tb_pdu[0] = 0x3FU;
+        }
         break;
+      }
       case ue_ul_state::rrc_reconfig_pending: {
         // STATUS PDU (5B, ACK_SN=2) + RRCReconfigurationComplete (12B, NIA2 count=2) = 17B.
-        // STATUS PDU ACKs the DL SRB1 window to prevent RLF during DRB setup.
+        // SRB1 DL SNs: 0=SMC, 1=rrcReconfiguration (no DLInfoTransfer in no_core mode).
+        // ACK_SN=2 pre-ACKs SN=1 (rrcReconfiguration) even before RLC assigns it a SN.
+        // The protocol-failure check is ack_sn > tx_next+1; with tx_next=1 (SMC sent),
+        // ACK_SN=2 ≤ tx_next+1=2 → safe. Pre-ACK prevents post-ICS SRB1 RLC max-retx.
         static constexpr unsigned RECONFIG_MAC_PDU_SIZE = 17U;
         if (rrc_sec_engine != nullptr && tbs >= RECONFIG_MAC_PDU_SIZE) {
           tb_pdu[0] = 0x01U; // MAC: LCID=1
           tb_pdu[1] = 0x03U; // MAC: length=3
           tb_pdu[2] = 0x00U; // RLC STATUS: D/C=0, CPT=000, ACK_SN[11:8]=0
-          tb_pdu[3] = 0x02U; // RLC STATUS: ACK_SN[7:0]=2
+          tb_pdu[3] = 0x02U; // RLC STATUS: ACK_SN[7:0]=2  (pre-ACKs SNs 0-1)
           tb_pdu[4] = 0x00U; // RLC STATUS: E1=0
           byte_buffer pdcp_buf;
           (void)pdcp_buf.append(
@@ -483,8 +522,6 @@ void fapi_dummy_ue_simulator::on_dl_pdsch_for_rnti(rnti_t rnti)
   }
   if (it->second == ue_ul_state::srb1_sent) {
     it->second = ue_ul_state::smc_pending;
-  } else if (it->second == ue_ul_state::registered) {
-    // DL PDSCH in registered = RRCReconfiguration (DRB setup). Trigger response.
-    it->second = ue_ul_state::rrc_reconfig_pending;
+  // registered state: transition is handled by the slot timer in on_new_slot.
   }
 }

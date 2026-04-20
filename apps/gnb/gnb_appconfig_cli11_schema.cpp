@@ -106,11 +106,16 @@ void ocudu::autoderive_supported_tas_for_amf_from_du_cells(const du_high_unit_co
   cu_cp_cfg.amf_config.amf.supported_tas.clear();
   cu_cp_cfg.amf_config.amf.is_default_supported_tas = false;
 
-  // Derive supported TAs from DU cell configuration.
+  // Derive supported TAs from DU cell configuration, deduplicating TAC+PLMN pairs.
   for (const auto& cell : du_hi_cfg.cells_cfg) {
-    cu_cp_unit_supported_ta_item supported_ta;
-    supported_ta.tac = cell.cell.tac;
-    supported_ta.plmn_list.push_back({cell.cell.plmn, {cu_cp_unit_plmn_item::tai_slice_t{1}}});
-    cu_cp_cfg.amf_config.amf.supported_tas.push_back(supported_ta);
+    auto it = std::find_if(cu_cp_cfg.amf_config.amf.supported_tas.begin(),
+                           cu_cp_cfg.amf_config.amf.supported_tas.end(),
+                           [&cell](const cu_cp_unit_supported_ta_item& ta) { return ta.tac == cell.cell.tac; });
+    if (it == cu_cp_cfg.amf_config.amf.supported_tas.end()) {
+      cu_cp_unit_supported_ta_item supported_ta;
+      supported_ta.tac = cell.cell.tac;
+      supported_ta.plmn_list.push_back({cell.cell.plmn, {cu_cp_unit_plmn_item::tai_slice_t{1}}});
+      cu_cp_cfg.amf_config.amf.supported_tas.push_back(supported_ta);
+    }
   }
 }
