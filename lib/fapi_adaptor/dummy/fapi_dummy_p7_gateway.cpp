@@ -7,6 +7,7 @@
 #include "ocudu/fapi/p7/messages/dl_tti_request.h"
 #include "ocudu/fapi/p7/messages/dl_pdsch_pdu.h"
 #include "ocudu/fapi/p7/messages/slot_indication.h"
+#include "ocudu/fapi/p7/messages/tx_data_request.h"
 #include "ocudu/fapi/p7/messages/ul_tti_request.h"
 #include "ocudu/fapi/p7/p7_slot_indication_notifier.h"
 #include <chrono>
@@ -26,10 +27,32 @@ void fapi_dummy_p7_gateway::send_dl_tti_request(const fapi::dl_tti_request& msg)
   if (ue_sim == nullptr) {
     return;
   }
-  for (const auto& pdu : msg.pdus) {
-    if (const auto* pdsch = std::get_if<fapi::dl_pdsch_pdu>(&pdu.pdu)) {
+  pending_dl_pdu_rnti.clear();
+  // TX_DATA.request uses a PDSCH-only sequential pdu_index (0, 1, 2, ...) that does not
+  // count PDCCH/SSB/CSI-RS entries.  Use a separate PDSCH counter so the lookup in
+  // send_tx_data_request matches.
+  uint16_t pdsch_idx = 0;
+  for (const auto& pdu_wrapper : msg.pdus) {
+    if (const auto* pdsch = std::get_if<fapi::dl_pdsch_pdu>(&pdu_wrapper.pdu)) {
+      pending_dl_pdu_rnti[pdsch_idx] = pdsch->rnti;
       ue_sim->on_dl_pdsch_for_rnti(pdsch->rnti);
+      ++pdsch_idx;
     }
+  }
+}
+
+void fapi_dummy_p7_gateway::send_tx_data_request(const fapi::tx_data_request& msg)
+{
+  if (ue_sim == nullptr) {
+    return;
+  }
+  for (const auto& pdu : msg.pdus) {
+    auto it = pending_dl_pdu_rnti.find(pdu.pdu_index);
+    if (it == pending_dl_pdu_rnti.end()) {
+      continue;
+    }
+    auto buf = pdu.pdu.get_buffer();
+    ue_sim->on_dl_srb1_pdu(it->second, buf.data(), buf.size());
   }
 }
 

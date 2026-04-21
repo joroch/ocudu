@@ -16,6 +16,11 @@ struct fapi_dummy_ue_config {
   unsigned nof_ues = 0;
   /// Number of slots between successive RACH indications for each simulated UE.
   unsigned ue_creation_stagger_slots = 10;
+  /// Additional slot offset before the first RACH in this cell. Used to stagger
+  /// multi-cell attach sequences so that DRB setup events across cells do not
+  /// land in the same scheduler slot and trigger a data race in the shared
+  /// logical_channel_system::lc_mapper.
+  unsigned rach_start_offset_slots = 0;
 };
 
 /// Per-cell configuration for the dummy FAPI PHY adaptor.

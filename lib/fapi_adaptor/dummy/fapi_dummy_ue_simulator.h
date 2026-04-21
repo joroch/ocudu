@@ -91,6 +91,11 @@ public:
   /// Used to detect SecurityModeCommand and transition srb1_sent → smc_pending.
   void on_dl_pdsch_for_rnti(rnti_t rnti);
 
+  /// Called with the raw TX_DATA MAC TB bytes for a DL PDSCH destined for \p rnti.
+  /// Scans the TB for an SRB1 SDU and extracts the RRC transaction ID from the first
+  /// RRC byte, storing it for use in the SecurityModeComplete / rrcReconfigurationComplete.
+  void on_dl_srb1_pdu(rnti_t rnti, const uint8_t* data, size_t len);
+
   void init_rrc_security();
 
   fapi_dummy_ue_config                             cfg;
@@ -100,7 +105,8 @@ public:
   std::array<slot_data, BUFFER_SIZE>               buffer{};
   std::map<rnti_t, ue_ul_state>                    rnti_states;
   std::map<rnti_t, uint32_t>                       drb_ul_sn;               ///< Per-RNTI 18-bit DRB UL PDCP/RLC SN counter.
-  std::map<rnti_t, uint32_t>                       registered_entry_slot;   ///< system_slot when UE entered registered state.
+  std::map<rnti_t, uint8_t>                        smc_txid;                ///< txId extracted from DL SecurityModeCommand.
+  std::map<rnti_t, uint8_t>                        reconfig_txid;           ///< txId extracted from DL rrcReconfiguration.
   std::unique_ptr<security::security_engine_tx>    rrc_sec_engine;
 };
 

@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
+
+# Dummy FAPI PHY — 1 cell, FDD band n3, 50 MHz, 5 simulated UEs with 10-slot RACH stagger.
+# DL: 1842.5 MHz (ARFCN 368500), UL: 1747.5 MHz. No real hardware required.
+
+cu_cp:
+  request_pdu_session_timeout: 86400
+  amf:
+    no_core: true
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+
+cell_cfg:
+  dl_arfcn: 368500
+  band: 3
+  channel_bandwidth_MHz: 50
+  common_scs: 15
+  plmn: "00101"
+  tac: 7
+  pci: 1
+  prach:
+    prach_config_index: 1
+
+fapi_dummy:
+  enabled: true
+  nof_ues: 5
+  ue_creation_stagger_slots: 10
+
+log:
+  filename: /tmp/gnb_dummy_1cell_5ues_fdd_50mhz.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  ngap_enable: false

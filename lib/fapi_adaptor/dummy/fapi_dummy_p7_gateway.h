@@ -5,7 +5,10 @@
 #pragma once
 
 #include "ocudu/fapi/p7/p7_requests_gateway.h"
+#include "ocudu/ran/rnti.h"
 #include "ocudu/ran/slot_point_extended.h"
+#include <cstdint>
+#include <map>
 
 namespace ocudu {
 
@@ -41,11 +44,14 @@ public:
   void send_dl_tti_request(const fapi::dl_tti_request& msg) override;
   void send_ul_tti_request(const fapi::ul_tti_request& msg) override;
   void send_ul_dci_request(const fapi::ul_dci_request&) override {}
-  void send_tx_data_request(const fapi::tx_data_request&) override {}
+  void send_tx_data_request(const fapi::tx_data_request& msg) override;
 
 private:
   fapi::p7_slot_indication_notifier* slot_notifier = nullptr;
   fapi_dummy_ue_simulator*           ue_sim        = nullptr;
+  /// Maps PDSCH PDU index (from DL_TTI.request) to RNTI for the current slot.
+  /// Cleared at the start of each send_dl_tti_request call.
+  std::map<uint16_t, rnti_t>         pending_dl_pdu_rnti;
 };
 
 } // namespace fapi_adaptor

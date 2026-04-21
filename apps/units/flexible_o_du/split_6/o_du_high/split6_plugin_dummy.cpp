@@ -113,7 +113,7 @@ public:
 
 void split6_plugin_dummy::on_parsing_configuration_registration(CLI::App& app)
 {
-  CLI::App* subcmd = add_subcommand(app, "fapi_dummy", "Dummy FAPI PHY configuration");
+  CLI::App* subcmd = add_subcommand(app, "fapi_dummy", "Dummy FAPI PHY configuration")->configurable();
   add_option(*subcmd, "--enabled", dummy_enabled, "Enable the dummy FAPI PHY adaptor")->capture_default_str();
   add_option(*subcmd, "--nof_ues", dummy_nof_ues, "Number of UEs to simulate per cell (0 = slot timing only)")
       ->capture_default_str();
@@ -151,12 +151,17 @@ split6_plugin_dummy::create_fapi_adaptor(const fapi_adaptor::split6_o_du_low_fap
 
   fapi_adaptor::fapi_dummy_config cfg;
   cfg.enabled = true;
-  cfg.ue      = {dummy_nof_ues, dummy_stagger_slots};
+  cfg.ue      = {dummy_nof_ues, dummy_stagger_slots, 0};
+  unsigned cell_idx = 0;
   for (const auto& cell : fapi_cfg.cells) {
     fapi_adaptor::fapi_dummy_cell_config cell_cfg;
-    cell_cfg.scs = cell.scs_common;
-    cell_cfg.ue  = cfg.ue;
+    cell_cfg.scs    = cell.scs_common;
+    cell_cfg.ue     = cfg.ue;
+    // Offset cell N's first RACH by N * (nof_ues * stagger_slots) so that DRB
+    // setup events from different cells are serialised rather than simultaneous.
+    cell_cfg.ue.rach_start_offset_slots = cell_idx * dummy_nof_ues * dummy_stagger_slots;
     cfg.cells.push_back(cell_cfg);
+    ++cell_idx;
   }
 
   ocudu_assert(dependencies.workers, "Worker manager is null");

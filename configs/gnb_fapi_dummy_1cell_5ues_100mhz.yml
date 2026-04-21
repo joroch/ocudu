@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
+
+# Dummy FAPI PHY — 1 cell, 100 MHz, 5 simulated UEs with 10-slot RACH stagger.
+# Band n78, 30 kHz SCS, TDD. No real hardware required.
+
+cu_cp:
+  request_pdu_session_timeout: 86400
+  amf:
+    no_core: true
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+
+cell_cfg:
+  dl_arfcn: 637212
+  band: 78
+  channel_bandwidth_MHz: 100
+  common_scs: 30
+  plmn: "00101"
+  tac: 7
+  pci: 1
+  prach:
+    prach_config_index: 159
+    prach_root_sequence_index: 1
+    zero_correlation_zone: 0
+  tdd_ul_dl_cfg:
+    dl_ul_tx_period: 10
+    nof_dl_slots: 7
+    nof_dl_symbols: 6
+    nof_ul_slots: 2
+    nof_ul_symbols: 4
+
+fapi_dummy:
+  enabled: true
+  nof_ues: 5
+  ue_creation_stagger_slots: 10
+
+log:
+  filename: /tmp/gnb_dummy_1cell_5ues_100mhz.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  ngap_enable: false

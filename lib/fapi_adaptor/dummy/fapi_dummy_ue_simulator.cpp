@@ -102,25 +102,10 @@ void fapi_dummy_ue_simulator::store_ul_tti(const fapi::ul_tti_request& msg)
   }
 }
 
-// Minimum slots in `registered` state before sending RRCReconfigurationComplete.
-// At 30 kHz SCS (2 slots/ms), 750 slots = 375 ms.  The gNB can take up to ~300 ms to
-// issue RRCReconfiguration when 25 UEs are attaching simultaneously; 375 ms gives a
-// comfortable 75 ms margin without approaching the 4-second RRC procedure timeout.
-static constexpr uint32_t REGISTERED_WAIT_SLOTS = 750U;
-
 void fapi_dummy_ue_simulator::on_new_slot(slot_point slot)
 {
-  // Advance registered-state timer; transition to rrc_reconfig_pending after the wait.
-  for (auto& [rnti, state] : rnti_states) {
-    if (state == ue_ul_state::registered) {
-      auto it = registered_entry_slot.find(rnti);
-      if (it != registered_entry_slot.end() &&
-          slot.system_slot() - it->second >= REGISTERED_WAIT_SLOTS) {
-        registered_entry_slot.erase(it);
-        state = ue_ul_state::rrc_reconfig_pending;
-      }
-    }
-  }
+  // No timer-based state advance needed: registered → rrc_reconfig_pending is triggered
+  // by on_dl_srb1_pdu() when the DL rrcReconfiguration bytes are detected.
 
   maybe_fire_rach(slot);
 
@@ -165,9 +150,11 @@ void fapi_dummy_ue_simulator::maybe_fire_rach(slot_point slot)
     return;
   }
 
-  // Initialise the first RACH slot to the first slot seen.
+  // Initialise the first RACH slot to the first slot seen, offset by the per-cell
+  // stagger. This prevents cells from firing their DRB setup events simultaneously,
+  // which would cause a data race in the shared logical_channel_system::lc_mapper.
   if (next_rach_slot == RACH_SLOT_UNSET) {
-    next_rach_slot = slot.system_slot();
+    next_rach_slot = slot.system_slot() + cfg.rach_start_offset_slots;
   }
 
   if (slot.system_slot() < next_rach_slot) {
@@ -271,9 +258,22 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
       case ue_ul_state::smc_pending: {
         // MAC TB: 2B MAC subhdr + 2B RLC AM hdr + 4B PDCP payload + 4B NIA2 MAC-I = 12 bytes.
         static constexpr unsigned SMC_MAC_PDU_SIZE = 12U;
+        // Do not send SecurityModeComplete until the DL SecurityModeCommand has been
+        // parsed and its txId stored — smc_txid is populated by on_dl_srb1_pdu when the
+        // SMC MAC TB arrives.  If the pre-SMC DL PDSCH triggered the srb1_sent→smc_pending
+        // transition before the SMC slot, send padding and wait for the next grant.
+        auto it_txid = smc_txid.find(pdu.rnti);
+        if (it_txid == smc_txid.end()) {
+          tb_pdu[0] = 0x3FU; // padding — SMC not received yet
+          break;
+        }
         if (rrc_sec_engine != nullptr && tbs >= SMC_MAC_PDU_SIZE) {
+          // Patch the RRC byte with the transaction ID extracted from the DL SecurityModeCommand.
+          uint8_t txid = it_txid->second;
+          std::array<uint8_t, 4> smc_payload = SMC_PDCP_PAYLOAD;
+          smc_payload[2] = static_cast<uint8_t>(0x28U | (txid << 1U));
           byte_buffer pdcp_buf;
-          (void)pdcp_buf.append(span<const uint8_t>(SMC_PDCP_PAYLOAD.data(), SMC_PDCP_PAYLOAD.size()));
+          (void)pdcp_buf.append(span<const uint8_t>(smc_payload.data(), smc_payload.size()));
           auto sec_result = rrc_sec_engine->encrypt_and_protect_integrity(std::move(pdcp_buf), 2U, 1U);
           if (sec_result.buf.has_value()) {
             tb_pdu[0] = 0x01U; // MAC: LCID=1
@@ -288,7 +288,6 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
               tb_pdu[SMC_MAC_PDU_SIZE] = 0x3FU;
             }
             state = ue_ul_state::registered;
-            registered_entry_slot[pdu.rnti] = slot.system_slot();
           } else {
             tb_pdu[0] = 0x3FU;
           }
@@ -330,9 +329,14 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
           tb_pdu[2] = 0x00U; // RLC STATUS: D/C=0, CPT=000, ACK_SN[11:8]=0
           tb_pdu[3] = 0x02U; // RLC STATUS: ACK_SN[7:0]=2  (pre-ACKs SNs 0-1)
           tb_pdu[4] = 0x00U; // RLC STATUS: E1=0
+          // Patch the RRC byte with the transaction ID extracted from the DL rrcReconfiguration.
+          auto it_txid = reconfig_txid.find(pdu.rnti);
+          uint8_t rtxid = (it_txid != reconfig_txid.end()) ? it_txid->second : 2U;
+          std::array<uint8_t, 4> reconfig_payload = RRC_RECONFIG_COMPLETE_PDCP_PAYLOAD;
+          reconfig_payload[2] = static_cast<uint8_t>(0x08U | (rtxid << 1U)); // UL rrcReconfigComplete: c1_idx=1 → 0x08|(txId<<1)
           byte_buffer pdcp_buf;
           (void)pdcp_buf.append(
-              span<const uint8_t>(RRC_RECONFIG_COMPLETE_PDCP_PAYLOAD.data(), RRC_RECONFIG_COMPLETE_PDCP_PAYLOAD.size()));
+              span<const uint8_t>(reconfig_payload.data(), reconfig_payload.size()));
           auto sec_result = rrc_sec_engine->encrypt_and_protect_integrity(std::move(pdcp_buf), 2U, 2U);
           if (sec_result.buf.has_value()) {
             tb_pdu[5] = 0x01U; // MAC: LCID=1
@@ -406,28 +410,38 @@ void fapi_dummy_ue_simulator::process_pusch(slot_point slot, const fapi::ul_pusc
     notifier->on_rx_data_indication(rx);
   }
 
-  // Generate UCI indication for HARQ bits multiplexed on PUSCH (if present).
-  if (pdu.pusch_uci.has_value() && pdu.pusch_uci->harq_ack_bit.value() > 0) {
-    const unsigned n_bits = pdu.pusch_uci->harq_ack_bit.value();
-
-    fapi::uci_harq_pdu harq_pdu{};
-    harq_pdu.detection_status    = uci_pusch_or_pucch_f2_3_4_detection_status::crc_pass;
-    harq_pdu.expected_bit_length = units::bits(n_bits);
-    harq_pdu.payload.resize(n_bits);
-    harq_pdu.payload.fill(true); // all ACKs
-
-    fapi::uci_pusch_pdu uci_pdu{};
-    uci_pdu.handle         = pdu.handle;
-    uci_pdu.rnti           = pdu.rnti;
-    uci_pdu.ul_sinr_metric = DUMMY_SINR;
-    uci_pdu.rssi           = DISABLED_METRIC;
-    uci_pdu.rsrp           = DISABLED_METRIC;
-    uci_pdu.harq           = harq_pdu;
-
-    fapi::uci_indication ind{};
-    ind.slot = slot;
-    ind.pdu  = uci_pdu;
-    notifier->on_uci_indication(ind);
+  // Generate UCI indication for HARQ/CSI bits multiplexed on PUSCH (if present).
+  if (pdu.pusch_uci.has_value()) {
+    const unsigned n_harq = pdu.pusch_uci->harq_ack_bit.value();
+    const unsigned n_csi  = pdu.pusch_uci->csi_part1_bit.value();
+    if (n_harq > 0 || n_csi > 0) {
+      fapi::uci_pusch_pdu uci_pdu{};
+      uci_pdu.handle         = pdu.handle;
+      uci_pdu.rnti           = pdu.rnti;
+      uci_pdu.ul_sinr_metric = DUMMY_SINR;
+      uci_pdu.rssi           = DISABLED_METRIC;
+      uci_pdu.rsrp           = DISABLED_METRIC;
+      if (n_harq > 0) {
+        fapi::uci_harq_pdu harq_pdu{};
+        harq_pdu.detection_status    = uci_pusch_or_pucch_f2_3_4_detection_status::crc_pass;
+        harq_pdu.expected_bit_length = units::bits(n_harq);
+        harq_pdu.payload.resize(n_harq);
+        harq_pdu.payload.fill(true); // all ACKs
+        uci_pdu.harq = harq_pdu;
+      }
+      if (n_csi > 0) {
+        fapi::uci_csi_part1 csi{};
+        csi.detection_status    = uci_pusch_or_pucch_f2_3_4_detection_status::crc_pass;
+        csi.expected_bit_length = units::bits(n_csi);
+        csi.payload.resize(n_csi);
+        csi.payload.fill(true); // all-ones: CQI=15 (last 4 bits)
+        uci_pdu.csi_part1 = csi;
+      }
+      fapi::uci_indication ind{};
+      ind.slot = slot;
+      ind.pdu  = uci_pdu;
+      notifier->on_uci_indication(ind);
+    }
   }
 }
 
@@ -456,6 +470,7 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
       bool pending = it != rnti_states.end() &&
                      (it->second == ue_ul_state::srb1_pending ||
                       it->second == ue_ul_state::smc_pending   ||
+                      it->second == ue_ul_state::registered    ||
                       it->second == ue_ul_state::rrc_reconfig_pending ||
                       it->second == ue_ul_state::drb_active);
       uci.sr = fapi::sr_pdu_format_0_1{.sr_detected = pending};
@@ -473,9 +488,14 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
     return ind;
   };
 
-  // Helper: build a format-2/3/4 UCI indication with positive HARQ.
+  // Helper: build a format-2/3/4 UCI indication with positive HARQ and CQI=15 CSI.
+  // n_csi is the csi_part1_bit_length from the UL_TTI_request PDU. For 1T1R wideband
+  // CQI the scheduler allocates exactly 4 bits; setting all bits to 1 encodes CQI=15.
+  // For multi-port configs the leading RI/PMI bits are also set to max, which is safe
+  // since the scheduler clamps RI to nof_dl_ports anyway.
   auto make_f234 = [&](fapi::uci_pucch_pdu_format_2_3_4::format_type fmt,
-                        unsigned                                      n_harq) -> fapi::uci_indication {
+                        unsigned                                      n_harq,
+                        unsigned                                      n_csi) -> fapi::uci_indication {
     fapi::uci_pucch_pdu_format_2_3_4 uci{};
     uci.handle         = pdu.handle;
     uci.rnti           = pdu.rnti;
@@ -491,6 +511,14 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
       harq.payload.fill(true);
       uci.harq = harq;
     }
+    if (n_csi > 0) {
+      fapi::uci_csi_part1 csi{};
+      csi.detection_status    = uci_pusch_or_pucch_f2_3_4_detection_status::crc_pass;
+      csi.expected_bit_length = units::bits(n_csi);
+      csi.payload.resize(n_csi);
+      csi.payload.fill(true); // all-ones: CQI=15 (last 4 bits), RI/PMI bits max
+      uci.csi_part1 = csi;
+    }
     fapi::uci_indication ind{};
     ind.slot = slot;
     ind.pdu  = uci;
@@ -505,11 +533,11 @@ void fapi_dummy_ue_simulator::process_pucch(slot_point slot, const fapi::ul_pucc
   } else if (const auto* f1 = std::get_if<fapi::ul_pucch_pdu_format_1>(&pdu.format)) {
     notifier->on_uci_indication(make_f0_f1(F01::format_1, f1->bit_len_harq.value(), f1->sr_present));
   } else if (const auto* f2 = std::get_if<fapi::ul_pucch_pdu_format_2>(&pdu.format)) {
-    notifier->on_uci_indication(make_f234(F234::format_2, f2->bit_len_harq.value()));
+    notifier->on_uci_indication(make_f234(F234::format_2, f2->bit_len_harq.value(), f2->csi_part1_bit_length.value()));
   } else if (const auto* f3 = std::get_if<fapi::ul_pucch_pdu_format_3>(&pdu.format)) {
-    notifier->on_uci_indication(make_f234(F234::format_3, f3->bit_len_harq.value()));
+    notifier->on_uci_indication(make_f234(F234::format_3, f3->bit_len_harq.value(), f3->csi_part1_bit_length.value()));
   } else if (const auto* f4 = std::get_if<fapi::ul_pucch_pdu_format_4>(&pdu.format)) {
-    notifier->on_uci_indication(make_f234(F234::format_4, f4->bit_len_harq.value()));
+    notifier->on_uci_indication(make_f234(F234::format_4, f4->bit_len_harq.value(), f4->csi_part1_bit_length.value()));
   }
   // std::monostate (no format set) — ignore.
 }
@@ -523,5 +551,85 @@ void fapi_dummy_ue_simulator::on_dl_pdsch_for_rnti(rnti_t rnti)
   if (it->second == ue_ul_state::srb1_sent) {
     it->second = ue_ul_state::smc_pending;
   // registered state: transition is handled by the slot timer in on_new_slot.
+  }
+}
+
+void fapi_dummy_ue_simulator::on_dl_srb1_pdu(rnti_t rnti, const uint8_t* data, size_t len)
+{
+  // Scan the MAC TB for an SRB1 (LCID=1) SDU and extract the RRC transaction ID
+  // from the first byte of the RRC message (bits [2:1]).
+  //
+  // MAC PDU layout: [R|F|LCID][length][RLC AM hdr (2B)][PDCP hdr (2B)][RRC byte 0][...]
+  // Ciphering is NEA0 (null) so the RRC payload is plaintext.
+  //
+  // DL-DCCH first byte:
+  //   bit7=0 (c1), bits6-3=c1_choice_index (4 bits), bits2-1=txId (2 bits), bit0=critExt
+  //   SecurityModeCommand:  c1_idx=4 → byte & 0xF9 == 0x20; txId=(byte>>1)&3
+  //   rrcReconfiguration:   c1_idx=0 → byte & 0xF9 == 0x00; txId=(byte>>1)&3
+
+  size_t off = 0;
+  while (off < len) {
+    uint8_t hdr  = data[off];
+    uint8_t lcid = hdr & 0x3FU;
+    bool    F    = (hdr & 0x40U) != 0;
+    off++;
+
+    if (lcid == 63U) { // padding
+      break;
+    }
+
+    // Fixed-size MAC CEs in DL have no length field — skip them by known sizes.
+    // Variable-size entries (LCIDs 0-25) always have a length field.
+    static constexpr uint8_t FIXED_CE_LCID_MIN = 26U;
+    if (lcid >= FIXED_CE_LCID_MIN) {
+      // Skip fixed-size CEs: we don't need them for txId extraction.
+      break;
+    }
+
+    size_t sdu_len;
+    if (F) {
+      if (off + 2 > len) {
+        break;
+      }
+      sdu_len = (static_cast<size_t>(data[off]) << 8U) | data[off + 1];
+      off += 2;
+    } else {
+      if (off + 1 > len) {
+        break;
+      }
+      sdu_len = data[off];
+      off++;
+    }
+
+    if (lcid == 1U && sdu_len >= 5U && off + sdu_len <= len) {
+      // SDU is an RLC AM PDU. Check it's not an RLC control PDU or a mid/last segment.
+      // RLC AM header byte 0: D/C (bit7), P (bit6), SI[1:0] (bits5-4), SN[11:8] (bits3-0).
+      uint8_t rlc_hdr = data[off];
+      bool    rlc_dc  = (rlc_hdr & 0x80U) != 0; // 1=data, 0=control
+      uint8_t rlc_si  = (rlc_hdr >> 4U) & 0x03U; // 00=full, 01=first, 10=middle, 11=last
+      if (rlc_dc && (rlc_si == 0x00U || rlc_si == 0x01U)) {
+        // Full or first segment: PDCP header follows at offset 2; RRC byte at offset 4.
+        // 12-bit PDCP SN: bytes 2-3 of the SDU are the PDCP header (SN[11:8], SN[7:0]).
+        uint8_t pdcp_sn_lo = data[off + 3U]; // SN[7:0] (SN < 256 for first few messages)
+        size_t  rrc_off    = off + 4U;
+        if (rrc_off < off + sdu_len) {
+          uint8_t rrc_byte = data[rrc_off];
+          uint8_t txid     = static_cast<uint8_t>((rrc_byte >> 1U) & 0x3U);
+          if (pdcp_sn_lo <= 2U && (rrc_byte & 0xF9U) == 0x20U) { // SN=0..2: SecurityModeCommand (c1 idx=4)
+            smc_txid[rnti] = txid;
+          } else if (pdcp_sn_lo <= 3U && (rrc_byte & 0xF9U) == 0x00U) { // SN=1..3: rrcReconfiguration
+            reconfig_txid[rnti] = txid;
+            // Trigger registered → rrc_reconfig_pending so we respond with the correct txId.
+            auto s_it = rnti_states.find(rnti);
+            if (s_it != rnti_states.end() && s_it->second == ue_ul_state::registered) {
+              s_it->second = ue_ul_state::rrc_reconfig_pending;
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    off += sdu_len;
   }
 }
