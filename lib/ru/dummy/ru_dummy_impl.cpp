@@ -68,6 +68,10 @@ void ru_dummy_impl::start()
 
 void ru_dummy_impl::stop()
 {
+  logger.warning("Stop initiated. defers={} loops={}",
+                 defers.load(std::memory_order_relaxed),
+                 loops.load(std::memory_order_relaxed));
+
   // Stop each of the sectors.
   for (auto& sector : sectors) {
     sector->stop();
@@ -80,8 +84,12 @@ void ru_dummy_impl::stop()
 
 void ru_dummy_impl::defer_loop()
 {
+  defers.fetch_add(1, std::memory_order_relaxed);
   auto token = stop_control.get_token();
   if (OCUDU_UNLIKELY(token.is_stop_requested())) {
+    logger.warning("Loop skipped. Stopped already. defers={} loops={}",
+                   defers.load(std::memory_order_relaxed),
+                   loops.load(std::memory_order_relaxed));
     return;
   }
 
@@ -92,6 +100,7 @@ void ru_dummy_impl::defer_loop()
 
 void ru_dummy_impl::loop()
 {
+  loops.fetch_add(1, std::memory_order_relaxed);
   // Get the current system slot from the system time.
   uint64_t slot_count = get_current_system_slot(slot_duration, current_slot.nof_slots_in_all_hyper_sfns());
 

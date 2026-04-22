@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ocudu/ocudulog/ocudulog.h"
 #include "ocudu/support/synchronization/futex_util.h"
 #include <atomic>
 #include <thread>
@@ -69,10 +70,18 @@ public:
     // Mark as stopped.
     auto cur = token_count.fetch_or(stop_bit, std::memory_order_acq_rel) | stop_bit;
 
+    uint32_t max_loops = 50;
+    auto&    logger    = ocudulog::fetch_basic_logger("APP");
+    logger.warning("stop_event_token::stop first. cur={}", cur);
+
     // Block waiting until all observers are gone.
     while (cur > stop_bit) {
       BlockPolicy::wait(token_count, cur);
       cur = token_count.load(std::memory_order_acquire);
+      if (max_loops > 0) {
+        max_loops--;
+        logger.warning("stop_event_token::stop loop. cur={} loop_rem={}", cur, max_loops);
+      }
     }
   }
 

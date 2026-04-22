@@ -142,6 +142,9 @@ private:
   std::vector<std::unique_ptr<ru_dummy_sector>> sectors;
   /// RU dummy metrics collector.
   ru_dummy_metrics_collector metrics_collector;
+
+  std::atomic<uint64_t> defers{0};
+  std::atomic<uint64_t> loops{0};
 };
 
 } // namespace ocudu
