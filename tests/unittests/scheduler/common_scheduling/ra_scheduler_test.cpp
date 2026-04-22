@@ -5,7 +5,6 @@
 #include "lib/scheduler/common_scheduling/csi_rs_scheduler.h"
 #include "lib/scheduler/common_scheduling/ra_scheduler.h"
 #include "lib/scheduler/common_scheduling/sib1_scheduler.h"
-#include "lib/scheduler/support/csi_rs_helpers.h"
 #include "sub_scheduler_test_environment.h"
 #include "tests/test_doubles/scheduler/cell_config_builder_profiles.h"
 #include "tests/test_doubles/scheduler/scheduler_config_helper.h"
@@ -74,8 +73,13 @@ public:
     ASSERT_NO_FATAL_FAILURE(tracker.on_new_result(res_grid[0].slot, res_grid[0].result));
   }
 
-  void handle_rach_indication(const rach_indication_message& ind)
+  void handle_rach_indication(rach_indication_message ind)
   {
+    // For TDD cells, advance the simulator to a fully UL slot so the PRACH slot is valid.
+    if (cell_cfg.is_tdd()) {
+      run_slot_until([this]() { return cell_cfg.is_fully_ul_enabled(next_slot_rx()); });
+      ind.slot_rx = next_slot_rx();
+    }
     ra_sch.handle_rach_indication(ind);
     tracker.on_new_rach_ind(ind);
   }
@@ -451,5 +455,196 @@ INSTANTIATE_TEST_SUITE_P(ra_scheduler,
                              // FR1, TDD.
                              test_params{frequency_range::FR1, 2, create_tdd_pattern(tdd_fr1_30khz::DDDDDDDSUU)},
                              test_params{frequency_range::FR1, 2, create_tdd_pattern(tdd_fr1_30khz::DDDSU)}));
+
+struct two_step_test_params {
+  /// MsgA PUSCH TD offset.
+  uint8_t                                td_offset;
+  std::optional<tdd_ul_dl_config_common> tdd_cfg;
+};
+
+/// Test class for 2-step RACH (MsgA/MsgB) procedures.
+///
+/// The test cell is configured with a mix of 4-step (preamble IDs [0, 60)) and 2-step CB (preamble IDs [60, 64))
+/// preambles on shared RACH occasions.  \c td_offset is parameterized and must be >= \c delay_tx_rx_slots (default=2)
+/// so that the MsgA PUSCH slot (prach_slot_rx + td_offset) falls within the allocatable resource grid.
+class ra_scheduler_two_step_rach_test : public ra_scheduler_setup, public ::testing::TestWithParam<two_step_test_params>
+{
+  static constexpr unsigned MSGA_PREAMBLE_OFFSET = 60;
+
+public:
+  ra_scheduler_two_step_rach_test() :
+    ra_scheduler_setup(make_two_step_rach_req(GetParam()), /*sched_csi=*/false, /*sched_sib1=*/false)
+  {
+  }
+
+  static sched_cell_configuration_request_message make_two_step_rach_req(const two_step_test_params& params)
+  {
+    cell_config_builder_params builder_params =
+        create(params.tdd_cfg.has_value() ? duplex_mode::TDD : duplex_mode::FDD, frequency_range::FR1);
+    builder_params.min_k1               = 2;
+    builder_params.min_k2               = 2;
+    builder_params.tdd_ul_dl_cfg_common = params.tdd_cfg;
+    auto  req  = sched_config_helper::make_default_sched_cell_configuration_request(builder_params);
+    auto& rach = *req.ran.ul_cfg_common.init_ul_bwp.rach_cfg_common;
+    // Reserve preamble IDs [60, 64) for 2-step CB RACH.
+    rach.nof_cb_preambles_per_ssb = MSGA_PREAMBLE_OFFSET;
+    rach.two_step_rach_cfg.emplace();
+    rach.two_step_rach_cfg->pusch.td_offset = params.td_offset;
+    return req;
+  }
+
+  static rach_indication_message::preamble make_msga_preamble(unsigned preamble_idx, rnti_t tc_rnti)
+  {
+    return test_helper::create_preamble(MSGA_PREAMBLE_OFFSET + preamble_idx, tc_rnti);
+  }
+
+  rach_indication_message
+  create_msga_rach_indication(std::initializer_list<rach_indication_message::preamble> preambles) const
+  {
+    return test_helper::create_rach_indication(next_slot_rx(), {preambles.begin(), preambles.end()});
+  }
+
+  /// Inject a CRC result for a MsgA PUSCH by TC-RNTI.
+  void send_msga_crc(rnti_t tc_rnti, bool success)
+  {
+    ul_crc_indication crc_ind;
+    crc_ind.cell_index = cell_cfg.cell_index;
+    crc_ind.sl_rx      = res_grid[0].slot;
+    auto& pdu          = crc_ind.crcs.emplace_back();
+    pdu.rnti           = tc_rnti;
+    pdu.ue_index       = INVALID_DU_UE_INDEX;
+    pdu.harq_id        = to_harq_id(0);
+    pdu.tb_crc_success = success;
+    handle_crc_indication(crc_ind);
+  }
+
+  /// Returns true if the current slot result contains at least one MsgB grant of either type.
+  bool has_msgb_grant() const
+  {
+    return std::any_of(res_grid[0].result.dl.rar_grants.begin(),
+                       res_grid[0].result.dl.rar_grants.end(),
+                       [](const rar_information& rar) {
+                         return std::any_of(rar.grants.begin(), rar.grants.end(), [](const rar_ul_grant& g) {
+                           return std::holds_alternative<rar_ul_grant::two_step_info>(g.type);
+                         });
+                       });
+  }
+
+  /// Returns true if there is a Msg3 PUSCH grant (created by FallbackRAR) for the given TC-RNTI anywhere in the
+  /// lookahead portion of the resource grid.
+  bool has_msg3_pusch_for(rnti_t tc_rnti) const
+  {
+    for (unsigned i = 0; i <= res_grid.max_ul_slot_alloc_delay; ++i) {
+      for (const auto& pusch : res_grid[i].result.ul.puschs) {
+        if (pusch.context.ue_index == INVALID_DU_UE_INDEX and pusch.context.msg3_delay.has_value() and
+            pusch.pusch_cfg.rnti == tc_rnti) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+};
+
+TEST_P(ra_scheduler_two_step_rach_test, when_two_step_rach_enqueued_then_msga_pusch_is_scheduled)
+{
+  // Event: Enqueue RACH indication with two-step RACH preamble.
+  const rnti_t tc_rnti  = to_rnti(to_value(rnti_t::MIN_CRNTI));
+  auto         rach_ind = create_msga_rach_indication({make_msga_preamble(0, tc_rnti)});
+  handle_rach_indication(rach_ind);
+
+  // Test Case: MsgA PUSCH is scheduled in the slot td_offset after PRACH.
+  ASSERT_TRUE(run_slot_until([this]() { return tracker.nof_msga_puschs() > 0; }, 10));
+  ASSERT_EQ(tracker.nof_msga_puschs(), 1);
+}
+
+/// When MsgA PUSCH is decoded successfully (CRC=OK), the scheduler must respond with a SuccessRAR and must
+/// not allocate a Msg3 PUSCH.
+TEST_P(ra_scheduler_two_step_rach_test, when_msga_crc_ok_then_msgb_with_success_rar_scheduled_and_no_msg3)
+{
+  // Event: Enqueue RACH indication with two-step RACH preamble.
+  const rnti_t tc_rnti = to_rnti(to_value(rnti_t::MIN_CRNTI));
+  handle_rach_indication(create_msga_rach_indication({make_msga_preamble(0, tc_rnti)}));
+
+  // Event: MsgA PUSCH scheduled and forward CRC=OK.
+  ASSERT_TRUE(run_slot_until([this]() { return not res_grid[0].result.ul.puschs.empty(); }));
+  send_msga_crc(tc_rnti, true);
+
+  // Test: MsgB with SuccessRAR scheduled.
+  ASSERT_TRUE(run_slot_until([this]() { return tracker.nof_success_rars() > 0; }));
+  ASSERT_EQ(tracker.nof_success_rars(), 1);
+  ASSERT_EQ(tracker.nof_fallback_rars(), 0);
+
+  // Test: No Msg3 scheduled.
+  ASSERT_FALSE(run_slot_until([this]() { return tracker.nof_msg3_newtxs() > 0; }));
+  ASSERT_EQ(tracker.nof_msg3_newtxs(), 0) << "SuccessRAR must not allocate a Msg3 PUSCH";
+}
+
+/// When MsgA PUSCH decoding fails (CRC=KO), the scheduler must respond with a FallbackRAR and allocate a
+/// Msg3 PUSCH for the UE to fall back to the 4-step procedure.
+TEST_P(ra_scheduler_two_step_rach_test, when_msga_crc_ko_then_fallback_rar_and_msg3_scheduled)
+{
+  const rnti_t tc_rnti = to_rnti(to_value(rnti_t::MIN_CRNTI));
+  handle_rach_indication(create_msga_rach_indication({make_msga_preamble(0, tc_rnti)}));
+  run_slot();
+
+  // Event: MsgA PUSCH scheduled and forward CRC=KO.
+  ASSERT_TRUE(run_slot_until([this]() { return not res_grid[0].result.ul.puschs.empty(); }));
+  send_msga_crc(tc_rnti, false);
+
+  ASSERT_TRUE(run_slot_until([this]() { return tracker.nof_fallback_rars() > 0; }));
+  ASSERT_EQ(tracker.nof_fallback_rars(), 1);
+  ASSERT_EQ(tracker.nof_success_rars(), 0) << "No SuccessRAR expected for CRC=KO preamble";
+  ASSERT_TRUE(run_slot_until([this]() { return tracker.nof_msg3_newtxs() > 0; }));
+  ASSERT_EQ(tracker.nof_msg3_newtxs(), 1) << "FallbackRAR must allocate a Msg3 PUSCH";
+}
+
+/// While the MsgA PUSCH CRC indication has not yet arrived, MsgB scheduling must be postponed to allow
+/// time for the CRC to be received.  Once the CRC arrives the MsgB must be scheduled promptly.
+TEST_P(ra_scheduler_two_step_rach_test, when_crc_pending_then_msgb_scheduling_is_postponed)
+{
+  const rnti_t tc_rnti = to_rnti(to_value(rnti_t::MIN_CRNTI));
+  handle_rach_indication(create_msga_rach_indication({make_msga_preamble(0, tc_rnti)}));
+  run_slot();
+
+  // Run several slots without a CRC indication; MsgB must not be scheduled.
+  ASSERT_FALSE(run_slot_until([this]() { return not res_grid[0].result.dl.rar_grants.empty(); }, 5));
+
+  // CRC=OK arrives; MsgB must now be scheduled.
+  send_msga_crc(tc_rnti, true);
+  ASSERT_TRUE(run_slot_until([this]() { return tracker.nof_success_rars() > 0; }));
+  ASSERT_EQ(tracker.nof_success_rars(), 1);
+}
+
+/// When multiple MsgA preambles arrive in the same PRACH occasion and their CRC outcomes differ, the scheduler
+/// must send a SuccessRAR for the decoded preamble and a FallbackRAR (with Msg3) for the failed one, both
+/// within the same MsgB response.
+TEST_P(ra_scheduler_two_step_rach_test, when_mixed_crc_outcomes_both_rar_types_scheduled_together)
+{
+  const rnti_t tc_rnti_ok = to_rnti(to_value(rnti_t::MIN_CRNTI));
+  const rnti_t tc_rnti_ko = to_rnti(to_value(rnti_t::MIN_CRNTI) + 1);
+  handle_rach_indication(
+      create_msga_rach_indication({make_msga_preamble(0, tc_rnti_ok), make_msga_preamble(1, tc_rnti_ko)}));
+
+  ASSERT_TRUE(run_slot_until([this]() { return not res_grid[0].result.ul.puschs.empty(); }));
+  send_msga_crc(tc_rnti_ok, true);
+  send_msga_crc(tc_rnti_ko, false);
+
+  ASSERT_TRUE(run_slot_until([this]() { return tracker.nof_success_rars() > 0 and tracker.nof_fallback_rars() > 0; }));
+  ASSERT_EQ(tracker.nof_success_rars(), 1);
+  ASSERT_EQ(tracker.nof_fallback_rars(), 1);
+
+  ASSERT_TRUE(run_slot_until([this]() { return not res_grid[0].result.ul.puschs.empty(); }));
+  ASSERT_EQ(res_grid[0].result.ul.puschs.size(), 1);
+  ASSERT_EQ(res_grid[0].result.ul.puschs[0].pusch_cfg.rnti, tc_rnti_ko);
+  ASSERT_EQ(tracker.nof_msg3_newtxs(), 1) << "FallbackRAR preamble must have a Msg3 PUSCH";
+}
+
+INSTANTIATE_TEST_SUITE_P(two_step_rach,
+                         ra_scheduler_two_step_rach_test,
+                         ::testing::Values(two_step_test_params{2},
+                                           two_step_test_params{4},
+                                           two_step_test_params{10, create_tdd_pattern(tdd_fr1_30khz::DDDDDDDSUU)},
+                                           two_step_test_params{4, create_tdd_pattern(tdd_fr1_30khz::DSUU)}));
 
 } // namespace
