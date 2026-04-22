@@ -861,8 +861,8 @@ std::vector<odu::du_cell_config> ocudu::generate_du_cell_config(const du_high_un
         const unsigned pucch_f3_nof_symbols  = max_nof_pucch_symbols;
         auto&          f3_params             = du_pucch_cfg.f2_or_f3_or_f4_params.emplace<pucch_f3_params>();
         f3_params.max_code_rate              = user_pucch_cfg.f3_max_code_rate;
-        f3_params.max_nof_rbs                = user_pucch_cfg.f3_max_payload_bits.has_value()
-                                                   ? get_pucch_format3_max_nof_prbs(
+        f3_params.max_nof_rbs = user_pucch_cfg.f3_max_payload_bits.has_value()
+                                    ? get_pucch_format3_max_nof_prbs(
                                           user_pucch_cfg.f3_max_payload_bits.value(),
                                           pucch_f3_nof_symbols,
                                           to_max_code_rate_float(user_pucch_cfg.f3_max_code_rate),
@@ -870,11 +870,11 @@ std::vector<odu::du_cell_config> ocudu::generate_du_cell_config(const du_high_un
                                           false,
                                           user_pucch_cfg.f3_additional_dmrs,
                                           user_pucch_cfg.f3_pi2_bpsk)
-                                                   : user_pucch_cfg.f3_max_nof_rbs;
-        f3_params.intraslot_freq_hopping     = user_pucch_cfg.f3_intraslot_freq_hopping;
-        f3_params.max_payload_bits           = user_pucch_cfg.f3_max_payload_bits;
-        f3_params.additional_dmrs            = user_pucch_cfg.f3_additional_dmrs;
-        f3_params.pi2_bpsk                   = user_pucch_cfg.f3_pi2_bpsk;
+                                    : user_pucch_cfg.f3_max_nof_rbs;
+        f3_params.intraslot_freq_hopping = user_pucch_cfg.f3_intraslot_freq_hopping;
+        f3_params.max_payload_bits       = user_pucch_cfg.f3_max_payload_bits;
+        f3_params.additional_dmrs        = user_pucch_cfg.f3_additional_dmrs;
+        f3_params.pi2_bpsk               = user_pucch_cfg.f3_pi2_bpsk;
       } break;
       case pucch_format::FORMAT_4: {
         auto& f4_params                  = du_pucch_cfg.f2_or_f3_or_f4_params.emplace<pucch_f4_params>();
