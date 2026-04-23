@@ -129,3 +129,31 @@ RUN /usr/local/etc/install_ocudu_dependencies.sh run && \
     /usr/local/etc/install_uhd_dependencies.sh run && \
     /usr/local/etc/install_dpdk_dependencies.sh run && \
     /usr/local/etc/install_docker_dependencies.sh
+
+# Register DPDK/UHD/ROHC library paths system-wide.
+# When the gnb binary has file capabilities (see next RUN), ld.so enters
+# secure-execution mode on execve() and STRIPS LD_LIBRARY_PATH. The runtime
+# libs must therefore be findable via /etc/ld.so.cache instead.
+RUN printf '%s\n' \
+      "/opt/rohc/lib" \
+      "/opt/uhd/${UHD_VERSION}/lib" \
+      "/opt/uhd/${UHD_VERSION}/lib/x86_64-linux-gnu" \
+      "/opt/uhd/${UHD_VERSION}/lib/aarch64-linux-gnu" \
+      "/opt/dpdk/${DPDK_VERSION}/lib" \
+      "/opt/dpdk/${DPDK_VERSION}/lib/x86_64-linux-gnu" \
+      "/opt/dpdk/${DPDK_VERSION}/lib/aarch64-linux-gnu" \
+      > /etc/ld.so.conf.d/ocudu.conf && \
+    ldconfig
+
+# Bake minimum-privilege Linux capabilities into the binaries that need to
+# run as a non-root uid in Kubernetes. Kubernetes' capabilities.add only
+# populates the bounding set for non-root processes; for caps to land in
+# the effective set after execve(), they must be declared as file caps.
+#
+# Caps (same minimum set for both binaries, empirically verified against
+# live OFH traffic):
+#   cap_sys_nice  - SCHED_FIFO on ru_timing / tx-rx threads (DPDK real-time)
+#   cap_ipc_lock  - mlock() on DPDK hugepages
+RUN setcap cap_sys_nice,cap_ipc_lock+ep /usr/local/bin/gnb && \
+    setcap cap_sys_nice,cap_ipc_lock+ep /usr/local/bin/ru_emulator && \
+    getcap /usr/local/bin/gnb /usr/local/bin/ru_emulator
