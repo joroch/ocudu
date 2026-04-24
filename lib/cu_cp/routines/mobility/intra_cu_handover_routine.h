@@ -10,8 +10,7 @@
 #include "ocudu/cu_cp/cu_cp_intra_cu_ho_types.h"
 #include "ocudu/support/async/async_task.h"
 
-namespace ocudu {
-namespace ocucp {
+namespace ocudu::ocucp {
 
 /// \brief Handles the handover of a UE between two different cells managed by the same CU.
 /// TODO Add seqdiag
@@ -32,11 +31,11 @@ public:
   static const char* name() { return "Intra CU Handover Routine"; }
 
 private:
-  bool generate_ue_context_setup_request(f1ap_ue_context_setup_request&               setup_request,
-                                         const static_vector<srb_id_t, MAX_NOF_SRBS>& srbs,
-                                         const rrc_ue_transfer_context&               transfer_context,
-                                         bool                                         is_cho);
-  void create_srb(cu_cp_ue* ue, srb_id_t srb_id);
+  bool        generate_ue_context_setup_request(f1ap_ue_context_setup_request&               setup_request,
+                                                const static_vector<srb_id_t, MAX_NOF_SRBS>& srbs,
+                                                const rrc_ue_transfer_context&               transfer_context,
+                                                bool                                         is_cho);
+  static void create_srb(cu_cp_ue* ue, srb_id_t srb_id);
 
   bool add_security_context_to_bearer_context_modification(const ocudu::security::sec_as_config& security_cfg);
 
@@ -66,6 +65,7 @@ private:
 
   // (sub-)routine results
   cu_cp_intra_cu_handover_response      response_msg;
+  ue_index_t                            target_ue_index = ue_index_t::invalid;
   f1ap_ue_context_setup_response        target_ue_context_setup_response;
   f1ap_ue_context_modification_response source_ue_context_modification_response;
   bool                                  rrc_reconfig_sent = false;
@@ -75,5 +75,4 @@ private:
   rrc_ue_handover_reconfiguration_context cho_cand_ctxt;
 };
 
-} // namespace ocucp
-} // namespace ocudu
+} // namespace ocudu::ocucp

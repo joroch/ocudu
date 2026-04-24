@@ -89,11 +89,20 @@ void intra_cu_handover_routine::operator()(coro_context<async_task<cu_cp_intra_c
 
   {
     // Allocate UE index at target DU.
-    target_ue_context_setup_request.ue_index = ue_mng.add_ue(request.target_du_index);
-    if (target_ue_context_setup_request.ue_index == ue_index_t::invalid) {
+    target_ue_index = ue_mng.add_ue(request.target_du_index);
+    if (target_ue_index == ue_index_t::invalid) {
       logger.warning("ue={}: \"{}\" failed to allocate UE index at target DU", request.source_ue_index, name());
       CORO_EARLY_RETURN(response_msg);
     }
+
+    // Check if new UEs can be served.
+    if (ue_mng.ue_admission_limit_reached()) {
+      logger.warning(
+          "ue={}: \"{}\" failed to allocate UE index at target DU. UE not servable", request.source_ue_index, name());
+      ue_mng.remove_ue(target_ue_index);
+      CORO_EARLY_RETURN(response_msg);
+    }
+    target_ue_context_setup_request.ue_index = target_ue_index;
     if (!cu_cp_handler.handle_ue_plmn_selected(target_ue_context_setup_request.ue_index,
                                                source_ue->get_ue_context().plmn)) {
       logger.warning("ue={}: \"{}\" failed to set PLMN for target UE", request.source_ue_index, name());
@@ -109,6 +118,7 @@ void intra_cu_handover_routine::operator()(coro_context<async_task<cu_cp_intra_c
                                            source_rrc_context,
                                            is_cho_preparation)) {
       logger.warning("ue={}: \"{}\" failed to generate UeContextSetupRequest", request.source_ue_index, name());
+      ue_mng.remove_ue(target_ue_context_setup_request.ue_index);
       CORO_EARLY_RETURN(response_msg);
     }
     target_ue_context_setup_request.cu_to_du_rrc_info.meas_cfg = source_ue->get_rrc_ue()->get_packed_meas_config();
@@ -178,6 +188,7 @@ void intra_cu_handover_routine::operator()(coro_context<async_task<cu_cp_intra_c
                                   std::nullopt,
                                   logger)) {
         logger.warning("ue={}: \"{}\" Failed to fill RrcReconfiguration", request.source_ue_index, name());
+        CORO_AWAIT(cu_cp_handler.handle_ue_removal_request(target_ue_context_setup_request.ue_index));
         CORO_EARLY_RETURN(response_msg);
       }
     }

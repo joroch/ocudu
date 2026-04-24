@@ -11,6 +11,7 @@
 #include "ue_metrics_handler.h"
 #include "ue_task_scheduler_impl.h"
 #include "ocudu/cu_cp/cu_cp_configuration.h"
+#include "ocudu/cu_cp/cu_cp_types.h"
 #include "ocudu/cu_cp/security_manager_config.h"
 #include "ocudu/cu_cp/ue_configuration.h"
 #include "ocudu/ran/i_rnti.h"
@@ -97,28 +98,28 @@ public:
 
   // du processor
 
-  /// \brief Allocate resources for the UE in the CU-CP.
+  /// \brief Add a UE context to the CU-CP.
+  /// \param[in] du_index Index of the DU the UE is connected to.
+  /// \return The UE index of the added UE. If the UE context couldn't be created, ue_index_t::invalid is returned.
+  /// Note: No admission control is performed in this function, so the returned UE index may be valid even if the UE
+  /// cannot be served.
+  ue_index_t add_ue(du_index_t du_index);
+
+  /// \brief Check if the UE admission limit has been reached.
+  /// \note Admission is split from add_ue(). Callers should evaluate this function in conjunction with add_ue(),
+  /// typically before and immediately after add_ue().
+  /// \return True if the UE admission limit has been reached, false otherwise.
+  bool ue_admission_limit_reached() const;
+
+  /// \brief Update the context of the UE.
+  /// \param[in] ue_index Index of the UE.
   /// \param[in] du_index Index of the DU the UE is connected to.
   /// \param[in] du_id The gNB-DU ID of the DU the UE is connected to.
   /// \param[in] pci The PCI of the cell the UE is connected to.
   /// \param[in] rnti The RNTI of the UE.
   /// \param[in] pcell_index The index of the PCell the UE is connected to.
-  /// \return ue_index of the created UE or ue_index_t::invalid in case of failure.
-  ue_index_t add_ue(du_index_t                     du_index,
-                    std::optional<gnb_du_id_t>     du_id       = std::nullopt,
-                    std::optional<pci_t>           pci         = std::nullopt,
-                    std::optional<rnti_t>          rnti        = std::nullopt,
-                    std::optional<du_cell_index_t> pcell_index = std::nullopt);
-
-  /// \brief Set the DU context of the UE.
-  /// \param[in] ue_index Index of the UE.
-  /// \param[in] du_id The gNB-DU ID of the DU the UE is connected to.
-  /// \param[in] pci The PCI of the cell the UE is connected to.
-  /// \param[in] rnti The RNTI of the UE.
-  /// \param[in] pcell_index The index of the PCell the UE is connected to.
-  /// \return Pointer to the DU UE if found, nullptr otherwise.
-  cu_cp_ue*
-  set_ue_du_context(ue_index_t ue_index, gnb_du_id_t du_id, pci_t pci, rnti_t rnti, du_cell_index_t pcell_index);
+  /// \return True if the update was successful, false otherwise.
+  bool update_ue_context(ue_index_t ue_index, gnb_du_id_t du_id, pci_t pci, rnti_t rnti, du_cell_index_t pcell_index);
 
   /// \brief Find the UE with the given UE index, thats DU context is set up.
   /// \param[in] ue_index Index of the UE to be found.
@@ -222,7 +223,7 @@ private:
   const ue_configuration        ue_config;
   const up_resource_manager_cfg up_config;
   const security_manager_config sec_config;
-  const unsigned                max_nof_ues;
+  const uint32_t                max_nof_ues;
 
   // Manager of UE task schedulers.
   ue_task_scheduler_manager ue_task_scheds;

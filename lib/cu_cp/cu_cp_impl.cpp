@@ -1100,7 +1100,14 @@ ue_index_t cu_cp_impl::handle_ue_index_allocation_request(const nr_cell_global_i
 
   ue_index_t ue_index = ue_mng.add_ue(du_index);
   if (ue_index == ue_index_t::invalid) {
-    logger.warning("Could not allocate new UE index for CGI={}", cgi.nci);
+    logger.warning("Could not add new UE context for CGI={}", cgi.nci);
+    return ue_index_t::invalid;
+  }
+
+  // Check if UE can be served.
+  if (ue_mng.ue_admission_limit_reached()) {
+    logger.warning("ue={}: Could not add new UE context for CGI={}. UE not servable", ue_index, cgi.nci);
+    ue_mng.remove_ue(ue_index);
     return ue_index_t::invalid;
   }
 
