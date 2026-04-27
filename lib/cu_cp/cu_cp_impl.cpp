@@ -635,9 +635,8 @@ void cu_cp_impl::handle_cho_reconfiguration_sent(const cu_cp_cho_target_request&
   cu_cp_ue* ue = ue_mng.find_du_ue(request.target_ue_index);
 
   // Schedule conditional_handover_target_routine on the target UE's task scheduler.
-  // This routine only waits for target-side RRCReconfigurationComplete.
-  // Source-side CHO completion is handled separately (Access Success / conditional_handover_source_routine).
-  ue->get_task_sched().schedule_async_task(launch_async<conditional_handover_target_routine>(request, ue_mng, logger));
+  ue->get_task_sched().schedule_async_task(launch_async<conditional_handover_target_routine>(
+      request, ue_mng, du_db, cu_up_db, *this, *this, mobility_mng, logger));
 }
 
 void cu_cp_impl::handle_handover_ue_context_push(ue_index_t source_ue_index, ue_index_t target_ue_index)
@@ -687,8 +686,7 @@ async_task<void> cu_cp_impl::handle_ue_context_release(const cu_cp_ue_context_re
 
 async_task<void> cu_cp_impl::handle_access_success(const cu_cp_access_success_indication& msg)
 {
-  return launch_async<conditional_handover_source_routine>(
-      msg, ue_mng, du_db, cu_up_db, *this, *this, mobility_mng, logger);
+  return launch_async<conditional_handover_source_routine>(msg, ue_mng, logger);
 }
 
 async_task<rrc_resume_request_response> cu_cp_impl::handle_rrc_resume_request(const cu_cp_rrc_resume_request& request)
@@ -1530,7 +1528,7 @@ void cu_cp_impl::initialize_cho_execution_timer(ue_index_t ue_index, std::chrono
       return;
     }
     ue2->get_task_sched().schedule_async_task(
-        launch_async<conditional_handover_cancellation_routine>(ue_index, *this, ue_mng, logger));
+        launch_async<conditional_handover_cancellation_routine>(ue_index, ue_mng, logger));
   });
   ue->get_cho_context()->cho_execution_timer.run();
   logger.debug("ue={}: CHO execution timer started ({}ms)", ue_index, timeout.count());
