@@ -24,6 +24,7 @@ struct du_test_mode_config {
     unsigned                ri;
     unsigned                pmi;
     unsigned                i_1_1;
+    std::optional<unsigned> i_1_2;
     std::optional<unsigned> i_1_3;
     unsigned                i_2;
   };
