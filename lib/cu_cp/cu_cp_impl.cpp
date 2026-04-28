@@ -941,7 +941,7 @@ cu_cp_impl::handle_ue_context_release_command(const cu_cp_ue_context_release_com
 
   return launch_async<ue_context_release_routine>(command,
                                                   e1ap_bearer_ctxt_mng,
-                                                  du_db.get_du_processor(ue->get_du_index()).get_f1ap_handler(),
+                                                  du_db.get_du_processor(ue->get_du_index()),
                                                   get_cu_cp_ue_removal_handler(),
                                                   ue_mng,
                                                   logger);
@@ -1078,7 +1078,7 @@ void cu_cp_impl::handle_xnap_ue_context_release_received(ue_index_t ue_index)
   cu_cp_ue_context_release_command command;
   command.ue_index             = ue_index;
   command.cause                = ngap_cause_radio_network_t::release_due_to_ngran_generated_reason;
-  command.requires_rrc_release = false;
+  command.requires_rrc_message = false;
 
   // Schedule UE release.
   ue->get_task_sched().schedule_async_task(launch_async([this, command](coro_context<async_task<void>>& ctx) {
