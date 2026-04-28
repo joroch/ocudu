@@ -26,7 +26,8 @@ install_docker_dependencies_arch() {
 }
 
 install_docker_dependencies_fedora() {
-    local -a pkgs=(curl ntp)
+    # chrony is the supported NTP stack on current Fedora (classic ntp/ntpdate retired).
+    local -a pkgs=(curl chrony)
 
     dnf -y install "${pkgs[@]}"
     dnf clean all
