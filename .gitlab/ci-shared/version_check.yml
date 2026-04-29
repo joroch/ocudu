@@ -17,7 +17,7 @@
     - export NEW_VERSION
     - |
       git checkout $CI_MERGE_REQUEST_DIFF_BASE_SHA
-      if [ ! $(cat $FILE_PATH | grep $VARIABLE_NAME) ]; then
+      if ! grep -q "$VARIABLE_NAME" "$FILE_PATH"; then
           exit 0
       fi
     - OLD_VERSION=$(cat $FILE_PATH | grep $VARIABLE_NAME | cut -d'"' -f2)
