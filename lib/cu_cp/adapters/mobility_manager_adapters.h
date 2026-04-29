@@ -18,6 +18,8 @@ public:
 
   void connect_cu_cp(cu_cp_mobility_manager_handler& cu_cp_handler_) { cu_cp_handler = &cu_cp_handler_; }
 
+  void connect_ue_context_handler(cu_cp_ue_context_manipulation_handler& handler) { ue_context_handler = &handler; }
+
   async_task<cu_cp_intra_cu_handover_response>
   on_intra_cu_handover_required(const cu_cp_intra_cu_handover_request& request,
                                 du_index_t                             source_du_index,
@@ -33,8 +35,15 @@ public:
     return cu_cp_handler->handle_intra_cu_cho_request(request);
   }
 
+  async_task<void> on_ue_release_required(const cu_cp_ue_context_release_request& request) override
+  {
+    ocudu_assert(ue_context_handler != nullptr, "UE context handler must not be nullptr");
+    return ue_context_handler->handle_ue_context_release(request);
+  }
+
 private:
-  cu_cp_mobility_manager_handler* cu_cp_handler = nullptr;
+  cu_cp_mobility_manager_handler*        cu_cp_handler      = nullptr;
+  cu_cp_ue_context_manipulation_handler* ue_context_handler = nullptr;
 };
 
 } // namespace ocucp

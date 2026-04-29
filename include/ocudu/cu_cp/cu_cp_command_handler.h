@@ -41,6 +41,18 @@ public:
       span<const pci_t>                                    target_pcis,
       std::chrono::milliseconds                            timeout,
       std::optional<std::chrono::system_clock::time_point> t1_thres_override = std::nullopt) = 0;
+
+  /// \brief Trigger RRC Release for a UE, with optional NR redirection.
+  ///
+  /// The UE is released to RRC_IDLE. If redirect_info is set, the RRCRelease message will
+  /// include redirectedCarrierInfo pointing to the given NR carrier (TS 38.331 Sec. 5.3.8.3).
+  ///
+  /// \param[in] source_pci    Serving cell PCI.
+  /// \param[in] rnti          UE RNTI on the serving cell.
+  /// \param[in] redirect_info Optional NR carrier to redirect the UE to on entry to RRC_IDLE.
+  virtual void trigger_release(pci_t                                         source_pci,
+                               rnti_t                                        rnti,
+                               std::optional<cu_cp_release_redirect_nr_info> redirect_info = std::nullopt) = 0;
 };
 
 /// Handler for external commands to the CU-CP.

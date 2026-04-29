@@ -63,6 +63,10 @@ public:
       std::chrono::milliseconds                            timeout,
       std::optional<std::chrono::system_clock::time_point> t1_thres_override = std::nullopt) override;
 
+  void trigger_release(pci_t                                         source_pci,
+                       rnti_t                                        rnti,
+                       std::optional<cu_cp_release_redirect_nr_info> redirect_info = std::nullopt) override;
+
   /// \brief Trigger CHO automatically for an already known UE.
   /// This path is only active when enabled in gNB config.
   void trigger_auto_conditional_handover(ue_index_t ue_index);

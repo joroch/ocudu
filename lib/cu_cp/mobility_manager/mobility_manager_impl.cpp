@@ -58,6 +58,43 @@ void mobility_manager::trigger_conditional_handover(
   handle_conditional_handover(source_pci, rnti, target_pcis, timeout, t1_thres_override);
 }
 
+void mobility_manager::trigger_release(pci_t                                         source_pci,
+                                       rnti_t                                        rnti,
+                                       std::optional<cu_cp_release_redirect_nr_info> redirect_info)
+{
+  ue_index_t ue_index = ue_mng.get_ue_index(source_pci, rnti);
+  if (ue_index == ue_index_t::invalid) {
+    logger.warning("Could not trigger release, UE invalid. rnti={} pci={}", rnti, source_pci);
+    return;
+  }
+  cu_cp_ue* u = ue_mng.find_du_ue(ue_index);
+  if (u == nullptr) {
+    logger.error("ue={}: Could not find UE for release", ue_index);
+    return;
+  }
+  if (redirect_info.has_value()) {
+    logger.info("ue={}: Triggering RRC Release with NR redirection, arfcn={}", ue_index, redirect_info->arfcn);
+  } else {
+    logger.info("ue={}: Triggering RRC Release", ue_index);
+  }
+
+  // Store redirect target in UE context; it will be picked up by ue_context_release_routine after the AMF
+  // responds to the NGAP UE Context Release Request (NGAP has no field for redirectedCarrierInfo).
+  u->get_ue_context().pending_redirect_nr_info = redirect_info;
+
+  cu_cp_ue_context_release_request request;
+  request.ue_index = ue_index;
+  request.cause =
+      redirect_info.has_value() ? ngap_cause_radio_network_t::redirection : ngap_cause_radio_network_t::unspecified;
+
+  auto trigger = [this, request](coro_context<async_task<void>>& ctx) mutable {
+    CORO_BEGIN(ctx);
+    CORO_AWAIT(cu_cp_notifier.on_ue_release_required(request));
+    CORO_RETURN();
+  };
+  u->get_task_sched().schedule_async_task(launch_async(std::move(trigger)));
+}
+
 void mobility_manager::trigger_auto_conditional_handover(ue_index_t ue_index)
 {
   if (!cfg.trigger_cho_on_ue_setup) {
