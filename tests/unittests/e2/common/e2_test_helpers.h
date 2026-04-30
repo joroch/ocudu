@@ -899,6 +899,14 @@ public:
       CORO_RETURN(ocucp::cu_cp_intra_cu_cho_response{true});
     });
   }
+
+  async_task<void> on_ue_release_required(const ocucp::cu_cp_ue_context_release_request& request) override
+  {
+    return launch_async([](coro_context<async_task<void>>& ctx) {
+      CORO_BEGIN(ctx);
+      CORO_RETURN();
+    });
+  }
 };
 
 class dummy_du_configurator : public odu::du_configurator

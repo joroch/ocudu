@@ -42,6 +42,9 @@ public:
   /// This entrypoint executes preparation and (auto) execution/cancellation orchestration.
   virtual async_task<cu_cp_intra_cu_cho_response>
   on_intra_cu_cho_required(const cu_cp_intra_cu_cho_request& request) = 0;
+
+  /// \brief Request the CU-CP to release a UE context via the NGAP UE Context Release procedure.
+  virtual async_task<void> on_ue_release_required(const cu_cp_ue_context_release_request& request) = 0;
 };
 
 } // namespace ocucp

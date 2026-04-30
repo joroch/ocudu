@@ -114,6 +114,7 @@ cu_cp_impl::cu_cp_impl(const cu_cp_configuration& config_) :
   ngap_cu_cp_ev_notifier.connect_cu_cp(get_cu_cp_ngap_handler(), paging_handler);
   nrppa_cu_cp_ev_notifier.connect_cu_cp(get_cu_cp_nrppa_handler());
   mobility_manager_ev_notifier.connect_cu_cp(get_cu_cp_mobility_manager_handler());
+  mobility_manager_ev_notifier.connect_ue_context_handler(get_cu_cp_ue_context_handler());
   e1ap_ev_notifier.connect_cu_cp(get_cu_cp_e1ap_handler());
   cell_meas_mobility_notifier.connect_mobility_manager(mobility_mng);
 
