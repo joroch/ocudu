@@ -71,7 +71,7 @@ private:
   void on_slot_completed_on_ctrl(du_cell_index_t cell_index, slot_point slot);
   void tick_cell(du_cell_index_t cell_index, slot_point slot);
   void release_all_ues_in_cell(du_cell_index_t cell_index);
-  void release_ue(rnti_t rnti);
+  bool release_ue(rnti_t rnti);
   void try_create_ue(du_cell_index_t cell_index, slot_point slot);
   void reset_cell_for_next_cycle(du_cell_index_t cell_index);
 

@@ -572,11 +572,20 @@ mac_test_mode_adapter::handle_ue_reconfiguration_request(const mac_ue_reconfigur
 
 async_task<mac_ue_delete_response> mac_test_mode_adapter::handle_ue_delete_request(const mac_ue_delete_request& cfg)
 {
-  if (ue_info_mgr.is_test_ue(cfg.rnti)) {
-    ue_info_mgr.remove_ue(cfg.rnti);
-    ctrl.on_ue_removed(cfg.rnti);
-  }
-  return mac_adapted->get_ue_configurator().handle_ue_delete_request(cfg);
+  return launch_async([this, cfg](coro_context<async_task<mac_ue_delete_response>>& ctx) {
+    CORO_BEGIN(ctx);
+
+    // Await MAC UE removal.
+    CORO_AWAIT_VALUE(auto resp, mac_adapted->get_ue_configurator().handle_ue_delete_request(cfg));
+
+    // Update test mode adapter state.
+    if (ue_info_mgr.is_test_ue(cfg.rnti)) {
+      ue_info_mgr.remove_ue(cfg.rnti);
+      ctrl.on_ue_removed(cfg.rnti);
+    }
+
+    CORO_RETURN(resp);
+  });
 }
 
 bool mac_test_mode_adapter::handle_ul_ccch_msg(du_ue_index_t ue_index, byte_buffer pdu)

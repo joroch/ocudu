@@ -306,28 +306,34 @@ void du_test_mode_controller::release_all_ues_in_cell(du_cell_index_t cell_index
 
   for (unsigned u = 0; u < cfg.nof_ues; ++u) {
     const rnti_t rnti = to_rnti(to_value(cfg.rnti) + static_cast<unsigned>(cell_index) * cfg.nof_ues + u);
-    release_ue(rnti);
-    ++nof_released;
+    if (release_ue(rnti)) {
+      ++nof_released;
+    }
   }
   cell.nof_ues_pending_remove = nof_released;
+
+  if (nof_released == 0) {
+    logger.info("TEST_MODE: No releasable UEs on cell={}. Entering guard period.", fmt::underlying(cell_index));
+    cell.cycle            = cell_cycle_state::guard;
+    cell.guard_start_slot = cell.last_slot;
+  }
 }
 
-void du_test_mode_controller::release_ue(rnti_t rnti)
+bool du_test_mode_controller::release_ue(rnti_t rnti)
 {
   if (f1ap_handler == nullptr) {
-    return;
+    return false;
   }
 
   auto it = std::find_if(ue_id_table.begin(), ue_id_table.end(), [rnti](const ue_entry& e) { return e.rnti == rnti; });
   if (it == ue_id_table.end()) {
-    logger.warning("TEST_MODE: Cannot release rnti={}: gnb_du_ue_f1ap_id not found", rnti);
-    return;
+    return false;
   }
 
   auto gnb_cu_ue_id = f1ap_handler->get_gnb_cu_ue_f1ap_id(it->gnb_du_ue_id);
   if (not gnb_cu_ue_id.has_value()) {
     logger.warning("TEST_MODE: Cannot release rnti={}: gnb_cu_ue_f1ap_id not found", rnti);
-    return;
+    return false;
   }
 
   f1ap_message rel_cmd;
@@ -339,6 +345,7 @@ void du_test_mode_controller::release_ue(rnti_t rnti)
 
   logger.info("TEST_MODE: Injecting UE Context Release Command for rnti={}", rnti);
   f1ap_handler->handle_message(rel_cmd);
+  return true;
 }
 
 void du_test_mode_controller::try_create_ue(du_cell_index_t cell_index, slot_point slot)
