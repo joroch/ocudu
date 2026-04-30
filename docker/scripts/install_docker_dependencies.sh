@@ -11,10 +11,11 @@
 set -e
 
 install_docker_dependencies_debian_ubuntu() {
+    local -x DEBIAN_FRONTEND=noninteractive
     local -a pkgs=(curl ntpdate tini)
 
-    DEBIAN_FRONTEND=noninteractive apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
+    apt-get update
+    apt-get install -y --no-install-recommends "${pkgs[@]}"
     apt-get clean && rm -rf /var/lib/apt/lists/*
 }
 
