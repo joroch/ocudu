@@ -914,12 +914,12 @@
           "type": "influxdb",
           "uid": "JOSE3g9KVz"
         },
-        "definition": "SELECT gnb_id FROM cell GROUP BY gnb_id",
+        "definition": "SELECT gnb_id FROM app_resource_usage GROUP BY gnb_id",
         "label": "gNB ID",
         "name": "gnb_id",
         "options": [],
         "query": {
-          "query": "SELECT gnb_id FROM cell GROUP BY gnb_id",
+          "query": "SELECT gnb_id FROM app_resource_usage GROUP BY gnb_id",
           "refId": "InfluxVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -937,13 +937,13 @@
           "type": "influxdb",
           "uid": "JOSE3g9KVz"
         },
-        "definition": "SELECT pci FROM ofh GROUP BY pci",
+        "definition": "SELECT pci FROM cell GROUP BY pci",
         "includeAll": false,
         "multi": true,
         "name": "pci",
         "options": [],
         "query": {
-          "query": "SELECT pci FROM ofh GROUP BY pci",
+          "query": "SELECT pci FROM cell GROUP BY pci",
           "refId": "InfluxVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

@@ -2166,7 +2166,7 @@
           "type": "influxdb",
           "uid": "JOSE3g9KVz"
         },
-        "definition": "SELECT DISTINCT gnb_id FROM cell",
+        "definition": "SELECT DISTINCT gnb_id FROM app_resource_usage",
         "hide": 0,
         "includeAll": false,
         "label": "gNB ID",
@@ -2174,7 +2174,7 @@
         "name": "gnb_id",
         "options": [],
         "query": {
-          "query": "SELECT DISTINCT gnb_id FROM cell"
+          "query": "SELECT DISTINCT gnb_id FROM app_resource_usage"
         },
         "refresh": 2,
         "type": "query"
