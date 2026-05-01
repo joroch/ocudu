@@ -1236,7 +1236,6 @@ static odu::du_test_mode_config generate_test_mode_config(const du_high_unit_con
                                                     test_ue.nof_ues,
                                                     test_ue.ue_creation_stagger_slots,
                                                     test_ue.auto_ack_indication_delay,
-                                                    attach_detach_duration,
                                                     test_ue.pdsch_active,
                                                     test_ue.pusch_active,
                                                     test_ue.cqi,
@@ -1245,6 +1244,7 @@ static odu::du_test_mode_config generate_test_mode_config(const du_high_unit_con
                                                     test_ue.i_1_1,
                                                     test_ue.i_1_3,
                                                     test_ue.i_2,
+                                                    attach_detach_duration,
                                                     std::chrono::milliseconds{test_ue.attach_detach_guard_duration_ms}};
 
   return test_cfg;
