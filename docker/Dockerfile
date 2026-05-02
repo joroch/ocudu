@@ -32,6 +32,9 @@ ADD . /src
 # RUN apt update && apt-get install -y --no-install-recommends git ca-certificates
 # RUN git clone https://github.com/ocudu/OCUDU_Project.git /src
 
+# Install ZeroMQ library
+RUN apt-get update && apt-get install -y libzmq3-dev
+
 # Install OCUDU build dependencies
 RUN /src/docker/scripts/install_dependencies.sh build && \
     /src/docker/scripts/install_uhd_dependencies.sh build && \
@@ -79,7 +82,7 @@ RUN if [ -z "$NUM_JOBS" ]; then NUM_JOBS=$(nproc); fi \
     && ARCH_FLAG=$([ "${TARGETARCH}" = "arm64" ] && echo "-DMCPU=${MARCH}" || echo "-DMARCH=${MARCH}") \
     && \
     /src/docker/scripts/builder.sh -c ${COMPILER} -m "-j${NUM_JOBS} ocu odu odu_split_8 odu_split_7_2 gnb gnb_split_8 gnb_split_7_2 ru_emulator" \
-    -DBUILD_TESTING=False -DENABLE_UHD=On -DENABLE_DPDK=On ${ARCH_FLAG} -DCMAKE_INSTALL_PREFIX=/opt/ocudu \
+    -DBUILD_TESTING=False -DENABLE_UHD=On -DENABLE_DPDK=On -DENABLE_ZEROMQ=ON -DENABLE_EXPORT=ON ${ARCH_FLAG} -DCMAKE_INSTALL_PREFIX=/opt/ocudu \
     ${EXTRA_CMAKE_ARGS} /src
 RUN cp /src/build/apps/cu/ocu                     /tmp/ocu                     && \
     cp /src/build/apps/du/odu                     /tmp/odu                     && \
@@ -109,6 +112,9 @@ FROM ${OS}:${OS_VERSION} AS runtime
 
 ARG UHD_VERSION
 ARG DPDK_VERSION
+
+# Install ZeroMQ library for runtime
+RUN apt-get update && apt-get install -y libzmq3-dev
 
 # Copy OCUDU binaries and libraries installed in previous stage(s)
 COPY --from=builder /opt/rohc                 /opt/rohc
