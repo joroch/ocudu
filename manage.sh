@@ -23,25 +23,19 @@ case "$1" in
         ;;
     start-ue)
         echo "Setting up routing and UE..."
-        
-        # Inform the Host PC how to find the 5G UE subnet (via the Core container)
+        # Inform the Host PC how to find the 5G UE subnet
         sudo ip route add 10.45.0.0/16 via 10.53.1.2 2>/dev/null
         
         # Create the namespace for the UE
         sudo ip netns add ue1 2>/dev/null
         
-        echo "Launching UE..."
-        # Start UE in the background to allow route injection
-        sudo $UE_EXEC_PATH $UE_CONF_PATH &
-        UE_PID=$!
+        echo "Scheduling automatic route injection (Background)..."
         
-        # Wait for the UE to attach and create the tun_srsue interface
-        sleep 5
-        echo "Injecting UE default route..."
-        sudo ip netns exec ue1 ip route add default via 10.45.1.1 dev tun_srsue 2>/dev/null
+        (sleep 6 && sudo ip netns exec ue1 ip route add default via 10.45.1.1 dev tun_srsue 2>/dev/null) &
         
-        # Bring UE back to foreground
-        wait $UE_PID
+        echo "Launching UE (Foreground)..."
+        # Launch UE normally for the trace 't' to keep working
+        sudo $UE_EXEC_PATH $UE_CONF_PATH
         ;;
     restart)
         echo "Restarting Radio & Core..."
@@ -55,6 +49,14 @@ case "$1" in
         echo "Recompiling gNB and restarting..."
         docker compose $COMPOSE_BASE up -d --build gnb
         ;;
+    iperf-start)
+        echo "Starting iPerf server on the 5G core..."
+        docker compose $COMPOSE_BASE exec -d 5gc iperf3 -s
+        ;;
+    iperf-stop)
+        echo "Stopping iPerf server..."
+        docker compose $COMPOSE_BASE exec 5gc pkill iperf3
+        ;;
     logs)
         if [ -z "$2" ]; then
             echo "❌ Error: Specify a service. e.g.: ./manage.sh logs gnb (5gc, mongo...)"
@@ -63,6 +65,6 @@ case "$1" in
         fi
         ;;
     *)
-        echo "⚙️ Usage: ./manage.sh {start|start-all|start-ue|stop|restart|rebuild-gnb|logs <service>}"
+        echo "⚙️ Usage: ./manage.sh {start|start-all|start-ue|stop|restart|rebuild-gnb|iperf-start|iperf-stop|logs <service>}"
         exit 1
 esac
