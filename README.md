@@ -19,6 +19,7 @@ The testbed consists of a fully containerized 5G architecture:
   * Configured cross-bridge TCP routing between the Dockerized gNB and the host-based UE.
 * **Orchestration:** 
   * Designed a unified Bash orchestration script (`manage.sh`) implementing the Entrypoint Pattern to manage the multi-container lifecycle (Core, gNB, UI), handle hard resets, and provide smart logging.
+  * The script automates static routing between the Host OS and UPF container, giving the UE instant internet access without manual iptables configuration.
 * **Configuration Management:** 
   * Created optimized FDD cell configurations specifically tuned for virtual SDR compatibility between OCUDU and srsUE.
 
@@ -32,8 +33,8 @@ Deploying the customized 5G network is fully automated via the provided bash wra
 # 2. Recompile the C++ source code and restart the radio (Useful during development)
 ./manage.sh rebuild-gnb
 
-# 3. View smart logs for the gNB
-./manage.sh logs gnb
+# 3. View smart logs for the services
+./manage.sh logs <service>
 ```
 
 ## End-to-End Testing (Virtual UE)
@@ -62,7 +63,7 @@ Use the orchestrator to automatically create the isolated network namespace (ue1
 ./manage.sh start
 
 # In Terminal 2: Launch the Virtual UE
-./manage.sh start-ue
+./manage.sh start-ue #(make sure "UE_EXEC_PATH" is in the correct path)
 ```
 If successful, the UE will attach to the network, complete the RRC handshake, and the UPF will assign a PDU session IP (e.g., 10.45.1.2).
 

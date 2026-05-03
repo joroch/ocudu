@@ -22,12 +22,29 @@ case "$1" in
         docker compose $COMPOSE_BASE up -d
         ;;
     start-ue)
-        echo "Setting up network namespace and starting Virtual UE..."
+        echo "Setting up routing and UE..."
+        
+        # Inform the Host PC how to find the 5G UE subnet (via the Core container)
+        sudo ip route add 10.45.0.0/16 via 10.53.1.2 2>/dev/null
+        
+        # Create the namespace for the UE
         sudo ip netns add ue1 2>/dev/null
-        sudo $UE_EXEC_PATH $UE_CONF_PATH
+        
+        echo "Launching UE..."
+        # Start UE in the background to allow route injection
+        sudo $UE_EXEC_PATH $UE_CONF_PATH &
+        UE_PID=$!
+        
+        # Wait for the UE to attach and create the tun_srsue interface
+        sleep 5
+        echo "Injecting UE default route..."
+        sudo ip netns exec ue1 ip route add default via 10.45.1.1 dev tun_srsue 2>/dev/null
+        
+        # Bring UE back to foreground
+        wait $UE_PID
         ;;
     restart)
-        echo "🔄 Reiniciando Core y Radio (Limpiando buffers)..."
+        echo "Restarting Radio & Core..."
         docker compose $COMPOSE_BASE restart
         ;;
     stop)
