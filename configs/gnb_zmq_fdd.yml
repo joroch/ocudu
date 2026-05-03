@@ -1,12 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (C) 2021-2026 Software Radio Systems Limited
 # SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 
+# CUSTOMIZED 5G STANDALONE gNB CONFIGURATION (ZeroMQ + Docker)
 
-# This example configuration outlines how to configure the OCUDU gNB to create a single FDD cell
-# transmitting in band 3, with 20 MHz bandwidth and 15 kHz sub-carrier-spacing. 
-
-# This particular configuration is intended to be used with srsUE using ZeroMQ. Note the `pdcch` parameters set in the
-# `cell_cfg` section. These are set to match the capabilities of srsUE.
+# This configuration outlines a single FDD cell (Band 3, 20 MHz, 15 kHz SCS).
+# 
+# Custom Modifications:
+# - Adapted to route virtual RF traffic across Docker bridge interfaces using ZeroMQ.
+# - Configured to connect a containerized gNB (10.53.1.3) to a host-based srsUE.
 
 cu_cp:
   amf:
@@ -22,7 +23,7 @@ cu_cp:
 
 ru_sdr:
   device_driver: zmq
-  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,base_srate=23.04e6
+  device_args: tx_port=tcp://*:2000,rx_port=tcp://10.53.1.1:2001,base_srate=23.04e6
   srate: 23.04
   tx_gain: 80
   rx_gain: 40
@@ -53,7 +54,7 @@ log:
   all_level: info
 
 pcap:
-  mac_enable: false #enable
+  mac_enable: false
   mac_filename: /tmp/gnb_mac.pcap
-  ngap_enable: false #enable
+  ngap_enable: false
   ngap_filename: /tmp/gnb_ngap.pcap

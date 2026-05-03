@@ -16,6 +16,7 @@ The testbed consists of a fully containerized 5G architecture:
 
 * **DevOps & Infrastructure:** 
   * Modified the core `Dockerfile` and CMake build scripts to inject native **ZeroMQ (ZMQ)** dependencies. This allows full baseband and RF emulation without requiring expensive physical USRP hardware.
+  * Configured cross-bridge TCP routing between the Dockerized gNB and the host-based UE.
 * **Orchestration:** 
   * Designed a unified Bash orchestration script (`manage.sh`) implementing the Entrypoint Pattern to manage the multi-container lifecycle (Core, gNB, UI), handle hard resets, and provide smart logging.
 * **Configuration Management:** 
@@ -35,5 +36,42 @@ Deploying the customized 5G network is fully automated via the provided bash wra
 ./manage.sh logs gnb
 ```
 
+## End-to-End Testing (Virtual UE)
+
+To test the 5G network without physical RF hardware (like USRPs), you can use the srsUE emulator connected to our gNB via ZeroMQ.
+
+**1. Install & Build srsUE (Host Machine)**
+
+Run these commands outside of Docker to compile the UE emulator with ZMQ support:
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake libfftw3-dev libmbedtls-dev libboost-program-options-dev libconfig++-dev libsctp-dev libzmq3-dev
+
+git clone [https://github.com/srsran/srsRAN_4G.git](https://github.com/srsran/srsRAN_4G.git)
+cd srsRAN_4G
+mkdir build && cd build
+cmake ../ -DENABLE_EXPORT=ON -DENABLE_ZEROMQ=ON
+make -j$(nproc)
+```
+
+**2. Connect the UE**
+
+Use the orchestrator to automatically create the isolated network namespace (ue1) and launch the UE with high CPU priority:
+```bash
+# In Terminal 1: Start the Core and Radio
+./manage.sh start
+
+# In Terminal 2: Launch the Virtual UE
+./manage.sh start-ue
+```
+If successful, the UE will attach to the network, complete the RRC handshake, and the UPF will assign a PDU session IP (e.g., 10.45.1.2).
+
+**3. Route Traffic**
+
+You can now route real internet traffic through the 5G network:
+
+```bash
+sudo ip netns exec ue1 ping 8.8.8.8
+```
 ## Key Technologies
 C++17, Docker / Docker Compose, 5G NR (SA), ZeroMQ, O-RAN, SCTP/NGAP.
