@@ -23,6 +23,16 @@ The testbed consists of a fully containerized 5G architecture:
 * **Configuration Management:** 
   * Created optimized FDD cell configurations specifically tuned for virtual SDR compatibility between OCUDU and srsUE.
 
+## Prerequisites & Environment
+
+This testbed was built and tested on the following environment:
+*   **OS:** Ubuntu 22.04 LTS
+*   **Containerization:** Docker Engine & Docker Compose v2
+*   **Permissions:** The current user must be added to the `docker` group (`sudo usermod -aG docker $USER`) to run the orchestrator without root.
+*   **Network Tools:** `iperf3` must be installed on the host OS for throughput testing (`sudo apt install iperf3`).
+*   **Build Essentials (For UE):** `cmake`, `build-essential`, and ZeroMQ libraries (`libzmq3-dev`) are required to compile the virtual srsUE.
+(`sudo apt install cmake make gcc g++ pkg-config libmbedtls-dev libsctp-dev libyaml-cpp-dev libgtest-dev libzmq3-dev`)
+
 ## Quick Start
 
 Deploying the customized 5G network is fully automated via the provided bash wrapper:
@@ -74,5 +84,7 @@ You can now route real internet traffic through the 5G network:
 ```bash
 sudo ip netns exec ue1 ping 8.8.8.8
 ```
+For more commands or troubleshooting, check out the HANDBOOK.md file for advanced routing, iPerf3 testing, and PCAP extraction.
+
 ## Key Technologies
 C++17, Docker / Docker Compose, 5G NR (SA), ZeroMQ, O-RAN, SCTP/NGAP.
