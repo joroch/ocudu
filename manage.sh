@@ -57,6 +57,15 @@ case "$1" in
         echo "Stopping iPerf server..."
         docker compose $COMPOSE_BASE exec 5gc pkill iperf3
         ;;
+    extract-pcaps)
+        TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+        mkdir -p pcaps
+        echo "Extracting PCAPS from the current session..."
+        docker compose $COMPOSE_BASE cp gnb:/tmp/gnb_ngap.pcap ./pcaps/ngap_${TIMESTAMP}.pcap
+        docker compose $COMPOSE_BASE cp gnb:/tmp/gnb_mac.pcap ./pcaps/mac_${TIMESTAMP}.pcap
+        echo "Saved in ./pcaps/"
+        ls -l ./pcaps/*${TIMESTAMP}*
+        ;;
     logs)
         if [ -z "$2" ]; then
             echo "❌ Error: Specify a service. e.g.: ./manage.sh logs gnb (5gc, mongo...)"
@@ -65,6 +74,24 @@ case "$1" in
         fi
         ;;
     *)
-        echo "⚙️ Usage: ./manage.sh {start|start-all|start-ue|stop|restart|rebuild-gnb|iperf-start|iperf-stop|logs <service>}"
+        *)
+        echo "=========================================="
+        echo " ⚙️ Usage: ./manage.sh [COMMAND]"
+        echo "=========================================="
+        echo " Infrastructure:"
+        echo "   start-all     - Start 5G Core, Radio, and UI"
+        echo "   start         - Start 5G Core and Radio only"
+        echo "   stop          - Stop all containers and clean network"
+        echo "   restart       - Restart Radio and Core containers"
+        echo "   rebuild-gnb   - Recompile the gNB image with new configs"
+        echo ""
+        echo " UE & Testing:"
+        echo "   start-ue      - Launch virtual srsUE with routing"
+        echo "   iperf-start   - Start iPerf3 server on the 5G Core"
+        echo "   iperf-stop    - Stop iPerf3 server"
+        echo ""
+        echo " Diagnostics:"
+        echo "   extract-pcaps - Save MAC PCAPs to ./pcaps folder"
+        echo "   logs <svc>    - View logs for a service (e.g., gnb, 5gc)"
         exit 1
 esac

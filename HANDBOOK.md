@@ -22,7 +22,7 @@ This document contains the complete command reference, operational procedures, a
 ### iPerf3 (Throughput Testing)
  Requirement: have iperf3 installed on your machine for client side iperf
 1.  **Start Server (Core):** `docker compose -f docker/docker-compose.yml exec -d 5gc iperf3 -s`
-2.  **Run Client (UE):** `sudo ip netns exec ue1 iperf3 -c 10.53.1.2 -u -b 10M -t 60`
+2.  **Run Client (UE):** `sudo ip netns exec ue1 iperf3 -c 10.45.1.1 -u -b 10M -t 60`
 3.  **Stop Server (Core):** `docker compose -f docker/docker-compose.yml exec 5gc pkill iperf3`
 *Note: Server commands are automated in `./manage.sh iperf-start/stop`.*
 
@@ -32,11 +32,26 @@ This document contains the complete command reference, operational procedures, a
 *   **Access:** `http://localhost:3000` (User: `admin` / Pass: `admin`).
 *   Used to monitor RSRP, SNR, and real-time throughput metrics during tests.
 
-### PCAP Extractions (Wireshark)
-If `mac_enable: true` or `ngap_enable: true` are set in the gNB configuration, extract them from the Docker container to the host for analysis:
+### PCAP Extractions & Analysis (Wireshark)
+
+> **Prerequisite:** Run `sudo usermod -aG wireshark $USER` and reboot once to use Wireshark without root.
+
+#### 1. Capturing the Air Interface (MAC & RRC)
+The radio logs the MAC/RRC layers internally. To get a clean capture starting from the exact moment of connection:
+1. `./manage.sh restart-gnb` *(Clears the radio memory and starts a fresh PCAP)*.
+2. `./manage.sh start-ue` *(Attach the mobile)*.
+3. Close the UE (`Ctrl+C`) and run `./manage.sh extract-pcaps`.
+4. Open the generated file: `wireshark ./pcaps/mac_YYYYMMDD_HHMMSS.pcap`.
+
+**Wireshark Setup for MAC-NR:**
+By default, Wireshark may not recognize srsRAN's internal UDP wrapping.
+*   **Fix:** Go to *Analyze > Enabled Protocols*, search for `mac-nr`, and ensure `mac-nr-udp` is checked.
+*   **Pro-Tip (Filtering):** To isolate a specific session in a noisy PCAP, check your UE terminal for its temporary ID (e.g., `c-rnti=0x4601`) and use the display filter `mac.rnti == 0x4601`.
+
+#### 2. Capturing the Core Network (NGAP)
+Instead of relying on internal gNB buffers, capture the SCTP traffic directly from the host machine using `tcpdump`. Run this in a separate terminal before attaching the UE:
 ```bash
-docker compose -f docker/docker-compose.yml cp gnb:/tmp/gnb_ngap.pcap .
-docker compose -f docker/docker-compose.yml cp gnb:/tmp/gnb_mac.pcap .
+sudo tcpdump -i any sctp -w pcaps/ngap_manual.pcap
 ```
 ### Core Network Logs (Open5GS)
 

@@ -30,21 +30,21 @@ This testbed was built and tested on the following environment:
 *   **Containerization:** Docker Engine & Docker Compose v2
 *   **Permissions:** The current user must be added to the `docker` group (`sudo usermod -aG docker $USER`) to run the orchestrator without root.
 *   **Network Tools:** `iperf3` must be installed on the host OS for throughput testing (`sudo apt install iperf3`).
-*   **Build Essentials (For UE):** `cmake`, `build-essential`, and ZeroMQ libraries (`libzmq3-dev`) are required to compile the virtual srsUE.
-(`sudo apt install cmake make gcc g++ pkg-config libmbedtls-dev libsctp-dev libyaml-cpp-dev libgtest-dev libzmq3-dev`)
+*   **Build Essentials (For UE):** described in 1. of the UE section.
 
 ## Quick Start
 
 Deploying the customized 5G network is fully automated via the provided bash wrapper:
 ```bash
-# 1. Start the 5G Core, gNB, and Metrics UI
+# Start the 5G Core, gNB, and Metrics UI
 ./manage.sh start-all
 
-# 2. Recompile the C++ source code and restart the radio (Useful during development)
-./manage.sh rebuild-gnb
-
-# 3. View smart logs for the services
+# View smart logs for the services
 ./manage.sh logs <service>
+
+## dev:
+# Recompile the C++ source code and restart the radio (Useful during development)
+./manage.sh rebuild-gnb
 ```
 
 ## End-to-End Testing (Virtual UE)
@@ -53,6 +53,7 @@ To test the 5G network without physical RF hardware (like USRPs), you can use th
 
 **1. Install & Build srsUE (Host Machine)**
 
+*note:only do this on the first time*
 Run these commands outside of Docker to compile the UE emulator with ZMQ support:
 ```bash
 sudo apt update

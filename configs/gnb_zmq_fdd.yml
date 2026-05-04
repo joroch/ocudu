@@ -54,7 +54,7 @@ log:
   all_level: info
 
 pcap:
-  mac_enable: false
+  mac_enable: true
   mac_filename: /tmp/gnb_mac.pcap
-  ngap_enable: false
+  ngap_enable: true
   ngap_filename: /tmp/gnb_ngap.pcap
