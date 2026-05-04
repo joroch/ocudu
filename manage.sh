@@ -5,9 +5,9 @@
 # ==========================================
 
 #Paths
-export GNB_CONFIG_PATH="../configs/gnb_zmq_fdd.yml"
+export GNB_CONFIG_PATH="../lab/configs/gnb_zmq_fdd.yml"
 UE_EXEC_PATH="../srsRAN_4G/build/srsue/src/srsue"
-UE_CONF_PATH="configs/ue_zmq.conf"
+UE_CONF_PATH="lab/configs/ue_zmq.conf"
 
 COMPOSE_BASE="-f docker/docker-compose.yml"
 COMPOSE_UI="-f docker/docker-compose.ui.yml"
@@ -74,24 +74,23 @@ case "$1" in
         fi
         ;;
     *)
-        *)
-        echo "=========================================="
-        echo " ⚙️ Usage: ./manage.sh [COMMAND]"
-        echo "=========================================="
-        echo " Infrastructure:"
-        echo "   start-all     - Start 5G Core, Radio, and UI"
-        echo "   start         - Start 5G Core and Radio only"
-        echo "   stop          - Stop all containers and clean network"
-        echo "   restart       - Restart Radio and Core containers"
-        echo "   rebuild-gnb   - Recompile the gNB image with new configs"
-        echo ""
-        echo " UE & Testing:"
-        echo "   start-ue      - Launch virtual srsUE with routing"
-        echo "   iperf-start   - Start iPerf3 server on the 5G Core"
-        echo "   iperf-stop    - Stop iPerf3 server"
-        echo ""
-        echo " Diagnostics:"
-        echo "   extract-pcaps - Save MAC PCAPs to ./pcaps folder"
-        echo "   logs <svc>    - View logs for a service (e.g., gnb, 5gc)"
-        exit 1
+    echo "=========================================="
+    echo " ⚙️ Usage: ./manage.sh [COMMAND]"
+    echo "=========================================="
+    echo " Infrastructure:"
+    echo "   start-all     - Start 5G Core, Radio, and UI"
+    echo "   start         - Start 5G Core and Radio only"
+    echo "   stop          - Stop all containers and clean network"
+    echo "   restart       - Restart Radio and Core containers"
+    echo "   rebuild-gnb   - Recompile the gNB image with new configs"
+    echo ""
+    echo " UE & Testing:"
+    echo "   start-ue      - Launch virtual srsUE with routing"
+    echo "   iperf-start   - Start iPerf3 server on the 5G Core"
+    echo "   iperf-stop    - Stop iPerf3 server"
+    echo ""
+    echo " Diagnostics:"
+    echo "   extract-pcaps - Save MAC PCAPs to ./pcaps folder"
+    echo "   logs <svc>    - View logs for a service (e.g., gnb, 5gc)"
+    exit 1
 esac
